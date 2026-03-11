@@ -1,0 +1,45 @@
+import type { ArrivalStatus } from '../../types/domain';
+import { CheckCircle2, Clock, UserCheck, AlertCircle } from 'lucide-react';
+
+interface StatusPickerProps {
+    currentStatus: ArrivalStatus;
+    onStatusChange: (status: ArrivalStatus) => void;
+    isLoading?: boolean;
+}
+
+const statuses: { label: string; value: ArrivalStatus; icon: any; color: string }[] = [
+    { label: 'Wait', value: 'Not Arrived', icon: AlertCircle, color: 'text-slate-400' },
+    { label: 'In', value: 'Arrived', icon: UserCheck, color: 'text-amber-500' },
+    { label: 'Back', value: 'Backstage', icon: Clock, color: 'text-blue-500' },
+    { label: 'Ready', value: 'Ready', icon: CheckCircle2, color: 'text-emerald-500' },
+];
+
+export function StatusPicker({ currentStatus, onStatusChange, isLoading }: StatusPickerProps) {
+    return (
+        <div className="flex w-full bg-slate-100 dark:bg-slate-900/50 p-1 rounded-full border border-slate-200 dark:border-slate-800">
+            {statuses.map((s) => {
+                const isActive = currentStatus === s.value;
+                const Icon = s.icon;
+
+                return (
+                    <button
+                        key={s.value}
+                        disabled={isLoading}
+                        onClick={() => onStatusChange(s.value)}
+                        className={`
+              flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-all duration-200
+              ${isActive
+                                ? 'bg-white dark:bg-slate-800 shadow-sm scale-[1.02] text-teal-600 dark:text-teal-400'
+                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'
+                            }
+              ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+                    >
+                        <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'animate-pulse' : ''}`} />
+                        <span className="text-[10px] font-bold uppercase tracking-tight">{s.label}</span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+}

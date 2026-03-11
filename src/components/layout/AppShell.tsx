@@ -1,0 +1,18 @@
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import { Header } from './Header';
+import { BottomNav } from './BottomNav';
+
+export const AppShell: React.FC = () => {
+    return (
+        <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 transition-colors">
+            <Header />
+
+            <main className="flex-1 w-full max-w-screen-xl mx-auto px-6 pt-6 pb-24 font-sans">
+                <Outlet />
+            </main>
+
+            <BottomNav />
+        </div>
+    );
+};
