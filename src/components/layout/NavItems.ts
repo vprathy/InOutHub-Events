@@ -3,7 +3,8 @@ import {
     Users,
     ListOrdered,
     MonitorPlay,
-    Hammer
+    Hammer,
+    Calendar
 } from 'lucide-react';
 
 export interface NavItem {
@@ -14,10 +15,10 @@ export interface NavItem {
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Participants', href: '/participants', icon: Users },
-    { label: 'Acts', href: '/acts', icon: ListOrdered },
-    { label: 'Lineup', href: '/lineup', icon: MonitorPlay },
-    { label: 'Console', href: '/stage-console', icon: MonitorPlay }, // Re-using for now, will fix icon
+    { label: 'Event Roster', href: '/participants', icon: Users },
+    { label: 'Performances', href: '/acts', icon: ListOrdered },
+    { label: 'Show Flow', href: '/lineup', icon: Calendar },
+    { label: 'Live Console', href: '/stage-console', icon: MonitorPlay },
 ];
 
 export const DEV_NAV_ITEMS: NavItem[] = [

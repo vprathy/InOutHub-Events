@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Calendar, MapPin } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface CreateEventModalProps {
     organizationId: string;

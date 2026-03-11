@@ -1,5 +1,5 @@
 import { LayoutDashboard } from 'lucide-react';
-import { EmptyState } from '../components/ui/EmptyState';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function DashboardPage() {
     return (

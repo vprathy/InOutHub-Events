@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import type { ActWithCounts, ArrivalStatus } from '../types/domain';
+import { supabase } from '@/lib/supabase';
+import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
 
 export function useActsQuery(eventId: string) {
@@ -12,34 +12,61 @@ export function useActsQuery(eventId: string) {
             const { data, error } = await supabase
                 .from('acts')
                 .select(`
-          *,
-          act_participants(id),
-          act_assets(id, asset_type, asset_name),
-          act_requirements(id, requirement_type)
-        `)
+                    *,
+                    act_participants(
+                        participant:participants(
+                            id,
+                            has_special_requests,
+                            participant_assets(status)
+                        )
+                    ),
+                    act_assets(id, asset_type, asset_name),
+                    act_requirements(id, requirement_type)
+                `)
                 .eq('event_id', eventId)
                 .order('name');
 
             if (error) throw error;
 
-            return (data as any[]).map((row): ActWithCounts => ({
-                id: row.id,
-                eventId: row.event_id,
-                name: row.name,
-                durationMinutes: row.duration_minutes,
-                setupTimeMinutes: row.setup_time_minutes,
-                arrivalStatus: row.arrival_status as ArrivalStatus,
-                notes: row.notes,
-                participantCount: row.act_participants?.length || 0,
-                assetCount: row.act_assets?.length || 0,
-                requirementCount: row.act_requirements?.length || 0,
-                hasTechnicalRider: (row.act_requirements || []).some((r: any) =>
-                    ['Audio', 'Lighting', 'Microphone', 'Video'].includes(r.requirement_type)
-                ),
-                hasMusicTrack: (row.act_assets || []).some((a: any) =>
-                    a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
-                ),
-            }));
+            return (data as any[]).map((row): ActWithCounts => {
+                const actParticipants = row.act_participants || [];
+
+                // Calculate missing assets: Any participant with NO assets or at least one non-approved asset
+                // Actually, let's be more precise: count participants who have forms that are not approved.
+                const participantsWithPendingForms = actParticipants.filter((ap: any) => {
+                    const p = ap.participant;
+                    if (!p) return false;
+                    const assets = p.participant_assets || [];
+                    if (assets.length === 0) return true; // Assume they need at least one form if none exists? 
+                    // Or check if they have any status that isn't 'approved'
+                    return assets.some((a: any) => a.status !== 'approved');
+                }).length;
+
+                const specialRequestCount = actParticipants.filter((ap: any) =>
+                    ap.participant?.has_special_requests
+                ).length;
+
+                return {
+                    id: row.id,
+                    eventId: row.event_id,
+                    name: row.name,
+                    durationMinutes: row.duration_minutes,
+                    setupTimeMinutes: row.setup_time_minutes,
+                    arrivalStatus: row.arrival_status as ArrivalStatus,
+                    notes: row.notes,
+                    participantCount: actParticipants.length,
+                    assetCount: row.act_assets?.length || 0,
+                    requirementCount: row.act_requirements?.length || 0,
+                    missingAssetCount: participantsWithPendingForms,
+                    specialRequestCount: specialRequestCount,
+                    hasTechnicalRider: (row.act_requirements || []).some((r: any) =>
+                        ['Audio', 'Lighting', 'Microphone', 'Video'].includes(r.requirement_type)
+                    ),
+                    hasMusicTrack: (row.act_assets || []).some((a: any) =>
+                        a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
+                    ),
+                };
+            });
         },
         enabled: !!eventId,
     });
@@ -121,5 +148,37 @@ export function useUpdateActStatus() {
                 queryClient.invalidateQueries({ queryKey: ['acts', context.eventId] });
             }
         },
+    });
+}
+
+export function useCreateAct(eventId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (newAct: {
+            name: string;
+            durationMinutes: number;
+            setupTimeMinutes: number;
+            notes?: string;
+        }) => {
+            const { data, error } = await supabase
+                .from('acts')
+                .insert([{
+                    event_id: eventId,
+                    name: newAct.name,
+                    duration_minutes: newAct.durationMinutes,
+                    setup_time_minutes: newAct.setupTimeMinutes,
+                    notes: newAct.notes,
+                    arrival_status: 'Not Arrived'
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        }
     });
 }

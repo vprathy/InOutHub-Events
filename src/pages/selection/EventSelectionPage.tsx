@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Plus, Loader2, ChevronRight, ChevronLeft, Edit2, Archive, RefreshCw } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useSelection } from '../../context/SelectionContext';
-import { CreateEventModal } from '../../components/selection/CreateEventModal';
-import { ActionMenu } from '../../components/ui/ActionMenu';
-import { ManageEventAccessModal } from '../../components/selection/ManageEventAccessModal';
+import { supabase } from '@/lib/supabase';
+import { useSelection } from '@/context/SelectionContext';
+import { CreateEventModal } from '@/components/selection/CreateEventModal';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
 import { ShieldAlert } from 'lucide-react';
 
 export default function EventSelectionPage() {

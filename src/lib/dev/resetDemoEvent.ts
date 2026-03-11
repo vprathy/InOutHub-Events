@@ -1,6 +1,6 @@
-import { supabase } from '../supabase';
-import { seedDemoEvent } from './seedDemoEvent';
-import { getDemoEvent } from './getDemoEvent';
+import { supabase } from '@/lib/supabase';
+import { seedDemoEvent } from '@/lib/dev/seedDemoEvent';
+import { getDemoEvent } from '@/lib/dev/getDemoEvent';
 
 export async function resetDemoEvent() {
     if (!import.meta.env.DEV) {

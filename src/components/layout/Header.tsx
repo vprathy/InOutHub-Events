@@ -1,14 +1,21 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Radio, ChevronRight, Landmark, Calendar } from 'lucide-react';
-import { ThemeToggle } from '../ui/ThemeToggle';
-import { useSelection } from '../../context/SelectionContext';
-import { supabase } from '../../lib/supabase';
-import { useQuery } from '@tanstack/react-query';
+import { Radio, ChevronRight, Landmark, Calendar, LogOut } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useSelection } from '@/context/SelectionContext';
+import { supabase } from '@/lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function Header() {
-    const { organizationId, eventId } = useSelection();
+    const { organizationId, eventId, setOrganizationId } = useSelection();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        setOrganizationId(null);
+        queryClient.clear();
+        navigate('/dev/login');
+    };
 
     // Fetch names for breadcrumb
     const { data: selectionNames } = useQuery({
@@ -17,17 +24,28 @@ export function Header() {
             if (!organizationId) return null;
 
             const { data: org } = await supabase.from('organizations').select('name').eq('id', organizationId).single();
-            const { data: event } = eventId
-                ? await supabase.from('events').select('name').eq('id', eventId).single()
-                : { data: null };
 
-            return { orgName: org?.name, eventName: event?.name };
+            let eventName = null;
+            if (eventId) {
+                const { data: event } = await supabase
+                    .from('events')
+                    .select('name, organization_id')
+                    .eq('id', eventId)
+                    .maybeSingle();
+
+                // Only show event name if it belongs to this organization
+                if (event && event.organization_id === organizationId) {
+                    eventName = event.name;
+                }
+            }
+
+            return { orgName: org?.name, eventName };
         },
         enabled: !!organizationId
     });
 
     return (
-        <header className="fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-md border-b border-border z-50 flex items-center justify-between px-6">
+        <header className="sticky top-0 w-full h-16 bg-background/95 backdrop-blur shadow-sm border-b border-border z-50 flex items-center justify-between px-6">
             <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
@@ -72,6 +90,13 @@ export function Header() {
                     className="px-3 py-1.5 rounded-full bg-muted text-[10px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
                 >
                     DEV
+                </button>
+                <button
+                    onClick={handleLogout}
+                    className="p-2 rounded-full hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                    title="Sign Out"
+                >
+                    <LogOut className="w-4 h-4" />
                 </button>
             </div>
         </header>

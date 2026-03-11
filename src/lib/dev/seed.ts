@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
-import { seedDemoEvent } from './seedDemoEvent';
+import { seedDemoEvent } from '@/lib/dev/seedDemoEvent';
 
 // Load the Vite .env.local file
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });

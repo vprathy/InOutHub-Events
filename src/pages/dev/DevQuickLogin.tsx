@@ -9,9 +9,11 @@ import {
 } from 'lucide-react';
 
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { getDevUserByRole } from '../../lib/dev/config';
-import { resetDemoEvent } from '../../lib/dev/resetDemoEvent';
+import { supabase } from '@/lib/supabase';
+import { getDevUserByRole } from '@/lib/dev/config';
+import { resetDemoEvent } from '@/lib/dev/resetDemoEvent';
+import { useSelection } from '@/context/SelectionContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const DEV_ROLES = [
     {
@@ -53,6 +55,8 @@ const DEV_ROLES = [
 
 export default function DevQuickLogin() {
     const navigate = useNavigate();
+    const { setOrganizationId } = useSelection();
+    const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState<string | null>(null);
     const [isResetting, setIsResetting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -108,6 +112,11 @@ export default function DevQuickLogin() {
             }
 
             console.log(`[DEV ONLY] Success! Logged in as: ${credentials.email}`);
+
+            // Clear any previous session context and cache
+            setOrganizationId(null);
+            queryClient.clear();
+
             // After logging in, redirect to the main app dashboard
             navigate('/');
 

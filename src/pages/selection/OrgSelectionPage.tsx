@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Landmark, Plus, Loader2, ChevronRight, LogOut, Edit2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useSelection } from '../../context/SelectionContext';
-import { CreateOrgModal } from '../../components/selection/CreateOrgModal';
-import { ActionMenu } from '../../components/ui/ActionMenu';
-import { ManageOrgAccessModal } from '../../components/selection/ManageOrgAccessModal';
+import { supabase } from '@/lib/supabase';
+import { useSelection } from '@/context/SelectionContext';
+import { CreateOrgModal } from '@/components/selection/CreateOrgModal';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
 import { ShieldAlert } from 'lucide-react';
 
 export default function OrgSelectionPage() {

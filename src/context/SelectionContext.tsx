@@ -28,18 +28,32 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
 
         import('../lib/supabase').then(async ({ supabase }) => {
             try {
-                const { data } = await supabase
+                // Validate Org exists
+                const { data: orgData } = await supabase
                     .from('organizations')
                     .select('id')
                     .eq('id', savedOrg)
                     .maybeSingle();
 
-                if (data) {
-                    // Org still exists — restore both cached values
+                if (orgData) {
                     setOrgId(savedOrg);
-                    if (savedEvent) setEvId(savedEvent);
+
+                    // If we have a saved event, validate it belongs to this org
+                    if (savedEvent) {
+                        const { data: eventData } = await supabase
+                            .from('events')
+                            .select('id, organization_id')
+                            .eq('id', savedEvent)
+                            .maybeSingle();
+
+                        if (eventData && eventData.organization_id === savedOrg) {
+                            setEvId(savedEvent);
+                        } else {
+                            localStorage.removeItem('inouthub_event_id');
+                        }
+                    }
                 } else {
-                    // Org is gone — clear stale cache silently
+                    // Org is gone — clear everything
                     localStorage.removeItem('inouthub_org_id');
                     localStorage.removeItem('inouthub_event_id');
                 }

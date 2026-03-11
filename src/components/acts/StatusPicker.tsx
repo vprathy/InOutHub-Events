@@ -1,4 +1,4 @@
-import type { ArrivalStatus } from '../../types/domain';
+import type { ArrivalStatus } from '@/types/domain';
 import { CheckCircle2, Clock, UserCheck, AlertCircle } from 'lucide-react';
 
 interface StatusPickerProps {
@@ -16,7 +16,7 @@ const statuses: { label: string; value: ArrivalStatus; icon: any; color: string 
 
 export function StatusPicker({ currentStatus, onStatusChange, isLoading }: StatusPickerProps) {
     return (
-        <div className="flex w-full bg-slate-100 dark:bg-slate-900/50 p-1 rounded-full border border-slate-200 dark:border-slate-800">
+        <div className="flex w-full bg-muted p-1 rounded-full border border-border">
             {statuses.map((s) => {
                 const isActive = currentStatus === s.value;
                 const Icon = s.icon;
@@ -29,8 +29,8 @@ export function StatusPicker({ currentStatus, onStatusChange, isLoading }: Statu
                         className={`
               flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-all duration-200
               ${isActive
-                                ? 'bg-white dark:bg-slate-800 shadow-sm scale-[1.02] text-teal-600 dark:text-teal-400'
-                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50'
+                                ? 'bg-card shadow-sm scale-[1.02] text-primary'
+                                : 'text-muted-foreground hover:bg-accent'
                             }
               ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
             `}

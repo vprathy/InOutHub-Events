@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Loader2, UserPlus, Trash2, Calendar, ShieldCheck } from 'lucide-react';
-import { useEventMembers, useAssignEventRole, useRemoveEventMember } from '../../hooks/useAccess';
-import { useSelection } from '../../context/SelectionContext';
+import { useEventMembers, useAssignEventRole, useRemoveEventMember } from '@/hooks/useAccess';
+import { useSelection } from '@/context/SelectionContext';
 
 interface ManageEventAccessModalProps {
     isOpen: boolean;

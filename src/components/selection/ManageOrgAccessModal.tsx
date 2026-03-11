@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Loader2, UserPlus, Shield, User, Trash2 } from 'lucide-react';
-import { useOrgMembers, useAssignOrgRole, useRemoveOrgMember } from '../../hooks/useAccess';
-import { useSelection } from '../../context/SelectionContext';
+import { useOrgMembers, useAssignOrgRole, useRemoveOrgMember } from '@/hooks/useAccess';
+import { useSelection } from '@/context/SelectionContext';
 
 interface ManageOrgAccessModalProps {
     isOpen: boolean;

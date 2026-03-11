@@ -7,11 +7,6 @@ export type Json =
     | Json[]
 
 export type Database = {
-    // Allows to automatically instantiate createClient with right options
-    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-    __InternalSupabase: {
-        PostgrestVersion: "14.1"
-    }
     public: {
         Tables: {
             act_assets: {
@@ -167,6 +162,62 @@ export type Database = {
                     },
                 ]
             }
+            app_super_admins: {
+                Row: {
+                    created_at: string | null
+                    user_id: string
+                }
+                Insert: {
+                    created_at?: string | null
+                    user_id: string
+                }
+                Update: {
+                    created_at?: string | null
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "app_super_admins_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: true
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            audit_logs: {
+                Row: {
+                    changed_at: string | null
+                    changed_by: string | null
+                    id: string
+                    new_data: Json | null
+                    old_data: Json | null
+                    operation: string
+                    record_id: string
+                    table_name: string
+                }
+                Insert: {
+                    changed_at?: string | null
+                    changed_by?: string | null
+                    id?: string
+                    new_data?: Json | null
+                    old_data?: Json | null
+                    operation: string
+                    record_id: string
+                    table_name: string
+                }
+                Update: {
+                    changed_at?: string | null
+                    changed_by?: string | null
+                    id?: string
+                    new_data?: Json | null
+                    old_data?: Json | null
+                    operation?: string
+                    record_id?: string
+                    table_name?: string
+                }
+                Relationships: []
+            }
             event_members: {
                 Row: {
                     created_at: string
@@ -203,7 +254,7 @@ export type Database = {
                         isOneToOne: false
                         referencedRelation: "user_profiles"
                         referencedColumns: ["id"]
-                    }
+                    },
                 ]
             }
             events: {
@@ -211,28 +262,37 @@ export type Database = {
                     created_at: string | null
                     end_date: string | null
                     id: string
+                    last_synced_at: string | null
                     name: string
                     organization_id: string
+                    source_spreadsheet_id: string | null
+                    source_url: string | null
                     start_date: string | null
-                    status: string
+                    status: string | null
                 }
                 Insert: {
                     created_at?: string | null
                     end_date?: string | null
                     id?: string
+                    last_synced_at?: string | null
                     name: string
                     organization_id: string
+                    source_spreadsheet_id?: string | null
+                    source_url?: string | null
                     start_date?: string | null
-                    status?: string
+                    status?: string | null
                 }
                 Update: {
                     created_at?: string | null
                     end_date?: string | null
                     id?: string
+                    last_synced_at?: string | null
                     name?: string
                     organization_id?: string
+                    source_spreadsheet_id?: string | null
+                    source_url?: string | null
                     start_date?: string | null
-                    status?: string
+                    status?: string | null
                 }
                 Relationships: [
                     {
@@ -243,6 +303,27 @@ export type Database = {
                         referencedColumns: ["id"]
                     },
                 ]
+            }
+            internal_config: {
+                Row: {
+                    created_at: string | null
+                    key: string
+                    updated_at: string | null
+                    value: Json
+                }
+                Insert: {
+                    created_at?: string | null
+                    key: string
+                    updated_at?: string | null
+                    value: Json
+                }
+                Update: {
+                    created_at?: string | null
+                    key?: string
+                    updated_at?: string | null
+                    value?: Json
+                }
+                Relationships: []
             }
             lineup_items: {
                 Row: {
@@ -350,9 +431,21 @@ export type Database = {
                     first_name: string
                     guardian_name: string | null
                     guardian_phone: string | null
+                    has_special_requests: boolean | null
                     id: string
                     last_name: string
                     notes: string | null
+                    source_anchor_type: string | null
+                    source_anchor_value: string | null
+                    source_imported_at: string | null
+                    source_instance: string | null
+                    source_last_seen_at: string | null
+                    source_system: string | null
+                    special_request_raw: string | null
+                    special_request_source_column: string | null
+                    src_raw: Json | null
+                    status: Database["public"]["Enums"]["participant_status"] | null
+                    sync_metadata: Json | null
                 }
                 Insert: {
                     created_at?: string | null
@@ -360,9 +453,21 @@ export type Database = {
                     first_name: string
                     guardian_name?: string | null
                     guardian_phone?: string | null
+                    has_special_requests?: boolean | null
                     id?: string
                     last_name: string
                     notes?: string | null
+                    source_anchor_type?: string | null
+                    source_anchor_value?: string | null
+                    source_imported_at?: string | null
+                    source_instance?: string | null
+                    source_last_seen_at?: string | null
+                    source_system?: string | null
+                    special_request_raw?: string | null
+                    special_request_source_column?: string | null
+                    src_raw?: Json | null
+                    status?: Database["public"]["Enums"]["participant_status"] | null
+                    sync_metadata?: Json | null
                 }
                 Update: {
                     created_at?: string | null
@@ -370,9 +475,21 @@ export type Database = {
                     first_name?: string
                     guardian_name?: string | null
                     guardian_phone?: string | null
+                    has_special_requests?: boolean | null
                     id?: string
                     last_name?: string
                     notes?: string | null
+                    source_anchor_type?: string | null
+                    source_anchor_value?: string | null
+                    source_imported_at?: string | null
+                    source_instance?: string | null
+                    source_last_seen_at?: string | null
+                    source_system?: string | null
+                    special_request_raw?: string | null
+                    special_request_source_column?: string | null
+                    src_raw?: Json | null
+                    status?: Database["public"]["Enums"]["participant_status"] | null
+                    sync_metadata?: Json | null
                 }
                 Relationships: [
                     {
@@ -485,31 +602,38 @@ export type Database = {
         }
         Functions: {
             assign_event_role: {
-                Args: {
-                    p_event_id: string
-                    p_target_email: string
-                    p_role: string
-                }
+                Args: { p_event_id: string; p_role: string; p_target_email: string }
                 Returns: undefined
             }
             assign_org_role: {
-                Args: {
-                    p_org_id: string
-                    p_target_email: string
-                    p_role: string
-                }
+                Args: { p_org_id: string; p_role: string; p_target_email: string }
                 Returns: undefined
             }
-            get_effective_event_role: {
-                Args: {
-                    p_event_id: string
-                    p_user_id: string
-                }
+            auth_event_role: { Args: { p_event_id: string }; Returns: string }
+            auth_is_super_admin: { Args: never; Returns: boolean }
+            auth_org_role: { Args: { p_org_id: string }; Returns: string }
+            create_organization_with_owner: {
+                Args: { p_name: string }
                 Returns: string
+            }
+            get_act_event_id: { Args: { p_act_id: string }; Returns: string }
+            get_effective_event_role: {
+                Args: { p_event_id: string; p_user_id: string }
+                Returns: string
+            }
+            get_stage_event_id: { Args: { p_stage_id: string }; Returns: string }
+            update_act_arrival_status: {
+                Args: { p_act_id: string; p_status: string }
+                Returns: undefined
             }
         }
         Enums: {
-            [_ in never]: never
+            participant_status:
+            | "active"
+            | "inactive"
+            | "withdrawn"
+            | "refunded"
+            | "missing_from_source"
         }
         CompositeTypes: {
             [_ in never]: never

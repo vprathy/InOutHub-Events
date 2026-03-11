@@ -1,4 +1,4 @@
-import type { Database } from './database.types';
+import type { Database } from '@/types/database.types';
 
 // ==========================================
 // 1. CONSTANTS & TYPES
@@ -96,6 +96,9 @@ export interface ActWithCounts extends Act {
     // Core readiness indicators
     hasTechnicalRider: boolean;
     hasMusicTrack: boolean;
+    // Operational readiness
+    missingAssetCount: number;
+    specialRequestCount: number;
 }
 
 /**
@@ -131,9 +134,99 @@ export interface Participant {
     eventId: string;
     firstName: string;
     lastName: string;
+    age: number | null;
     guardianName: string | null;
     guardianPhone: string | null;
     notes: string | null;
+    hasSpecialRequests?: boolean;
+    specialRequestRaw?: string | null;
+    status: 'active' | 'inactive' | 'withdrawn' | 'refunded' | 'missing_from_source';
+    identityVerified?: boolean;
+    identityNotes?: string | null;
+    // Operational metadata (injected for roster/summary)
+    actCount?: number;
+    assetStats?: {
+        total: number;
+        approved: number;
+        pending: number;
+        missing: number;
+    };
+    // Trust-First Source Tracking
+    sourceSystem: string | null;
+    sourceInstance: string | null;
+    sourceAnchorType: string | null;
+    sourceAnchorValue: string | null;
+    sourceImportedAt: string | null;
+    sourceLastSeenAt: string | null;
+    srcRaw: any | null;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export const AssetStatus = {
+    Missing: 'missing',
+    Uploaded: 'uploaded',
+    PendingReview: 'pending_review',
+    Approved: 'approved',
+    Rejected: 'rejected',
+} as const;
+export type AssetStatus = typeof AssetStatus[keyof typeof AssetStatus];
+
+export interface AssetTemplate {
+    id: string;
+    orgId?: string | null;
+    eventId?: string | null;
+    actId?: string | null;
+    name: string;
+    description: string | null;
+    isRequired: boolean;
+    createdAt: string;
+}
+
+export interface ParticipantAsset {
+    id: string;
+    participantId: string;
+    templateId?: string | null;
+    name: string;
+    type: 'waiver' | 'photo' | 'intro_media' | 'other';
+    fileUrl: string | null;
+    status: AssetStatus;
+    reviewNotes?: string | null;
+    createdAt: string;
+}
+
+export interface ParticipantNote {
+    id: string;
+    participantId: string;
+    authorId: string | null;
+    category: 'internal' | 'special_request' | 'operational';
+    content: string;
+    isResolved: boolean;
+    resolvedAt: string | null;
+    resolvedBy: string | null;
+    createdAt: string;
+}
+
+export interface ParticipantDetail extends Participant {
+    acts: {
+        id: string;
+        name: string;
+        arrivalStatus: ArrivalStatus;
+        role: string;
+    }[];
+    assets: ParticipantAsset[];
+    templatedAssets?: {
+        template: AssetTemplate;
+        fulfillment: ParticipantAsset | null;
+    }[];
+    siblings?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        status: Participant['status'];
+    }[];
+    operationalNotes: ParticipantNote[];
+    auditLogs: any[];
 }
 
 /**

@@ -1,13 +1,16 @@
-import { useSelection } from '../context/SelectionContext';
-import { useActsQuery } from '../hooks/useActs';
-import { ActCard } from '../components/acts/ActCard';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Music, Search, Filter, Loader2 } from 'lucide-react';
+import { useSelection } from '@/context/SelectionContext';
+import { useActsQuery } from '@/hooks/useActs';
+import { ActCard } from '@/components/acts/ActCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Music, Search, Filter, Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
 
     const filteredActs = acts?.filter(act =>
@@ -18,7 +21,7 @@ export default function ActsPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                <p className="text-muted-foreground font-medium">Loading acts...</p>
+                <p className="text-muted-foreground font-medium">Loading performances...</p>
             </div>
         );
     }
@@ -27,7 +30,7 @@ export default function ActsPage() {
         return (
             <EmptyState
                 title="Oops! Something went wrong"
-                description="We couldn't load the acts for this event. Check your connection and try again."
+                description="We couldn't load the performances for this event. Check your connection and try again."
                 icon={Music}
                 action={{ label: 'Retry', onClick: () => window.location.reload() }}
             />
@@ -38,11 +41,18 @@ export default function ActsPage() {
         <div className="flex flex-col space-y-6">
             <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Acts</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Performances</h1>
                     <p className="text-xs text-muted-foreground font-medium">
-                        {acts?.length || 0} Acts Scheduled
+                        {acts?.length || 0} Performances Scheduled
                     </p>
                 </div>
+                <Button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Performance
+                </Button>
             </div>
 
             {/* Search and Filters */}
@@ -51,7 +61,7 @@ export default function ActsPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                         type="text"
-                        placeholder="Search acts..."
+                        placeholder="Search performances..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium"
@@ -64,8 +74,8 @@ export default function ActsPage() {
 
             {!acts || acts.length === 0 ? (
                 <EmptyState
-                    title="No Acts Scheduled"
-                    description="This event doesn't have any acts yet. Add your first performance to get started."
+                    title="No Performances Scheduled"
+                    description="This event doesn't have any performances yet. Create your first performance to get started."
                     icon={Music}
                 />
             ) : (
@@ -75,11 +85,17 @@ export default function ActsPage() {
                     ))}
                     {filteredActs?.length === 0 && (
                         <p className="text-center py-12 text-muted-foreground text-sm font-medium">
-                            No acts match "{searchQuery}"
+                            No performances match "{searchQuery}"
                         </p>
                     )}
                 </div>
             )}
+
+            <AddPerformanceModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                eventId={eventId || ''}
+            />
         </div>
     );
 }

@@ -1,7 +1,7 @@
-import type { ActWithCounts } from '../../types/domain';
-import { useUpdateActStatus } from '../../hooks/useActs';
-import { ActIndicators } from './ActIndicators';
-import { StatusPicker } from './StatusPicker';
+import type { ActWithCounts } from '@/types/domain';
+import { useUpdateActStatus } from '@/hooks/useActs';
+import { ActIndicators } from '@/components/acts/ActIndicators';
+import { StatusPicker } from '@/components/acts/StatusPicker';
 import { Clock, Info } from 'lucide-react';
 
 interface ActCardProps {
@@ -33,6 +33,8 @@ export function ActCard({ act }: ActCardProps) {
                     participantCount={act.participantCount}
                     hasMusicTrack={act.hasMusicTrack}
                     hasTechnicalRider={act.hasTechnicalRider}
+                    missingAssetCount={act.missingAssetCount}
+                    specialRequestCount={act.specialRequestCount}
                 />
             </div>
 
@@ -40,7 +42,7 @@ export function ActCard({ act }: ActCardProps) {
             <div className="pt-2">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center justify-between">
                     <span>Operational Status</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800'
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'
                         }`}>
                         {act.arrivalStatus}
                     </span>

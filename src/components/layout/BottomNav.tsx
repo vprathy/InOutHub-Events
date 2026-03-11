@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { PRIMARY_NAV_ITEMS } from './NavItems';
+import { PRIMARY_NAV_ITEMS } from '@/components/layout/NavItems';
 
 export const BottomNav: React.FC = () => {
     return (
