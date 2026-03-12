@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatusPicker } from '@/components/acts/StatusPicker';
 import { useUpdateActStatus } from '@/hooks/useActs';
-import type { ActParticipantDetail } from '@/types/domain';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LivePerformanceControllerProps {
