@@ -53,14 +53,14 @@ export default defineConfig({
         screenshots: [
           {
             src: 'pwa-screenshot-desktop.png',
-            sizes: '1280x800',
+            sizes: '500x713',
             type: 'image/png',
             form_factor: 'wide',
             label: 'InOutHub Command Center'
           },
           {
             src: 'pwa-screenshot-mobile.png',
-            sizes: '375x812',
+            sizes: '500x725',
             type: 'image/png',
             form_factor: 'narrow',
             label: 'Mobile Stage Ops'
