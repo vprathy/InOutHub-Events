@@ -1,5 +1,6 @@
 {
   "id": "/",
+  "version": "1.0.1",
   "name": "InOutHub Events",
   "short_name": "InOutHub",
   "description": "Premium event operations and stage management command center.",

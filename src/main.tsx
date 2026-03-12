@@ -7,7 +7,29 @@ import App from '@/App.tsx';
 import { registerSW } from 'virtual:pwa-register';
 
 // Register PWA service worker for automatic updates
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // Automatically accept the update and reload the page
+    updateSW(true);
+  },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+  },
+  immediate: true
+});
+
+// Ensure clients reload when a new service worker takes over
+if (import.meta.env.PROD) {
+  let refreshing = false;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+  }
+}
 
 // Create a client
 const queryClient = new QueryClient({
