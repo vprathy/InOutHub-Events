@@ -112,14 +112,14 @@ export function LivePerformanceController({ current, next, upcoming, status, act
                                 <Button
                                     onClick={actions.pauseShow}
                                     variant="outline"
-                                    className="border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2 px-6"
+                                    className="h-11 border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2 px-6"
                                 >
                                     <Pause size={18} fill="currentColor" /> PAUSE
                                 </Button>
                             ) : (
                                 <Button
                                     onClick={actions.resumeShow}
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 px-6"
+                                    className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 px-6"
                                 >
                                     <Play size={18} fill="currentColor" /> RESUME
                                 </Button>
@@ -127,7 +127,7 @@ export function LivePerformanceController({ current, next, upcoming, status, act
                             <Button
                                 onClick={actions.resetShow}
                                 variant="outline"
-                                className="border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold gap-2"
+                                className="h-11 border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold gap-2"
                             >
                                 <Square size={18} fill="currentColor" /> RESET
                             </Button>

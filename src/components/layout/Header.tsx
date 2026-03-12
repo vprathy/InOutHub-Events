@@ -57,24 +57,24 @@ export function Header() {
                 </div>
 
                 {selectionNames?.orgName && (
-                    <div className="hidden md:flex items-center space-x-2 text-xs font-bold uppercase tracking-wider">
-                        <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                    <div className="hidden md:flex items-center space-x-2 text-sm font-bold uppercase tracking-wider">
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         <button
                             onClick={() => navigate('/select-org')}
-                            className="flex items-center space-x-1.5 px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground min-h-[44px]"
                         >
-                            <Landmark className="w-3 h-3" />
+                            <Landmark className="w-4 h-4" />
                             <span>{selectionNames.orgName}</span>
                         </button>
 
                         {selectionNames.eventName && (
                             <>
-                                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
                                 <button
                                     onClick={() => navigate('/select-event')}
-                                    className="flex items-center space-x-1.5 px-2 py-1 rounded-md hover:bg-muted transition-colors text-primary"
+                                    className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-muted transition-colors text-primary min-h-[44px]"
                                 >
-                                    <Calendar className="w-3 h-3" />
+                                    <Calendar className="w-4 h-4" />
                                     <span>{selectionNames.eventName}</span>
                                 </button>
                             </>
@@ -83,20 +83,20 @@ export function Header() {
                 )}
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
                 <ThemeToggle />
                 <button
                     onClick={() => navigate('/dev/login')}
-                    className="px-3 py-1.5 rounded-full bg-muted text-[10px] font-bold tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    className="h-11 px-4 rounded-xl bg-muted text-[11px] font-black tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
                 >
                     DEV
                 </button>
                 <button
                     onClick={handleLogout}
-                    className="p-2 rounded-full hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                    className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                     title="Sign Out"
                 >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-5 h-5" />
                 </button>
             </div>
         </header>

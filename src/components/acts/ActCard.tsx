@@ -12,7 +12,7 @@ export function ActCard({ act }: ActCardProps) {
 
     return (
         <div
-            className="bg-card border border-border rounded-xl p-3 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group"
+            className="bg-card border border-border rounded-[2rem] p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group min-h-[44px]"
             onClick={() => navigate(`/acts/${act.id}`)}
         >
             {/* Top Section: Name and Indicators */}
@@ -22,14 +22,14 @@ export function ActCard({ act }: ActCardProps) {
                         <h3 className="text-lg font-bold leading-tight group-hover:text-primary transition-colors truncate">{act.name}</h3>
                         <ExternalLink size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <div className="flex items-center space-x-3 mt-1 text-xs text-muted-foreground font-medium">
-                        <div className="flex items-center space-x-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{act.durationMinutes}m duration</span>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground font-black uppercase tracking-widest">
+                        <div className="flex items-center space-x-1.5">
+                            <Clock className="w-4 h-4 text-primary" />
+                            <span>{act.durationMinutes}m</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                            <Info className="w-3.5 h-3.5" />
-                            <span>{act.setupTimeMinutes}m setup</span>
+                        <div className="flex items-center space-x-1.5">
+                            <Info className="w-4 h-4 text-primary" />
+                            <span>{act.setupTimeMinutes}m Setup</span>
                         </div>
                     </div>
                 </div>

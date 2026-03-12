@@ -74,8 +74,8 @@ export default function EventSelectionPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-            <div className="w-full max-w-sm space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 pb-24 md:pb-6">
+            <div className="w-full max-w-4xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center space-y-2">
                     <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-2">
                         <Calendar className="w-8 h-8" />
@@ -97,9 +97,9 @@ export default function EventSelectionPage() {
                         </button>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {isLoading ? (
-                            <div className="flex justify-center py-12">
+                            <div className="col-span-full flex justify-center py-12">
                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                             </div>
                         ) : (
@@ -108,50 +108,52 @@ export default function EventSelectionPage() {
                                     <button
                                         key={event.id}
                                         onClick={() => handleSelect(event.id)}
-                                        className="w-full group flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all text-left"
+                                        className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                     >
-                                        <div className="flex items-center space-x-4">
-                                            <div className="p-2 rounded-xl bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                                <Calendar className="w-5 h-5" />
+                                        <div className="flex items-center space-x-5">
+                                            <div className="p-4 rounded-2xl bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                <Calendar className="w-6 h-6" />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-foreground">{event.name}</p>
-                                                <p className="text-xs text-muted-foreground font-medium">
+                                                <p className="font-black text-lg text-foreground leading-tight">{event.name}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mt-1">
                                                     {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'No Date Set'}
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                            <ActionMenu
-                                                options={[
-                                                    {
-                                                        label: 'Edit Event',
-                                                        icon: <Edit2 className="w-4 h-4" />,
-                                                        onClick: () => {
-                                                            setEditingEvent(event);
-                                                            setIsCreateModalOpen(true);
+                                        <div className="flex items-center space-x-3">
+                                            <ChevronRight className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-1" />
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <ActionMenu
+                                                    options={[
+                                                        {
+                                                            label: 'Edit Event',
+                                                            icon: <Edit2 className="w-4 h-4" />,
+                                                            onClick: () => {
+                                                                setEditingEvent(event);
+                                                                setIsCreateModalOpen(true);
+                                                            }
+                                                        },
+                                                        event.status === 'active' || !event.status ? {
+                                                            label: 'Archive Event',
+                                                            icon: <Archive className="w-4 h-4" />,
+                                                            onClick: () => toggleEventStatus(event.id, 'archived')
+                                                        } : {
+                                                            label: 'Unarchive Event',
+                                                            icon: <RefreshCw className="w-4 h-4" />,
+                                                            onClick: () => toggleEventStatus(event.id, 'active')
+                                                        },
+                                                        {
+                                                            label: 'Manage Access',
+                                                            icon: <ShieldAlert className="w-4 h-4" />,
+                                                            onClick: () => {
+                                                                setEventId(event.id);
+                                                                setIsManageAccessOpen(true);
+                                                            }
                                                         }
-                                                    },
-                                                    event.status === 'active' || !event.status ? {
-                                                        label: 'Archive Event',
-                                                        icon: <Archive className="w-4 h-4" />,
-                                                        onClick: () => toggleEventStatus(event.id, 'archived')
-                                                    } : {
-                                                        label: 'Unarchive Event',
-                                                        icon: <RefreshCw className="w-4 h-4" />,
-                                                        onClick: () => toggleEventStatus(event.id, 'active')
-                                                    },
-                                                    {
-                                                        label: 'Manage Access',
-                                                        icon: <ShieldAlert className="w-4 h-4" />,
-                                                        onClick: () => {
-                                                            setEventId(event.id);
-                                                            setIsManageAccessOpen(true);
-                                                        }
-                                                    }
-                                                ]}
-                                            />
+                                                    ]}
+                                                />
+                                            </div>
                                         </div>
                                     </button>
                                 ))}
@@ -161,21 +163,21 @@ export default function EventSelectionPage() {
                                         setEditingEvent(null);
                                         setIsCreateModalOpen(true);
                                     }}
-                                    className="w-full flex items-center justify-center space-x-2 p-4 border-2 border-dashed border-border rounded-2xl text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all font-bold text-sm"
+                                    className="flex items-center justify-center space-x-3 p-6 border-4 border-dashed border-muted rounded-[2rem] text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all font-black uppercase tracking-widest text-xs min-h-[44px]"
                                 >
-                                    <Plus className="w-5 h-5" />
+                                    <Plus className="w-6 h-6" />
                                     <span>Create New Event</span>
                                 </button>
                             </>
                         )}
                     </div>
 
-                    <div className="pt-4 border-t border-border">
+                    <div className="pt-8 border-t border-border flex justify-center">
                         <button
                             onClick={handleBack}
-                            className="w-full flex items-center justify-center space-x-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            className="h-12 px-8 flex items-center justify-center space-x-3 text-sm font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors"
                         >
-                            <ChevronLeft className="w-4 h-4" />
+                            <ChevronLeft className="w-5 h-5" />
                             <span>Switch Organization</span>
                         </button>
                     </div>

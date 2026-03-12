@@ -47,6 +47,31 @@ export const StageStatus = {
 } as const;
 export type StageStatus = typeof StageStatus[keyof typeof StageStatus];
 
+/**
+ * ExecutionStatus reflects the tactile state of an act during a live show.
+ * Queued: Initial state.
+ * Backstage: Checked in and physically present at the venue.
+ * OnDeck: Next in line, standing by the stage entrance.
+ * Live: Currently performing on stage.
+ * Completed: Performance finished.
+ */
+export const ExecutionStatus = {
+    Queued: 'Queued',
+    Backstage: 'Backstage',
+    OnDeck: 'On Deck',
+    Live: 'Live',
+    Completed: 'Completed',
+} as const;
+export type ExecutionStatus = typeof ExecutionStatus[keyof typeof ExecutionStatus];
+
+export const AssetLevel = {
+    Organization: 'Organization',
+    Event: 'Event',
+    Act: 'Act',
+    Participant: 'Participant',
+} as const;
+export type AssetLevel = typeof AssetLevel[keyof typeof AssetLevel];
+
 // ==========================================
 // 2. RAW DATABASE MODELS
 // ==========================================
@@ -143,8 +168,10 @@ export interface Participant {
     firstName: string;
     lastName: string;
     age: number | null;
+    isMinor: boolean;
     guardianName: string | null;
     guardianPhone: string | null;
+    guardianRelationship?: string | null;
     notes: string | null;
     hasSpecialRequests?: boolean;
     specialRequestRaw?: string | null;
@@ -187,6 +214,8 @@ export interface AssetTemplate {
     actId?: string | null;
     name: string;
     description: string | null;
+    assetType: 'waiver' | 'photo' | 'intro_media' | 'other';
+    targetLevel: 'Organization' | 'Event' | 'Act' | 'Participant';
     isRequired: boolean;
     createdAt: string;
 }
@@ -259,5 +288,6 @@ export interface LineupSlot {
     actId: string;
     scheduledStartTime: string; // ISO String
     sortOrder: number;
+    executionStatus: string;
     act: Act; // The nested act details
 }

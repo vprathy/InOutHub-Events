@@ -7,6 +7,11 @@ export type Json =
     | Json[]
 
 export type Database = {
+    // Allows to automatically instantiate createClient with right options
+    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+    __InternalSupabase: {
+        PostgrestVersion: "14.1"
+    }
     public: {
         Tables: {
             act_assets: {
@@ -185,6 +190,67 @@ export type Database = {
                     },
                 ]
             }
+            asset_templates: {
+                Row: {
+                    act_id: string | null
+                    asset_type: string | null
+                    created_at: string
+                    description: string | null
+                    event_id: string | null
+                    id: string
+                    is_required: boolean | null
+                    name: string
+                    org_id: string | null
+                    target_level: string | null
+                }
+                Insert: {
+                    act_id?: string | null
+                    asset_type?: string | null
+                    created_at?: string
+                    description?: string | null
+                    event_id?: string | null
+                    id?: string
+                    is_required?: boolean | null
+                    name: string
+                    org_id?: string | null
+                    target_level?: string | null
+                }
+                Update: {
+                    act_id?: string | null
+                    asset_type?: string | null
+                    created_at?: string
+                    description?: string | null
+                    event_id?: string | null
+                    id?: string
+                    is_required?: boolean | null
+                    name?: string
+                    org_id?: string | null
+                    target_level?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "asset_templates_act_id_fkey"
+                        columns: ["act_id"]
+                        isOneToOne: false
+                        referencedRelation: "acts"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "asset_templates_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "asset_templates_org_id_fkey"
+                        columns: ["org_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             audit_logs: {
                 Row: {
                     changed_at: string | null
@@ -253,6 +319,44 @@ export type Database = {
                         columns: ["user_id"]
                         isOneToOne: false
                         referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            event_sources: {
+                Row: {
+                    config: Json
+                    created_at: string | null
+                    event_id: string
+                    id: string
+                    last_synced_at: string | null
+                    name: string
+                    type: string
+                }
+                Insert: {
+                    config?: Json
+                    created_at?: string | null
+                    event_id: string
+                    id?: string
+                    last_synced_at?: string | null
+                    name: string
+                    type: string
+                }
+                Update: {
+                    config?: Json
+                    created_at?: string | null
+                    event_id?: string
+                    id?: string
+                    last_synced_at?: string | null
+                    name?: string
+                    type?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "event_sources_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -329,6 +433,7 @@ export type Database = {
                 Row: {
                     act_id: string
                     created_at: string | null
+                    execution_status: string | null
                     id: string
                     scheduled_start_time: string
                     sort_order: number
@@ -337,6 +442,7 @@ export type Database = {
                 Insert: {
                     act_id: string
                     created_at?: string | null
+                    execution_status?: string | null
                     id?: string
                     scheduled_start_time: string
                     sort_order?: number
@@ -345,6 +451,7 @@ export type Database = {
                 Update: {
                     act_id?: string
                     created_at?: string | null
+                    execution_status?: string | null
                     id?: string
                     scheduled_start_time?: string
                     sort_order?: number
@@ -424,15 +531,115 @@ export type Database = {
                 }
                 Relationships: []
             }
+            participant_assets: {
+                Row: {
+                    created_at: string | null
+                    file_url: string
+                    id: string
+                    name: string
+                    participant_id: string
+                    review_notes: string | null
+                    status: string | null
+                    template_id: string | null
+                    type: string
+                }
+                Insert: {
+                    created_at?: string | null
+                    file_url: string
+                    id?: string
+                    name: string
+                    participant_id: string
+                    review_notes?: string | null
+                    status?: string | null
+                    template_id?: string | null
+                    type: string
+                }
+                Update: {
+                    created_at?: string | null
+                    file_url?: string
+                    id?: string
+                    name?: string
+                    participant_id?: string
+                    review_notes?: string | null
+                    status?: string | null
+                    template_id?: string | null
+                    type?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "participant_assets_participant_id_fkey"
+                        columns: ["participant_id"]
+                        isOneToOne: false
+                        referencedRelation: "participants"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "participant_assets_template_id_fkey"
+                        columns: ["template_id"]
+                        isOneToOne: false
+                        referencedRelation: "asset_templates"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            participant_notes: {
+                Row: {
+                    author_id: string | null
+                    category: string
+                    content: string
+                    created_at: string | null
+                    id: string
+                    is_resolved: boolean | null
+                    participant_id: string
+                    resolved_at: string | null
+                    resolved_by: string | null
+                }
+                Insert: {
+                    author_id?: string | null
+                    category: string
+                    content: string
+                    created_at?: string | null
+                    id?: string
+                    is_resolved?: boolean | null
+                    participant_id: string
+                    resolved_at?: string | null
+                    resolved_by?: string | null
+                }
+                Update: {
+                    author_id?: string | null
+                    category?: string
+                    content?: string
+                    created_at?: string | null
+                    id?: string
+                    is_resolved?: boolean | null
+                    participant_id: string
+                    resolved_at?: string | null
+                    resolved_by?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "participant_notes_participant_id_fkey"
+                        columns: ["participant_id"]
+                        isOneToOne: false
+                        referencedRelation: "participants"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             participants: {
                 Row: {
+                    age: number | null
                     created_at: string | null
                     event_id: string
                     first_name: string
                     guardian_name: string | null
                     guardian_phone: string | null
+                    guardian_relationship: string | null
                     has_special_requests: boolean | null
                     id: string
+                    identity_notes: string | null
+                    identity_verified: boolean | null
+                    is_minor: boolean | null
                     last_name: string
                     notes: string | null
                     source_anchor_type: string | null
@@ -448,13 +655,18 @@ export type Database = {
                     sync_metadata: Json | null
                 }
                 Insert: {
+                    age?: number | null
                     created_at?: string | null
                     event_id: string
                     first_name: string
                     guardian_name?: string | null
                     guardian_phone?: string | null
+                    guardian_relationship?: string | null
                     has_special_requests?: boolean | null
                     id?: string
+                    identity_notes?: string | null
+                    identity_verified?: boolean | null
+                    is_minor?: boolean | null
                     last_name: string
                     notes?: string | null
                     source_anchor_type?: string | null
@@ -470,13 +682,18 @@ export type Database = {
                     sync_metadata?: Json | null
                 }
                 Update: {
+                    age?: number | null
                     created_at?: string | null
                     event_id?: string
                     first_name?: string
                     guardian_name?: string | null
                     guardian_phone?: string | null
+                    guardian_relationship?: string | null
                     has_special_requests?: boolean | null
                     id?: string
+                    identity_notes?: string | null
+                    identity_verified?: boolean | null
+                    is_minor?: boolean | null
                     last_name?: string
                     notes?: string | null
                     source_anchor_type?: string | null
@@ -601,6 +818,14 @@ export type Database = {
             [_ in never]: never
         }
         Functions: {
+            assign_asset_template_bulk: {
+                Args: {
+                    p_target_id: string
+                    p_target_level: string
+                    p_template_id: string
+                }
+                Returns: undefined
+            }
             assign_event_role: {
                 Args: { p_event_id: string; p_role: string; p_target_email: string }
                 Returns: undefined
@@ -757,3 +982,17 @@ export type CompositeTypes<
     : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+    public: {
+        Enums: {
+            participant_status: [
+                "active",
+                "inactive",
+                "withdrawn",
+                "refunded",
+                "missing_from_source",
+            ],
+        },
+    },
+} as const

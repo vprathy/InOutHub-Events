@@ -5,7 +5,8 @@ import {
     useAddParticipantNote,
     useAssignToAct,
     useRemoveFromAct,
-    useUpdateAssetStatus
+    useUpdateAssetStatus,
+    useCreateAssetFulfillment
 } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import {
@@ -15,7 +16,6 @@ import {
     Database,
     Info,
     AlertCircle,
-    Mail,
     Phone,
     FileText,
     Clock,
@@ -28,7 +28,8 @@ import {
     Plus,
     Trash2,
     ShieldCheck,
-    ShieldAlert
+    ShieldAlert,
+    Activity
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -80,6 +81,7 @@ export function ParticipantProfilePage() {
     const assignToAct = useAssignToAct(participantId || '');
     const removeFromAct = useRemoveFromAct(participantId || '');
     const updateAssetStatus = useUpdateAssetStatus(participantId || '');
+    const createFulfillment = useCreateAssetFulfillment(participantId || '');
 
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -141,6 +143,20 @@ export function ParticipantProfilePage() {
                         Back to Participants
                     </button>
                     <div className="flex items-center space-x-2">
+                        <select
+                            value={participant.status || 'active'}
+                            onChange={(e) => alert(`Status change to ${e.target.value} (Future Phase: needs useUpdateParticipant status field)`)}
+                            className={`px-2 py-0.5 text-[10px] font-bold tracking-tight uppercase rounded border outline-none transition-all ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                                    participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
+                                        'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                }`}
+                        >
+                            <option value="active">Active</option>
+                            <option value="withdrawn">Withdrawn</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="refunded">Refunded</option>
+                            <option value="missing_from_source">Missing (Source)</option>
+                        </select>
                         <Badge variant="outline" className={`px-2 py-0.5 text-[10px] font-bold tracking-tight uppercase ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
                             {participant.identityVerified ? 'Identity Confirmed' : 'Verification Required'}
                         </Badge>
@@ -153,6 +169,12 @@ export function ParticipantProfilePage() {
                             <h1 className="text-3xl font-black tracking-tight text-foreground">
                                 {participant.firstName} {participant.lastName}
                             </h1>
+                            {participant.acts && participant.acts.length > 1 && (
+                                <Badge className="bg-indigo-500 text-white border-none text-[10px] font-black uppercase h-6 px-3 flex items-center shadow-lg shadow-indigo-500/20 animate-pulse">
+                                    <Activity className="w-3 h-3 mr-1.5" />
+                                    Multi-Act Performer
+                                </Badge>
+                            )}
                             {participant.age && (
                                 <span className="text-xl font-medium text-muted-foreground/60 tabular-nums">
                                     {participant.age}
@@ -297,36 +319,38 @@ export function ParticipantProfilePage() {
                                         </div>
                                         <div className="group">
                                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Guardian Phone</p>
-                                            <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-black text-foreground font-mono">{participant.guardianPhone || 'No Phone'}</p>
+                                            <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border/50">
+                                                <p className="text-lg font-black text-foreground font-mono">{participant.guardianPhone || 'No Phone'}</p>
                                                 {participant.guardianPhone && (
-                                                    <a href={`tel:${participant.guardianPhone}`} className="p-1.5 bg-accent/50 rounded-lg hover:bg-accent transition-colors">
-                                                        <Phone className="w-3.5 h-3.5 text-primary" />
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Email Source</p>
-                                            <div className="flex items-center space-x-2">
-                                                <p className="text-sm font-medium text-foreground">{(participant.srcRaw as any)?.Email || 'Not Provided'}</p>
-                                                {(participant.srcRaw as any)?.Email && (
-                                                    <a href={`mailto:${(participant.srcRaw as any).Email}`} className="p-1.5 bg-accent/50 rounded-lg hover:bg-accent transition-colors">
-                                                        <Mail className="w-3.5 h-3.5 text-primary" />
+                                                    <a href={`tel:${participant.guardianPhone}`} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-xs uppercase tracking-widest hover:brightness-110 transition-all flex items-center">
+                                                        <Phone className="w-3.5 h-3.5 mr-2" />
+                                                        Call
                                                     </a>
                                                 )}
                                             </div>
                                         </div>
                                         {participant.siblings && participant.siblings.length > 0 && (
-                                            <div className="group">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Siblings / Family</p>
-                                                <div className="flex flex-wrap gap-2">
+                                            <div className="group pt-4 border-t border-border/50">
+                                                <div className="flex items-center justify-between mb-3 text-emerald-600">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-widest">Family & Group Linkage</h4>
+                                                    <Users className="w-4 h-4" />
+                                                </div>
+                                                <div className="space-y-2">
                                                     {participant.siblings.map(s => (
-                                                        <Badge key={s.id} variant="secondary" className="text-[10px] font-bold">
-                                                            <Link to={`/participants/${s.id}`} className="hover:underline">
-                                                                {s.firstName} {s.lastName}
-                                                            </Link>
-                                                        </Badge>
+                                                        <Link
+                                                            key={s.id}
+                                                            to={`/participants/${s.id}`}
+                                                            className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl hover:bg-emerald-500/10 transition-colors group/sib"
+                                                        >
+                                                            <div className="flex items-center">
+                                                                <div className="w-2 h-2 rounded-full bg-emerald-500 mr-3" />
+                                                                <span className="text-sm font-bold">{s.firstName} {s.lastName}</span>
+                                                            </div>
+                                                            <div className="flex items-center text-[10px] font-black uppercase text-emerald-600/60 group-hover/sib:text-emerald-600 transition-colors">
+                                                                View Profile
+                                                                <ChevronRight className="w-3 h-3 ml-1" />
+                                                            </div>
+                                                        </Link>
                                                     ))}
                                                 </div>
                                             </div>
@@ -526,8 +550,14 @@ export function ParticipantProfilePage() {
                                                                 Approve
                                                             </Button>
                                                         )}
-                                                        <Button size="sm" variant={fulfillment ? "ghost" : "default"} className="h-7 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg">
-                                                            {fulfillment ? 'Replace' : 'Upload'}
+                                                        <Button
+                                                            size="sm"
+                                                            variant={fulfillment ? "ghost" : "default"}
+                                                            className="h-7 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg"
+                                                            onClick={() => !fulfillment && createFulfillment.mutate({ templateId: template.id, status: 'approved' })}
+                                                            disabled={createFulfillment.isPending}
+                                                        >
+                                                            {fulfillment ? 'Replace' : 'Direct Approve'}
                                                         </Button>
                                                     </div>
                                                 </div>

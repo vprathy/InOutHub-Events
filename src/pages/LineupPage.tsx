@@ -109,7 +109,7 @@ export default function LineupPage() {
                         <Button
                             variant={showReview ? "default" : "outline"}
                             onClick={() => setShowReview(!showReview)}
-                            className={`gap-2 ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
+                            className={`h-11 gap-2 ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
                         >
                             <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
                             {showReview ? 'Hide Analysis' : 'Review Flow'}
@@ -119,7 +119,7 @@ export default function LineupPage() {
                         </Button>
                     )}
                     {selectedStageId && (
-                        <Button onClick={() => setIsAddModalOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto">
+                        <Button onClick={() => setIsAddModalOpen(true)} className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6">
                             <Plus size={18} /> Add Performance
                         </Button>
                     )}
@@ -136,7 +136,7 @@ export default function LineupPage() {
                             key={stage.id}
                             variant={selectedStageId === stage.id ? 'default' : 'outline'}
                             onClick={() => setSelectedStageId(stage.id)}
-                            className={selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}
+                            className={`h-11 ${selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}`}
                         >
                             <LayoutGrid size={16} className="mr-2" />
                             {stage.name}

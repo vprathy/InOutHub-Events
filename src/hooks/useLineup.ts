@@ -27,6 +27,7 @@ export function useLineupQuery(stageId: string | null) {
                 actId: row.act_id,
                 scheduledStartTime: row.scheduled_start_time,
                 sortOrder: row.sort_order,
+                executionStatus: row.execution_status || 'Queued',
                 act: {
                     id: row.act.id,
                     eventId: row.act.event_id,
@@ -136,11 +137,12 @@ export function useUpdateLineupSlot() {
         mutationFn: async ({ id, updates }: {
             id: string,
             stageId: string,
-            updates: Partial<Pick<LineupSlot, 'sortOrder' | 'scheduledStartTime'>>
+            updates: Partial<Pick<LineupSlot, 'sortOrder' | 'scheduledStartTime' | 'executionStatus'>>
         }) => {
             const dbUpdates: any = {};
             if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
             if (updates.scheduledStartTime !== undefined) dbUpdates.scheduled_start_time = updates.scheduledStartTime;
+            if (updates.executionStatus !== undefined) dbUpdates.execution_status = updates.executionStatus;
 
             const { error } = await supabase
                 .from('lineup_items')

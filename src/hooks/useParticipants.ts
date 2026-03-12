@@ -24,8 +24,10 @@ export function useParticipantsQuery(eventId: string) {
                 firstName: row.first_name,
                 lastName: row.last_name,
                 age: (row as any).age,
+                isMinor: !!row.is_minor,
                 guardianName: row.guardian_name,
                 guardianPhone: row.guardian_phone,
+                guardianRelationship: row.guardian_relationship,
                 notes: row.notes,
                 hasSpecialRequests: !!row.has_special_requests,
                 specialRequestRaw: row.special_request_raw,
@@ -274,6 +276,8 @@ export function useParticipantDetail(participantId: string) {
                 status: (p.status || 'active') as Participant['status'],
                 identityVerified: !!(p as any).identity_verified,
                 identityNotes: (p as any).identity_notes,
+                isMinor: !!p.is_minor,
+                guardianRelationship: p.guardian_relationship,
                 acts: (actLinks || []).map((link: any) => ({
                     id: link.act.id,
                     role: link.role,
@@ -326,6 +330,8 @@ export function useUpdateParticipant(participantId: string) {
             if (updates.lastName) dbUpdates.last_name = updates.lastName;
             if (updates.guardianName !== undefined) dbUpdates.guardian_name = updates.guardianName;
             if (updates.guardianPhone !== undefined) dbUpdates.guardian_phone = updates.guardianPhone;
+            if (updates.guardianRelationship !== undefined) dbUpdates.guardian_relationship = updates.guardianRelationship;
+            if (updates.isMinor !== undefined) dbUpdates.is_minor = updates.isMinor;
             if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
             const { data, error } = await supabase
@@ -445,6 +451,32 @@ export function useUpdateAssetStatus(participantId: string) {
                 .from('participant_assets')
                 .update({ status, review_notes: reviewNotes })
                 .eq('id', assetId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+        }
+    });
+}
+export function useCreateAssetFulfillment(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ templateId, status = 'approved', name = 'Manual Override', notes }: { templateId: string; status?: string; name?: string; notes?: string }) => {
+            const { data, error } = await (supabase as any)
+                .from('participant_assets')
+                .insert([{
+                    participant_id: participantId,
+                    template_id: templateId,
+                    status,
+                    name,
+                    review_notes: notes,
+                    type: 'other' // Default for manual overrides
+                }])
                 .select()
                 .single();
 

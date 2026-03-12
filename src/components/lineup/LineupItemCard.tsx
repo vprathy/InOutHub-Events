@@ -106,30 +106,30 @@ export function LineupItemCard({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            className="h-10 w-10 text-muted-foreground hover:text-foreground border border-border/50"
                             onClick={onMoveUp}
                             disabled={isFirst}
                         >
-                            <ChevronUp size={18} />
+                            <ChevronUp size={20} />
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            className="h-10 w-10 text-muted-foreground hover:text-foreground border border-border/50"
                             onClick={onMoveDown}
                             disabled={isLast}
                         >
-                            <ChevronDown size={18} />
+                            <ChevronDown size={20} />
                         </Button>
                     </div>
 
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border/50"
                         onClick={onRemove}
                     >
-                        <XCircle size={20} />
+                        <XCircle size={22} />
                     </Button>
                 </div>
             </div>
