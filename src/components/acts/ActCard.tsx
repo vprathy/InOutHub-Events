@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2 } from 'lucide-react';
+import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
 import { UploadActAssetModal } from './UploadActAssetModal';
 import { useUpdateActStatus } from '@/hooks/useActs';
+import { supabase } from '@/lib/supabase';
 
 interface ActCardProps {
     act: ActWithCounts;
@@ -16,6 +17,7 @@ export function ActCard({ act }: ActCardProps) {
     const navigate = useNavigate();
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const updateStatus = useUpdateActStatus();
 
     const isReady = act.arrivalStatus === 'Ready';
@@ -26,6 +28,25 @@ export function ActCard({ act }: ActCardProps) {
             actId: act.id,
             status: isReady ? 'Arrived' : 'Ready'
         });
+    };
+
+    const handleGenerateAI = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isGenerating) return;
+
+        setIsGenerating(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('generate-act-assets', {
+                body: { actId: act.id, mode: 'Manual' }
+            });
+
+            if (error) throw error;
+            console.log('[PWA] AI Generation initiated:', data);
+        } catch (err) {
+            console.error('[PWA] AI Generation failed:', err);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
@@ -83,7 +104,7 @@ export function ActCard({ act }: ActCardProps) {
             </div>
 
             {/* Tactical Action Bar */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-3 gap-3 pt-2">
                 <Button
                     variant="outline"
                     size="sm"
@@ -108,6 +129,20 @@ export function ActCard({ act }: ActCardProps) {
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
                     Music/Tech
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5"
+                    onClick={handleGenerateAI}
+                    disabled={isGenerating}
+                >
+                    {isGenerating ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    ) : (
+                        <Sparkles className="w-3.5 h-3.5 mr-2" />
+                    )}
+                    AI Intro
                 </Button>
             </div>
 
