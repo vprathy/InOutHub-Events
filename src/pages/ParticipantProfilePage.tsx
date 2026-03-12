@@ -112,7 +112,7 @@ export function ParticipantProfilePage() {
     const handlePreviewAsset = async (fileUrl: string) => {
         if (!fileUrl) return;
         
-        // If it's already a full URL (public), we can try to use it, 
+        // If it's already a full URL (public),    // 4. Persistence to Supabase Storage
         // but for 'participant-assets' we want a signed URL for reliability
         setPreviewLoading(true);
         try {
@@ -319,35 +319,32 @@ export function ParticipantProfilePage() {
 
                     {/* Cinematic Poster Thumbnail in Header */}
                     {participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled) && (
-                        <div 
-                            className="ml-auto flex items-center gap-2 px-2 h-7 bg-primary/10 rounded-lg border border-primary/20 cursor-zoom-in group hover:bg-primary/20 transition-all"
-                            onClick={() => setSelectedAssetUrl(participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled)?.fileUrl || null)}
-                        >
+                        <div className="ml-auto flex items-center gap-2 px-2 h-7 bg-primary/10 rounded-lg border border-primary/20 group hover:bg-primary/20 transition-all">
                             <Sparkles className="w-3 h-3 text-primary animate-pulse" />
                             <span className="text-[9px] font-black uppercase tracking-tight text-primary">Live Poster</span>
-                                            {/* AI Poster Preview Trigger */}
-                                            {participant.actRequirements?.find(r => r.requirementType === 'Generative')?.fileUrl && (
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const asset = participant.actRequirements?.find(r => r.requirementType === 'Generative');
-                                                        if (asset?.fileUrl) handlePreviewAsset(asset.fileUrl!);
-                                                    }}
-                                                    className="relative w-7 h-7 rounded-lg overflow-hidden border border-primary/30 shadow-sm hover:scale-110 active:scale-95 transition-all bg-black group"
-                                                >
-                                                    <img 
-                                                        src={participant.actRequirements.find(r => r.requirementType === 'Generative')?.fileUrl || ''} 
-                                                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100" 
-                                                        alt="AI Thumbnail" 
-                                                    />
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20 opacity-0 group-hover:opacity-100">
-                                                        <Sparkles className="w-3 h-3 text-white" />
-                                                    </div>
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                            {/* AI Poster Preview Trigger */}
+                            {participant.actRequirements?.find(r => r.requirementType === 'Generative')?.fileUrl && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const asset = participant.actRequirements?.find(r => r.requirementType === 'Generative');
+                                        if (asset?.fileUrl) handlePreviewAsset(asset.fileUrl!);
+                                    }}
+                                    className="relative w-7 h-7 rounded-lg overflow-hidden border border-primary/30 shadow-sm hover:scale-110 active:scale-95 transition-all bg-black group"
+                                >
+                                    <img 
+                                        src={participant.actRequirements.find(r => r.requirementType === 'Generative')?.fileUrl || ''} 
+                                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100" 
+                                        alt="AI Thumbnail" 
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20 opacity-0 group-hover:opacity-100">
+                                        <Sparkles className="w-3 h-3 text-white" />
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                     <div className="space-y-1">

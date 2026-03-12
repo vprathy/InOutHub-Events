@@ -49,7 +49,8 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    const { actId, testOnly = false } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const { actId, testOnly = false, bucket = 'participant-assets' } = body
     if (!actId) throw new Error('actId is required')
 
     // 1. Fetch act context
@@ -121,7 +122,6 @@ serve(async (req: Request) => {
     }
 
     // 4. Persistence to Supabase Storage
-    const { bucket = 'participant-assets' } = await req.json().catch(() => ({}));
     const filePath = `acts/${actId}/poster_${Date.now()}.png`
     
     // Convert base64 to Uint8Array for upload
