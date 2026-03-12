@@ -11,64 +11,10 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      manifestFilename: 'manifest.json',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-icon-192.png', 'pwa-icon-512.png'],
-      manifest: {
-        id: '/',
-        name: 'InOutHub Events',
-        short_name: 'InOutHub',
-        description: 'Premium event operations and stage management command center.',
-        theme_color: '#000000',
-        background_color: '#000000',
-        display: 'standalone',
-        orientation: 'any',
-        start_url: '/',
-        scope: '/',
-        icons: [
-          {
-            src: 'pwa-icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'pwa-icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: 'pwa-icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'pwa-icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ],
-        screenshots: [
-          {
-            src: 'pwa-screenshot-desktop.png',
-            sizes: '500x713',
-            type: 'image/png',
-            form_factor: 'wide',
-            label: 'InOutHub Command Center'
-          },
-          {
-            src: 'pwa-screenshot-mobile.png',
-            sizes: '500x725',
-            type: 'image/png',
-            form_factor: 'narrow',
-            label: 'Mobile Stage Ops'
-          }
-        ]
-      },
+      manifest: false,
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-icon-192.png', 'pwa-icon-512.png', 'pwa-screenshot-desktop.png', 'pwa-screenshot-mobile.png', 'manifest.json'],
       devOptions: {
         enabled: true,
         type: 'module'
