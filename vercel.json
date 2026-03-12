@@ -1,7 +1,7 @@
 {
     "rewrites": [
         {
-            "source": "/(sw.js|manifest.webmanifest|pwa-icon-.*)",
+            "source": "/(sw.js|manifest.json|manifest.webmanifest|pwa-icon-.*)",
             "destination": "/$1"
         },
         {

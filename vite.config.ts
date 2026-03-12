@@ -11,8 +11,10 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
+      manifestFilename: 'manifest.json',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-icon-192.png', 'pwa-icon-512.png'],
       manifest: {
         id: '/',
         name: 'InOutHub Events',
