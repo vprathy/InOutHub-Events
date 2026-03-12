@@ -284,3 +284,74 @@ export function useActDetail(actId: string | null) {
 
     return query;
 }
+export function useAddActAsset(eventId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ actId, assetName, assetType, notes }: { actId: string; assetName: string; assetType: string; notes?: string }) => {
+            const { data, error } = await supabase
+                .from('act_assets')
+                .insert([{
+                    act_id: actId,
+                    asset_name: assetName,
+                    asset_type: assetType,
+                    notes: notes
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['act'] });
+        }
+    });
+}
+
+export function useRemoveActAsset(eventId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (assetId: string) => {
+            const { error } = await supabase
+                .from('act_assets')
+                .delete()
+                .eq('id', assetId);
+
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['act'] });
+        }
+    });
+}
+
+export function useAddParticipantToAct(actId: string, eventId?: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ participantId, role = 'Performer' }: { participantId: string; role?: string }) => {
+            const { data, error } = await supabase
+                .from('act_participants')
+                .insert([{
+                    act_id: actId,
+                    participant_id: participantId,
+                    role
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            if (eventId) {
+                queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            }
+        }
+    });
+}

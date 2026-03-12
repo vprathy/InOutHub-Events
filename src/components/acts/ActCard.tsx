@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { Clock, Info, ExternalLink } from 'lucide-react';
+import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
+import { AddParticipantToActModal } from './AddParticipantToActModal';
+import { UploadActAssetModal } from './UploadActAssetModal';
+import { useUpdateActStatus } from '@/hooks/useActs';
 
 interface ActCardProps {
     act: ActWithCounts;
@@ -9,12 +14,31 @@ interface ActCardProps {
 
 export function ActCard({ act }: ActCardProps) {
     const navigate = useNavigate();
+    const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+    const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const updateStatus = useUpdateActStatus();
+
+    const isReady = act.arrivalStatus === 'Ready';
+
+    const handleToggleReady = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        updateStatus.mutate({
+            actId: act.id,
+            status: isReady ? 'Arrived' : 'Ready'
+        });
+    };
 
     return (
         <div
-            className="bg-card border border-border rounded-[2rem] p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group min-h-[44px]"
+            className={`bg-card border rounded-[2rem] p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-4 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
+                }`}
             onClick={() => navigate(`/acts/${act.id}`)}
         >
+            {/* Ready Glow */}
+            {isReady && (
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            )}
+
             {/* Top Section: Name and Indicators */}
             <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -34,15 +58,74 @@ export function ActCard({ act }: ActCardProps) {
                     </div>
                 </div>
 
-                <ActIndicators
-                    participantCount={act.participantCount}
-                    hasMusicTrack={act.hasMusicTrack}
-                    hasTechnicalRider={act.hasTechnicalRider}
-                    missingAssetCount={act.missingAssetCount}
-                    specialRequestCount={act.specialRequestCount}
-                />
+                <div className="flex flex-col items-end space-y-3">
+                    <ActIndicators
+                        participantCount={act.participantCount}
+                        hasMusicTrack={act.hasMusicTrack}
+                        hasTechnicalRider={act.hasTechnicalRider}
+                        missingAssetCount={act.missingAssetCount}
+                        specialRequestCount={act.specialRequestCount}
+                    />
+
+                    {/* Stage Ready Toggle (Tactical) */}
+                    <button
+                        onClick={handleToggleReady}
+                        disabled={updateStatus.isPending}
+                        className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${isReady
+                            ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20'
+                            : 'bg-secondary text-muted-foreground border-border/50 hover:border-emerald-500/50 hover:text-emerald-600'
+                            }`}
+                    >
+                        <CheckCircle2 className={`w-3.5 h-3.5 ${isReady ? 'animate-pulse' : ''}`} />
+                        <span>{isReady ? 'Stage Ready' : 'Mark Ready'}</span>
+                    </button>
+                </div>
             </div>
 
+            {/* Tactical Action Bar */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAddParticipantOpen(true);
+                    }}
+                >
+                    <UserPlus className="w-3.5 h-3.5 mr-2 text-primary" />
+                    Add Performer
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
+                        }`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsUploadOpen(true);
+                    }}
+                >
+                    <Music className="w-3.5 h-3.5 mr-2 text-primary" />
+                    Music/Tech
+                </Button>
+            </div>
+
+            {/* Modals */}
+            <AddParticipantToActModal
+                isOpen={isAddParticipantOpen}
+                onClose={() => setIsAddParticipantOpen(false)}
+                actId={act.id}
+                actName={act.name}
+                eventId={act.eventId}
+            />
+            <UploadActAssetModal
+                isOpen={isUploadOpen}
+                onClose={() => setIsUploadOpen(false)}
+                actId={act.id}
+                actName={act.name}
+                eventId={act.eventId}
+            />
         </div>
     );
 }
