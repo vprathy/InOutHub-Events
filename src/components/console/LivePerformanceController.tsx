@@ -1,10 +1,12 @@
-import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle, CheckCircle2, ChevronRight, Activity } from 'lucide-react';
+import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle, CheckCircle2, ChevronRight, Activity, Wifi, WifiOff, MonitorPlay } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatusPicker } from '@/components/acts/StatusPicker';
 import { useUpdateActStatus } from '@/hooks/useActs';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { IntroVideoPlayer } from './IntroVideoPlayer';
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -36,6 +38,23 @@ export function LivePerformanceController({
     actions
 }: LivePerformanceControllerProps) {
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
+    const [showIntro, setShowIntro] = useState(false);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Selection logic for AI assets
+    const currentPoster = current?.act?.requirements?.find((r: any) => r.type === 'Poster' || r.type === 'Lighting')?.fileUrl;
+    const currentVideo = current?.act?.requirements?.find((r: any) => r.type === 'Video')?.fileUrl;
 
     if (status === 'Idle') {
         return (
@@ -62,7 +81,7 @@ export function LivePerformanceController({
 
     return (
         <div className="space-y-6 pb-12">
-            {/* Mission Critical: Show Pace Indicator */}
+            {/* System Status & Pace Dashboard */}
             <div className="flex justify-between items-center bg-card border border-border/50 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg text-primary">
@@ -87,14 +106,24 @@ export function LivePerformanceController({
                         </h4>
                     </div>
                 </div>
-                <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Current Time</p>
-                    <p className="text-lg font-black">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <div className="flex items-center gap-6">
+                    <div className="text-right flex items-center gap-3 pr-6 border-r border-border">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">System Status</p>
+                            <p className={`text-[10px] font-black uppercase flex items-center gap-1.5 ${isOnline ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+                                {isOnline ? 'Live Network' : 'Offline Mode'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Current Time</p>
+                        <p className="text-lg font-black">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
                 </div>
             </div>
 
             <div className="flex flex-col gap-6 relative">
-                {/* Visual Connector Line */}
                 <div className="absolute left-6 top-20 bottom-20 w-1 bg-gradient-to-b from-rose-500/30 via-primary/20 to-transparent" />
 
                 {/* NOW STACK */}
@@ -107,8 +136,16 @@ export function LivePerformanceController({
                         className="relative"
                     >
                         <div className="absolute -left-1 top-10 w-3 h-3 rounded-full bg-rose-500 z-10 border-2 border-background shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
-                        <Card className="bg-neutral-900 border-rose-500/30 overflow-hidden shadow-2xl ml-8">
-                            <div className="p-6 lg:p-8 space-y-6">
+                        <Card className="bg-neutral-950 border-rose-500/30 overflow-hidden shadow-2xl ml-8 relative">
+                            {/* AI Backdrop Layer */}
+                            {currentPoster && (
+                                <div className="absolute inset-0 opacity-20 pointer-events-none">
+                                    <img src={currentPoster} className="w-full h-full object-cover blur-3xl scale-110" alt="" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+                                </div>
+                            )}
+
+                            <div className="p-6 lg:p-8 space-y-6 relative z-10">
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-2">
                                         <Badge className="bg-rose-500 text-white font-black px-3 py-0.5 text-[10px] tracking-widest border-none mb-2 animate-pulse">
@@ -136,6 +173,7 @@ export function LivePerformanceController({
                                     </div>
                                 </div>
 
+                                {/* Director's Notes */}
                                 {current?.act?.notes && (
                                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex gap-3">
                                         <AlertCircle className="text-amber-500 shrink-0" size={18} />
@@ -146,12 +184,24 @@ export function LivePerformanceController({
                                     </div>
                                 )}
 
-                                <div className="flex flex-wrap gap-2">
-                                    {current?.act?.act_participants?.map((ap: any) => (
-                                        <Badge key={ap.participantId || ap.id} variant="outline" className="bg-neutral-800 border-neutral-700 text-neutral-300 font-bold text-[10px]">
-                                            {ap.firstName} {ap.lastName}
-                                        </Badge>
-                                    ))}
+                                <div className="flex flex-wrap items-center gap-4">
+                                    <div className="flex flex-wrap gap-2">
+                                        {current?.act?.act_participants?.map((ap: any) => (
+                                            <Badge key={ap.participantId || ap.id} variant="outline" className="bg-neutral-800 border-neutral-700 text-neutral-300 font-bold text-[10px]">
+                                                {ap.firstName} {ap.lastName}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    {currentVideo && (
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={() => setShowIntro(true)}
+                                            className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2"
+                                        >
+                                            <MonitorPlay size={14} /> PLAY AI INTRO
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
 
@@ -243,6 +293,17 @@ export function LivePerformanceController({
                         )}
                     </div>
                 </div>
+
+                <AnimatePresence>
+                    {showIntro && currentVideo && (
+                        <IntroVideoPlayer 
+                            videoUrl={currentVideo}
+                            posterUrl={currentPoster || ''}
+                            actName={current?.act?.name || ''}
+                            onClose={() => setShowIntro(false)}
+                        />
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

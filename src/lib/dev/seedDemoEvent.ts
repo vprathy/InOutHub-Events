@@ -32,15 +32,27 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     }
 
     // 6. Create Participants
-    console.log('👥 Generating 50 Participants...');
-    const participantsData = Array.from({ length: 50 }).map(() => ({
+    console.log('👥 Generating 50 Participants (Standard + Deterministic)...');
+    
+    // First, create the deterministic test participant
+    const victor = {
         event_id: event.id,
-        first_name: faker.person.firstName(),
-        last_name: faker.person.lastName(),
-        guardian_name: Math.random() > 0.7 ? faker.person.fullName() : null,
-        guardian_phone: Math.random() > 0.7 ? faker.phone.number({ style: 'national' }) : null,
-        notes: Math.random() > 0.8 ? faker.lorem.sentence() : null
-    }));
+        first_name: 'Victor',
+        last_name: 'Barrows',
+        notes: 'Lead performer for sound check coordination.'
+    };
+
+    const participantsData = [
+        victor,
+        ...Array.from({ length: 49 }).map(() => ({
+            event_id: event.id,
+            first_name: faker.person.firstName(),
+            last_name: faker.person.lastName(),
+            guardian_name: Math.random() > 0.7 ? faker.person.fullName() : null,
+            guardian_phone: Math.random() > 0.7 ? faker.phone.number({ style: 'national' }) : null,
+            notes: Math.random() > 0.8 ? faker.lorem.sentence() : null
+        }))
+    ];
 
     const { data: participants, error: partError } = await supabase.from('participants').insert(participantsData).select();
     if (partError) throw partError;
@@ -93,6 +105,53 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             });
         }
     }
+
+    // 8b. Seed Participant Notes (for testing Resolve Note feature)
+    console.log('📝 Seeding Participant Notes...');
+    const noteCategories: ('operational' | 'internal' | 'special_request')[] = ['operational', 'internal', 'special_request'];
+    const noteContents = [
+        'Backstage arrival confirmed for sound check',
+        'Requested extra mic stand for performance',
+        'Dietary restriction: vegetarian meals only',
+        'Needs wheelchair-accessible staging area',
+        'Parent requested early pickup after act',
+        'Costume change requires 5 min backstage hold',
+        'Audio track submitted via email, pending review',
+        'Requires translator for stage directions',
+    ];
+
+    const notesData = participants.slice(0, 10).flatMap(p => {
+        const count = faker.number.int({ min: 1, max: 3 });
+        return Array.from({ length: count }).map(() => ({
+            participant_id: p.id,
+            content: faker.helpers.arrayElement(noteContents),
+            category: faker.helpers.arrayElement(noteCategories),
+            is_resolved: Math.random() > 0.7,
+        }));
+    });
+
+    const { error: notesError } = await supabase.from('participant_notes').insert(notesData);
+    if (notesError) console.warn('⚠️ Notes seed warning:', notesError.message);
+
+    // 8c. Seed Participant Assets (for testing Delete Asset feature)
+    console.log('📎 Seeding Participant Assets...');
+    const assetTypes = ['photo', 'document', 'video', 'other'];
+    const assetStatuses: ('missing' | 'uploaded' | 'pending_review' | 'approved' | 'rejected')[] = ['missing', 'uploaded', 'pending_review', 'approved', 'rejected'];
+    const assetNames = ['Headshot Photo', 'Signed Release Form', 'Performance Reel', 'Costume Reference', 'Music Track', 'ID Scan'];
+
+    const assetsData = participants.slice(0, 15).flatMap(p => {
+        const count = faker.number.int({ min: 1, max: 2 });
+        return Array.from({ length: count }).map(() => ({
+            participant_id: p.id,
+            name: faker.helpers.arrayElement(assetNames),
+            type: faker.helpers.arrayElement(assetTypes),
+            status: faker.helpers.arrayElement(assetStatuses),
+            file_url: `https://placeholder.test/${faker.string.uuid()}.jpg`,
+        }));
+    });
+
+    const { error: assetsError } = await supabase.from('participant_assets').insert(assetsData);
+    if (assetsError) console.warn('⚠️ Assets seed warning:', assetsError.message);
 
     // 9. Generate Lineup Items
     console.log('📋 Building Schedule/Lineup...');

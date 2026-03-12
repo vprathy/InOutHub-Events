@@ -36,6 +36,8 @@ export const RequirementType = {
     Microphone: 'Microphone',
     Video: 'Video',
     Waiver: 'Waiver',
+    Poster: 'Poster',
+    Generative: 'Generative',
 } as const;
 export type RequirementType = typeof RequirementType[keyof typeof RequirementType];
 
@@ -264,6 +266,7 @@ export interface ParticipantDetail extends Participant {
     }[];
     operationalNotes: ParticipantNote[];
     auditLogs: any[];
+    actRequirements?: ActRequirement[];
 }
 
 /**

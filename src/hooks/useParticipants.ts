@@ -229,6 +229,25 @@ export function useParticipantDetail(participantId: string) {
                 .order('created_at', { ascending: false });
 
             if (noteError) throw noteError;
+            
+            // 8.5 Fetch Act Requirements (including AI Posters)
+            let actRequirements: any[] = [];
+            if (actIds.length > 0) {
+                const { data: requirements, error: reqError } = await supabase
+                    .from('act_requirements')
+                    .select('*')
+                    .in('act_id', actIds);
+                
+                if (reqError) throw reqError;
+                actRequirements = (requirements || []).map((r: any) => ({
+                    id: r.id,
+                    actId: r.act_id,
+                    requirementType: r.requirement_type,
+                    description: r.description,
+                    fileUrl: r.file_url,
+                    fulfilled: r.fulfilled
+                }));
+            }
 
             // 9. Fetch audit logs (Accountability)
             const { data: logs, error: lError } = await (supabase as any)
@@ -246,13 +265,26 @@ export function useParticipantDetail(participantId: string) {
                 if (log.operation === 'UPDATE' && log.old_data && log.new_data) {
                     Object.keys(log.new_data).forEach(key => {
                         if (JSON.stringify(log.old_data[key]) !== JSON.stringify(log.new_data[key])) {
-                            diff[key] = log.new_data[key];
+                            diff[key] = {
+                                from: log.old_data[key],
+                                to: log.new_data[key]
+                            };
                         }
                     });
                 } else if (log.operation === 'INSERT') {
-                    Object.keys(log.new_data || {}).forEach(key => diff[key] = log.new_data[key]);
+                    Object.keys(log.new_data || {}).forEach(key => {
+                        diff[key] = { to: log.new_data[key] };
+                    });
                 }
-                return { ...log, diff };
+                return {
+                    id: log.id,
+                    operation: log.operation,
+                    tableName: log.table_name,
+                    recordId: log.record_id,
+                    changedBy: log.changed_by,
+                    changedAt: log.changed_at || log.created_at,
+                    diff
+                };
             });
 
             return {
@@ -313,7 +345,8 @@ export function useParticipantDetail(participantId: string) {
                     resolvedBy: n.resolved_by,
                     createdAt: n.created_at
                 })),
-                auditLogs: mappedLogs
+                auditLogs: mappedLogs,
+                actRequirements
             };
         },
         enabled: !!participantId,
@@ -333,6 +366,8 @@ export function useUpdateParticipant(participantId: string) {
             if (updates.guardianRelationship !== undefined) dbUpdates.guardian_relationship = updates.guardianRelationship;
             if (updates.isMinor !== undefined) dbUpdates.is_minor = updates.isMinor;
             if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
+            if (updates.identityVerified !== undefined) dbUpdates.identity_verified = updates.identityVerified;
 
             const { data, error } = await supabase
                 .from('participants')
@@ -482,6 +517,70 @@ export function useCreateAssetFulfillment(participantId: string) {
 
             if (error) throw error;
             return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+        }
+    });
+}
+
+export function useUpdateParticipantStatus(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (status: 'active' | 'inactive' | 'withdrawn' | 'refunded' | 'missing_from_source') => {
+            const { data, error } = await supabase
+                .from('participants')
+                .update({ status })
+                .eq('id', participantId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+            queryClient.invalidateQueries({ queryKey: ['participants', data.event_id] });
+        },
+        onError: (error) => {
+            console.error('Status update error:', error);
+        }
+    });
+}
+
+export function useResolveNote(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (noteId: string) => {
+            const { data, error } = await (supabase as any)
+                .from('participant_notes')
+                .update({ is_resolved: true, resolved_at: new Date().toISOString() })
+                .eq('id', noteId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+        }
+    });
+}
+
+export function useDeleteAsset(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (assetId: string) => {
+            const { error } = await (supabase as any)
+                .from('participant_assets')
+                .delete()
+                .eq('id', assetId);
+
+            if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participant', participantId] });

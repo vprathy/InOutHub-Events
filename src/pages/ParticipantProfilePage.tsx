@@ -1,12 +1,15 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     useParticipantDetail,
-    useVerifyIdentity,
     useAddParticipantNote,
     useAssignToAct,
     useRemoveFromAct,
     useUpdateAssetStatus,
-    useCreateAssetFulfillment
+    useCreateAssetFulfillment,
+    useUpdateParticipantStatus,
+    useResolveNote,
+    useDeleteAsset
 } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import {
@@ -29,13 +32,17 @@ import {
     Trash2,
     ShieldCheck,
     ShieldAlert,
-    Activity
+    Activity,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
-import { useState } from 'react';
+import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
+import { supabase } from '@/lib/supabase';
 
 type Tab = 'overview' | 'acts' | 'assets' | 'source' | 'audit';
 
@@ -44,23 +51,49 @@ const getActionDescription = (log: any) => {
     if (log.operation === 'INSERT') return 'Initial record loaded';
     if (log.operation === 'UPDATE') {
         if (log.diff && Object.keys(log.diff).length > 0) {
-            const changedFields = Object.keys(log.diff).map(key => key.replace(/_/g, ' ')).join(', ');
-            return `Updated fields: ${changedFields}`;
+            const changes = Object.entries(log.diff).map(([key, val]: [string, any]) => {
+                const field = key.replace(/_/g, ' ');
+                return `${field}: ${val.from ?? 'null'} \u2192 ${val.to ?? 'null'}`;
+            });
+            return `Changes: ${changes.join(' | ')}`;
         }
-        return 'Record Updated';
+        return 'Synced from source';
     }
     if (log.operation === 'DELETE') return 'Record Removed';
     return log.operation;
 };
 
-const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString(); // Or use a more specific format like date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+const formatDate = (dateString: any) => {
+    if (!dateString) return 'Pending...';
+    // If it's already a Date object, use it directly
+    const date = dateString instanceof Date ? dateString : new Date(String(dateString).replace(' ', 'T'));
+    
+    if (isNaN(date.getTime())) {
+        // Fallback for very specific formats (e.g., fractional seconds + offset with space)
+        const parts = String(dateString).split(' ');
+        if (parts.length >= 2) {
+            const iso = parts[0] + 'T' + parts[1];
+            const retryDate = new Date(iso);
+            if (!isNaN(retryDate.getTime())) {
+                return retryDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+            }
+        }
+        return 'Unknown';
+    }
+
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
 };
 
 export function ParticipantProfilePage() {
     const { participantId } = useParams<{ participantId: string }>();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<Tab>('overview');
 
     // Form and Action state
@@ -69,6 +102,9 @@ export function ParticipantProfilePage() {
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedActId, setSelectedActId] = useState('');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+    const [aiSuggestResult, setAiSuggestResult] = useState<string | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -76,12 +112,52 @@ export function ParticipantProfilePage() {
     const { data: allActs } = useActsQuery(participant?.eventId || '');
 
     // Mutations
-    const verifyIdentity = useVerifyIdentity(participantId || '');
     const addNote = useAddParticipantNote(participantId || '');
     const assignToAct = useAssignToAct(participantId || '');
     const removeFromAct = useRemoveFromAct(participantId || '');
     const updateAssetStatus = useUpdateAssetStatus(participantId || '');
     const createFulfillment = useCreateAssetFulfillment(participantId || '');
+    const updateStatus = useUpdateParticipantStatus(participantId || '');
+    const resolveNote = useResolveNote(participantId || '');
+    const deleteAsset = useDeleteAsset(participantId || '');
+
+    const handleAiSuggest = async () => {
+        if (!participant?.acts || participant.acts.length === 0) {
+            setShowAssignModal(true);
+            return;
+        }
+        setAiSuggestLoading(true);
+        // Keep previous result visible until new one arrives to avoid "flicker/vanishing"
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const res = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-act-assets`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ actId: participant.acts[0].id, testOnly: false }),
+                }
+            );
+            const result = await res.json();
+            if (result.error) {
+                setAiSuggestResult(`Error: ${result.error}`);
+            } else {
+                setAiSuggestResult('AI Intro Assets Ready');
+                // Refresh data to show the new asset in the Assets tab
+                queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+                // Auto-dismiss success status after 5s
+                setTimeout(() => setAiSuggestResult(null), 5000);
+            }
+        } catch (err: any) {
+            setAiSuggestResult(`Network error: ${err.message}`);
+        } finally {
+            setAiSuggestLoading(false);
+        }
+    };
 
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -89,10 +165,6 @@ export function ParticipantProfilePage() {
         await addNote.mutateAsync({ content: noteContent, category: noteCategory });
         setNoteContent('');
         setShowNoteForm(false);
-    };
-
-    const handleVerify = async () => {
-        await verifyIdentity.mutateAsync(!participant?.identityVerified);
     };
 
     const handleAssignAct = async () => {
@@ -131,22 +203,40 @@ export function ParticipantProfilePage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 px-4 md:px-0 pb-12">
+        <div className="relative">
+            {/* Non-intrusive Notification Toast */}
+            {aiSuggestResult && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-none">
+                    <div className={`px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border flex items-center space-x-3 pointer-events-auto ${
+                        aiSuggestResult.startsWith('Error') 
+                        ? 'bg-destructive/90 border-destructive/20 text-white' 
+                        : 'bg-emerald-600/90 border-emerald-500/20 text-white'
+                    }`}>
+                        {aiSuggestResult.startsWith('Error') ? <AlertCircle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                        <span className="text-sm font-bold tracking-tight">{aiSuggestResult}</span>
+                        <button onClick={() => setAiSuggestResult(null)} className="ml-4 hover:opacity-70">
+                            <Plus className="w-4 h-4 rotate-45" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 px-4 md:px-0 pb-12">
             {/* Operational Header */}
-            <div className="flex flex-col space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <button
                         onClick={() => navigate('/participants')}
-                        className="flex items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group min-h-[44px]"
+                        className="flex items-center text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group antialiased"
                     >
                         <ArrowLeft className="w-3.5 h-3.5 mr-2 group-hover:-translate-x-1 transition-transform" />
                         Back to Participants
                     </button>
-                    <div className="flex items-center space-x-2 self-end sm:self-auto">
+                    <div className="flex items-center space-x-2">
                         <select
                             value={participant.status || 'active'}
-                            onChange={(e) => alert(`Status change to ${e.target.value}`)}
-                            className={`px-3 py-1.5 text-[10px] font-black tracking-tight uppercase rounded-xl border outline-none transition-all min-h-[36px] ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                            onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                            className={`px-3 py-1.5 text-[10px] font-bold tracking-tight uppercase rounded-lg border outline-none transition-all h-8 antialiased ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
                                 participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
                                     'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                                 }`}
@@ -157,16 +247,16 @@ export function ParticipantProfilePage() {
                             <option value="refunded">Refunded</option>
                             <option value="missing_from_source">Missing (Source)</option>
                         </select>
-                        <Badge variant="outline" className={`px-3 py-1.5 text-[10px] font-black tracking-tight uppercase rounded-xl min-h-[36px] ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
+                        <Badge variant="outline" className={`px-3 py-1.5 text-[10px] font-bold tracking-tight uppercase rounded-lg h-8 antialiased ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
                             {participant.identityVerified ? 'Verified' : 'Unverified'}
                         </Badge>
                     </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div className="space-y-2">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                            <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-foreground">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-3xl font-bold tracking-tighter text-foreground antialiased">
                                 {participant.firstName} {participant.lastName}
                             </h1>
                             <div className="flex items-center gap-2">
@@ -183,17 +273,17 @@ export function ParticipantProfilePage() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-[10px] font-medium text-muted-foreground uppercase tracking-wider antialiased">
                             <div className="flex items-center">
                                 {participant.identityVerified ? (
-                                    <div className="flex items-center text-emerald-500">
-                                        <ShieldCheck className="w-4 h-4 mr-1.5" />
-                                        <span>Verified</span>
+                                    <div className="flex items-center text-emerald-600">
+                                        <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                                        <span>Identity Verified</span>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center text-amber-500">
-                                        <ShieldAlert className="w-4 h-4 mr-1.5" />
-                                        <span>Action Required</span>
+                                    <div className="flex items-center text-amber-600">
+                                        <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
+                                        <span>Manual Verification</span>
                                     </div>
                                 )}
                             </div>
@@ -220,27 +310,23 @@ export function ParticipantProfilePage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-10 sm:h-8 rounded-xl text-[10px] font-black uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all border border-primary/10 shadow-sm"
-                            onClick={() => alert('AI Suggester...')}
+                            className="h-9 w-full sm:w-auto rounded-lg text-[10px] font-bold uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all border border-primary/10 shadow-sm antialiased"
+                            onClick={handleAiSuggest}
+                            disabled={aiSuggestLoading}
                         >
-                            <Info className="w-3.5 h-3.5 mr-1.5" />
-                            AI Suggest Acts
+                            {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                            {aiSuggestLoading ? 'Generating...' : (participant.assets?.length ? 'Regenerate AI Assets' : 'AI Suggest Acts')}
                         </Button>
-                        <Button
-                            variant={participant.identityVerified ? "ghost" : "default"}
-                            size="sm"
-                            className={`h-10 sm:h-8 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${participant.identityVerified ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/10' : ''}`}
-                            onClick={handleVerify}
+                        <Button 
+                            className="h-9 w-full sm:w-auto px-4 font-bold border border-border/50 hover:border-primary/50 transition-all rounded-lg shadow-sm text-[10px] uppercase tracking-wider antialiased" 
+                            variant="outline" 
+                            onClick={() => setShowEditModal(true)}
                         >
-                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
-                            {participant.identityVerified ? 'Verified' : 'Verify'}
-                        </Button>
-                        <Button className="h-11 sm:h-10 px-6 font-black border-2 transition-all rounded-xl shadow-lg shadow-black/5 text-[10px] uppercase tracking-widest" variant="outline" onClick={() => alert('Edit...')}>
-                            <Edit className="w-4 h-4 mr-2" />
+                            <Edit className="w-3.5 h-3.5 mr-1.5" />
                             Edit Profile
                         </Button>
                     </div>
@@ -248,41 +334,41 @@ export function ParticipantProfilePage() {
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex items-center space-x-1 bg-muted/30 p-1 rounded-2xl border border-border/50 max-w-fit">
+            <div className="flex items-center space-x-1 bg-muted/30 p-1 rounded-xl border border-border/50 w-full overflow-x-auto scrollbar-none antialiased">
                 <button
                     onClick={() => setActiveTab('overview')}
-                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'overview' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'overview' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     Overview
                 </button>
                 <button
                     onClick={() => setActiveTab('acts')}
-                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'acts' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'acts' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     Performances
                 </button>
                 <button
                     onClick={() => setActiveTab('assets')}
-                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'assets' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'assets' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     Forms & Documents
                 </button>
                 <button
                     onClick={() => setActiveTab('source')}
-                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'source' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'source' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     Data Origin
                 </button>
                 <button
                     onClick={() => setActiveTab('audit')}
-                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'audit' ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'audit' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     Audit Log
                 </button>
             </div>
 
             {/* Content Area */}
-            <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px] overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
                 {activeTab === 'overview' && (
                     <div className="divide-y divide-border/50 animate-in fade-in duration-300">
                         {/* Status Alert Banner */}
@@ -302,29 +388,40 @@ export function ParticipantProfilePage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50">
                             {/* Contact & Identity */}
-                            <div className="p-8 space-y-8">
-                                <div className="space-y-6">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center">
+                            <div className="p-4 sm:p-6 space-y-6">
+                                <div className="space-y-4">
+                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center antialiased">
                                         <UserCircle className="w-3.5 h-3.5 mr-2 text-primary" />
                                         Identity & Contact
                                     </h3>
-                                    <div className="space-y-5">
+                                    <div className="space-y-4">
                                         <div className="group">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Guardian Name</p>
-                                            <p className="text-sm font-bold text-foreground">{participant.guardianName || 'Unknown'}</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 antialiased">Guardian Name</p>
+                                            <p className="text-sm font-bold text-foreground antialiased">{participant.guardianName || 'Unknown'}</p>
                                         </div>
                                         <div className="group">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Guardian Phone</p>
-                                            <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-border/50">
-                                                <p className="text-lg font-black text-foreground font-mono">{participant.guardianPhone || 'No Phone'}</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 antialiased">Guardian Phone</p>
+                                            <div className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/50">
+                                                <p className="text-base font-bold text-foreground font-mono antialiased">{participant.guardianPhone || 'No Phone'}</p>
                                                 {participant.guardianPhone && (
-                                                    <a href={`tel:${participant.guardianPhone}`} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-xs uppercase tracking-widest hover:brightness-110 transition-all flex items-center">
-                                                        <Phone className="w-3.5 h-3.5 mr-2" />
+                                                    <a href={`tel:${participant.guardianPhone}`} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg font-bold text-[10px] uppercase tracking-wider hover:brightness-110 transition-all flex items-center antialiased">
+                                                        <Phone className="w-3 h-3 mr-1.5" />
                                                         Call
                                                     </a>
                                                 )}
                                             </div>
                                         </div>
+                                        {participant.notes && (
+                                            <div className="p-3 bg-muted/20 border border-border/50 rounded-lg">
+                                                <div className="flex items-center space-x-2 mb-2 text-muted-foreground">
+                                                    <Info className="w-3 h-3" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider antialiased">Internal Bio / Notes</p>
+                                                </div>
+                                                <p className="text-xs font-medium text-foreground leading-relaxed italic border-l-2 border-primary/30 pl-3 antialiased">
+                                                    "{participant.notes}"
+                                                </p>
+                                            </div>
+                                        )}
                                         {participant.siblings && participant.siblings.length > 0 && (
                                             <div className="group pt-4 border-t border-border/50">
                                                 <div className="flex items-center justify-between mb-3 text-emerald-600">
@@ -420,8 +517,12 @@ export function ParticipantProfilePage() {
                                                             {note.category}
                                                         </Badge>
                                                         {!note.isResolved && (
-                                                            <button className="text-[9px] font-bold text-primary hover:underline uppercase tracking-tighter" onClick={() => alert('Resolve note (Future phase)')}>
-                                                                Resolve
+                                                            <button
+                                                                className="text-[9px] font-bold text-primary hover:underline uppercase tracking-tighter"
+                                                                onClick={() => resolveNote.mutate(note.id)}
+                                                                disabled={resolveNote.isPending}
+                                                            >
+                                                                {resolveNote.isPending ? 'Resolving...' : 'Resolve'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -451,6 +552,48 @@ export function ParticipantProfilePage() {
 
                 {activeTab === 'assets' && (
                     <div className="p-8 space-y-10 animate-in fade-in duration-300">
+                        {/* Generative AI Media Section */}
+                        {participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) && (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center">
+                                        <Sparkles className="w-4 h-4 mr-2" />
+                                        Generative Experience Assets
+                                    </h3>
+                                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-bold uppercase tracking-tight">AI Generated</Badge>
+                                </div>
+                                <div className="grid grid-cols-1 gap-6">
+                                    {participant.actRequirements
+                                        .filter(r => r.requirementType === 'Generative' && r.fulfilled)
+                                        .map((asset) => (
+                                            <div key={asset.id} className="relative group overflow-hidden rounded-3xl border-2 border-primary/20 bg-muted/5 shadow-2xl shadow-primary/5">
+                                                <div className="aspect-[16/9] w-full overflow-hidden">
+                                                    <img 
+                                                        src={asset.fileUrl || ''} 
+                                                        alt="AI Generated Poster" 
+                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
+                                                </div>
+                                                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <h4 className="text-xl font-black tracking-tight">Cinematic Performance Poster</h4>
+                                                        <Badge className="bg-emerald-500/90 text-white border-none text-[10px] font-bold uppercase">Ready</Badge>
+                                                    </div>
+                                                    <p className="text-sm text-white/70 font-medium mb-4">Dynamically generated based on act composition & performers</p>
+                                                    <div className="flex items-center space-x-3">
+                                                        <Button variant="secondary" size="sm" className="bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-md text-[10px] font-bold uppercase" asChild>
+                                                            <a href={asset.fileUrl || ''} target="_blank" rel="noopener noreferrer">View Original</a>
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-bold uppercase">Download</Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Readiness Indicator */}
                         <div className="p-4 bg-primary/5 rounded-2xl border border-primary/20 flex items-center justify-between">
                             <div className="flex items-center space-x-3">
@@ -472,7 +615,7 @@ export function ParticipantProfilePage() {
                             </div>
                         </div>
 
-                        {/* Required Asset Tasks (Templates) */}
+                        {/* Templated Assets Section */}
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
@@ -610,14 +753,22 @@ export function ParticipantProfilePage() {
                             </div>
 
                             {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {participant.assets.filter(a => !a.templateId).map((asset) => (
                                         <div key={asset.id} className="p-4 border-2 border-border/50 rounded-2xl bg-muted/5 group hover:border-primary/20 transition-all cursor-pointer">
                                             <div className="flex items-center justify-between mb-4">
                                                 <Badge variant="outline" className="text-[9px] font-mono uppercase h-4 px-1.5">
                                                     {asset.type}
                                                 </Badge>
-                                                <button onClick={() => alert('Delete asset flow')} className="p-1 hover:bg-destructive/10 rounded-lg transition-colors group/trash">
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm('Delete this asset? This cannot be undone.')) {
+                                                            deleteAsset.mutate(asset.id);
+                                                        }
+                                                    }}
+                                                    className="p-1 hover:bg-destructive/10 rounded-lg transition-colors group/trash"
+                                                    disabled={deleteAsset.isPending}
+                                                >
                                                     <Trash2 className="w-3.5 h-3.5 text-muted-foreground/40 group-hover/trash:text-destructive transition-colors" />
                                                 </button>
                                             </div>
@@ -876,8 +1027,66 @@ export function ParticipantProfilePage() {
                     </div>
                 )}
             </div>
+
+
+            {/* Add to Act Modal */}
+            <Modal
+                isOpen={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                title="Assign to Performance"
+            >
+                <div className="space-y-4 py-4">
+                    <p className="text-sm text-muted-foreground">This participant needs to be assigned to a performance before AI can generate assets.</p>
+                    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {allActs?.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-2xl">
+                                <p className="text-xs uppercase font-black">No Performances Found</p>
+                                <p className="text-[10px] mt-1">Create an act first to assign performers.</p>
+                            </div>
+                        ) : (
+                            allActs?.map(act => (
+                                <button
+                                    key={act.id}
+                                    onClick={async () => {
+                                        await assignToAct.mutateAsync({ actId: act.id });
+                                        setShowAssignModal(false);
+                                    }}
+                                    disabled={assignToAct.isPending}
+                                    className="w-full p-4 rounded-xl border border-border bg-card text-left transition-all flex items-center justify-between hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                            <Sparkles className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-sm tracking-tight">{act.name}</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-black">Ready for assignment</p>
+                                        </div>
+                                    </div>
+                                    {assignToAct.isPending ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Plus className="w-4 h-4 text-muted-foreground" />}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                        <Button variant="ghost" onClick={() => setShowAssignModal(false)} className="text-muted-foreground">
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Edit Participant Modal */}
+            {participant && (
+                <EditParticipantModal
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    participant={participant}
+                />
+            )}
         </div>
-    );
+    </div>
+);
 }
 
 export default ParticipantProfilePage;

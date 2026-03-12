@@ -66,5 +66,20 @@ When, and **only when**, the "Build" phase is active, all file modifications **M
   <description>[Provide a concise summary of the overall changes being made]</description>
   <change>
     <file>[Provide the ABSOLUTE, FULL path to the file being modified]</file>
-    <content><![CDATA[Provide the ENTIRE, FINAL, intended content of the file here. Do NOT provide diffs or partial snippets. Ensure all code is properly escaped within the CDATA section.
+    <content><![CDATA[Provide the ENTIRE, FINAL, intended content of the file here. Do NOT provide diffs or partial snippets. Ensure all code is properly escaped within the CDATA section.]]]]><![CDATA[>]]></content>
+  </change>
+</changes>
 ```
+
+---
+
+## **IV. OPERATIONAL EFFICIENCY & CREDIT CONSERVATION**
+
+**1. Minimize Browser Usage:** The `browser_subagent` tool is credit-intensive. I will prioritize alternative verification methods:
+    *   **Unit Tests/CLI:** Use `run_command` to execute `npm test`, `tsc`, or custom verification scripts.
+    *   **Database Queries:** Use `mcp_supabase-mcp-server_execute_sql` or `mcp_SupabaseDB_query` to verify data state.
+    *   **Code Inspection:** Trust static analysis and `grep` for logic verification when sufficient.
+
+**2. Permission Protocol:** I must **ALWAYS** ask the user for explicit permission before invoking the `browser_subagent` tool. Use `notify_user` to request this permission.
+
+**3. Direct Tool Usage:** Use specific tools (e.g., `list_dir`, `view_file`, `run_command`) directly instead of asking a browser subagent to perform filesystem or data tasks.

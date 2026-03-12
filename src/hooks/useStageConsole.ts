@@ -34,7 +34,8 @@ export function useStageConsole(stageId: string | null) {
                         *,
                         act_participants(
                             participant:participants(id, first_name, last_name)
-                        )
+                        ),
+                        requirements:act_requirements(*)
                     )
                 `)
                 .eq('stage_id', stageId)
@@ -61,6 +62,13 @@ export function useStageConsole(stageId: string | null) {
                         participantId: p.participant.id,
                         firstName: p.participant.first_name,
                         lastName: p.participant.last_name,
+                    })),
+                    requirements: row.act.requirements?.map((r: any) => ({
+                        id: r.id,
+                        type: r.requirement_type,
+                        description: r.description,
+                        fileUrl: r.file_url,
+                        fulfilled: r.fulfilled
                     }))
                 }
             }));
@@ -98,6 +106,24 @@ export function useStageConsole(stageId: string | null) {
     const current = currentIndex !== -1 ? lineup?.[currentIndex] : null;
     const next = currentIndex + 1 < (lineup?.length ?? 0) ? lineup?.[currentIndex + 1] : null;
     const upcoming = currentIndex + 2 < (lineup?.length ?? 0) ? lineup?.[currentIndex + 2] : null;
+
+    // Prefetch media for the next act to ensure smooth offline transitions
+    useEffect(() => {
+        if (!next?.act?.requirements) return;
+
+        next.act.requirements.forEach((req: any) => {
+            if (req.fulfilled && req.fileUrl) {
+                if (req.type === 'Poster') {
+                    const img = new Image();
+                    img.src = req.fileUrl;
+                } else if (req.type === 'Video') {
+                    const vid = document.createElement('video');
+                    vid.src = req.fileUrl;
+                    vid.preload = 'auto';
+                }
+            }
+        });
+    }, [next]);
 
     const updateState = useMutation({
         mutationFn: async (updates: { status?: StageStatus, current_lineup_item_id?: string | null }) => {

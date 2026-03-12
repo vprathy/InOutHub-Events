@@ -26,7 +26,8 @@ export function useLineupQuery(stageId: string | null) {
                                 guardian_name,
                                 guardian_phone
                             )
-                        )
+                        ),
+                        requirements:act_requirements(*)
                     )
                 `)
                 .eq('stage_id', stageId)
@@ -57,6 +58,13 @@ export function useLineupQuery(stageId: string | null) {
                         role: p.role,
                         guardianName: p.participant.guardian_name,
                         guardianPhone: p.participant.guardian_phone
+                    })),
+                    requirements: row.act.requirements?.map((r: any) => ({
+                        id: r.id,
+                        type: r.requirement_type,
+                        description: r.description,
+                        fileUrl: r.file_url,
+                        fulfilled: r.fulfilled
                     }))
                 }
             }));
@@ -253,7 +261,8 @@ export function useAllEventLineupQuery(eventId: string) {
                                 first_name,
                                 last_name
                             )
-                        )
+                        ),
+                        requirements:act_requirements(*)
                     )
                 `)
                 .in('stage_id', stageIds);
@@ -281,6 +290,13 @@ export function useAllEventLineupQuery(eventId: string) {
                         firstName: p.participant.first_name,
                         lastName: p.participant.last_name,
                         role: p.role
+                    })),
+                    requirements: row.act.requirements?.map((r: any) => ({
+                        id: r.id,
+                        type: r.requirement_type,
+                        description: r.description,
+                        fileUrl: r.file_url,
+                        fulfilled: r.fulfilled
                     }))
                 }
             }));

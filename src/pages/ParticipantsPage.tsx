@@ -18,7 +18,6 @@ import {
     CheckCircle2,
     Clock,
     AlertTriangle,
-    Calendar,
     ArrowUpRight,
     Plus,
     Database,
@@ -161,30 +160,30 @@ export default function ParticipantsPage() {
                 </div>
                 <button
                     onClick={() => setIsImportModalOpen(true)}
-                    className="flex items-center space-x-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    className="flex items-center space-x-2 bg-primary text-primary-foreground h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-3.5 h-3.5" />
                     <span>Sync Now</span>
                 </button>
             </div>
 
             {/* Operational Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div onClick={() => setActiveFilter('all')} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</p>
-                    <p className="text-2xl font-black mt-1">{stats.total}</p>
+                <div onClick={() => setActiveFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
+                    <p className="text-xl font-bold mt-0.5">{stats.total}</p>
                 </div>
-                <div onClick={() => setActiveFilter('ready')} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Ready</p>
-                    <p className="text-2xl font-black mt-1">{stats.ready}</p>
+                <div onClick={() => setActiveFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Ready</p>
+                    <p className="text-xl font-bold mt-0.5">{stats.ready}</p>
                 </div>
-                <div onClick={() => setActiveFilter('missing')} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Missing Forms</p>
-                    <p className="text-2xl font-black mt-1">{stats.missing}</p>
+                <div onClick={() => setActiveFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-amber-600">Missing Forms</p>
+                    <p className="text-xl font-bold mt-0.5">{stats.missing}</p>
                 </div>
-                <div onClick={() => setActiveFilter('unassigned')} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Needs Placement</p>
-                    <p className="text-2xl font-black mt-1">{stats.unassigned}</p>
+                <div onClick={() => setActiveFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-600">Needs Placement</p>
+                    <p className="text-xl font-bold mt-0.5">{stats.unassigned}</p>
                 </div>
             </div>
 
@@ -198,21 +197,21 @@ export default function ParticipantsPage() {
                             placeholder="Find someone on the roster..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium"
+                            className="w-full pl-10 pr-4 h-10 bg-card border border-border rounded-lg text-sm focus:outline-none transition-all font-medium antialiased"
                         />
                     </div>
                     <div className="relative">
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="appearance-none bg-card border border-border rounded-xl pl-4 pr-10 py-3.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
+                            className="appearance-none bg-card border border-border rounded-lg pl-3 pr-8 h-10 text-[10px] font-bold uppercase tracking-wider focus:outline-none transition-all cursor-pointer antialiased"
                         >
-                            <option value="name">Sort: Name</option>
-                            <option value="age">Sort: Age</option>
-                            <option value="readiness">Sort: Ready</option>
-                            <option value="recent">Sort: Recent</option>
+                            <option value="name">Name</option>
+                            <option value="age">Age</option>
+                            <option value="readiness">Ready</option>
+                            <option value="recent">Recent</option>
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                     </div>
                 </div>
 
@@ -293,44 +292,42 @@ export default function ParticipantsPage() {
                         return (
                             <div
                                 key={participant.id}
-                                className={`group bg-card rounded-2xl border transition-all overflow-hidden ${isExpanded ? 'ring-2 ring-primary/30 border-primary shadow-xl shadow-primary/5' : 'border-border hover:border-primary/40 shadow-sm'}`}
+                                className={`group bg-card rounded-lg border transition-all overflow-hidden ${isExpanded ? 'ring-2 ring-primary/20 border-primary/50 shadow-md' : 'border-border hover:border-primary/40 shadow-sm antialiased'}`}
                             >
                                 {/* Compact Card Top */}
                                 <div
-                                    className="p-4 cursor-pointer"
+                                    className="p-3 cursor-pointer"
                                     onClick={() => setExpandedId(isExpanded ? null : participant.id)}
                                 >
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center space-x-3">
-                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isReady ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/10 text-primary'}`}>
+                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isReady ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
                                                 <User className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-base tracking-tight">{participant.firstName} {participant.lastName}</h3>
-                                                <div className="flex items-center space-x-2 mt-0.5">
+                                                <h3 className="font-bold text-sm tracking-tight text-foreground">{participant.firstName} {participant.lastName}</h3>
+                                                <div className="flex items-center space-x-1.5 mt-0.5">
                                                     {participant.age && (
-                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{participant.age} yrs</span>
+                                                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{participant.age} yrs</span>
                                                     )}
-                                                    {participant.status === 'active' && (
-                                                        <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                                                    )}
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                                        {participant.actCount ? `${participant.actCount} Performances` : 'Needs Placement'}
+                                                    <span className="w-0.5 h-0.5 rounded-full bg-border" />
+                                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                                                        {participant.actCount ? `${participant.actCount} Acts` : 'Needs Placement'}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end space-y-2">
+                                        <div className="flex flex-col items-end">
                                             {isReady ? (
-                                                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] h-5 px-2 font-bold uppercase rounded-lg">
+                                                <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
                                                     Ready
                                                 </Badge>
                                             ) : (participant.assetStats?.missing || 0) > 0 ? (
-                                                <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] h-5 px-2 font-bold uppercase rounded-lg">
-                                                    Action Required
+                                                <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
+                                                    Requires Work
                                                 </Badge>
                                             ) : (
-                                                <Badge className="bg-muted text-muted-foreground border-border text-[10px] h-5 px-2 font-bold uppercase rounded-lg">
+                                                <Badge className="bg-muted text-muted-foreground border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
                                                     Pending
                                                 </Badge>
                                             )}
@@ -338,61 +335,55 @@ export default function ParticipantsPage() {
                                     </div>
 
                                     {/* Quick Info Tags */}
-                                    <div className="flex flex-wrap gap-2 mt-4">
+                                    <div className="flex flex-wrap gap-1.5 mt-3">
                                         {participant.hasSpecialRequests && (
-                                            <div className="flex items-center px-2 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-[10px] font-bold uppercase">
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 text-[9px] font-bold uppercase">
                                                 <AlertTriangle className="w-3 h-3 mr-1" />
-                                                Special Request
+                                                Review
                                             </div>
                                         )}
                                         {participant.assetStats?.missing ? (
-                                            <div className="flex items-center px-2 py-1 rounded-lg bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase">
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[9px] font-bold uppercase">
                                                 <Clock className="w-3 h-3 mr-1" />
-                                                {participant.assetStats.missing} Forms Pending
+                                                {participant.assetStats.missing} Forms
                                             </div>
                                         ) : null}
-                                        {participant.actCount === 0 && (
-                                            <div className="flex items-center px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-500 text-[10px] font-bold uppercase">
-                                                <Calendar className="w-3 h-3 mr-1" />
-                                                Needs Placement
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
                                 {/* Thumb-Friendly Action Bar */}
-                                <div className="px-4 pb-4 flex items-center justify-between border-t border-border/50 pt-4 bg-accent/20">
+                                <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50 bg-accent/10">
                                     <div className="flex items-center space-x-2">
                                         {participant.guardianPhone && (
                                             <a
                                                 href={`tel:${participant.guardianPhone}`}
-                                                className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-110 active:scale-95 transition-all"
+                                                className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <Phone className="w-4 h-4" />
+                                                <Phone className="w-3.5 h-3.5" />
                                             </a>
                                         )}
                                         <button
-                                            className="w-10 h-10 rounded-xl bg-white border border-border flex items-center justify-center text-muted-foreground shadow-sm hover:border-primary/50 transition-colors"
+                                            className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setNotingParticipant(participant.id);
                                             }}
                                         >
-                                            <MessageSquare className="w-4 h-4 text-primary" />
+                                            <MessageSquare className="w-3.5 h-3.5" />
                                         </button>
                                         <button
-                                            className="w-10 h-10 rounded-xl bg-white border border-border flex items-center justify-center text-muted-foreground shadow-sm hover:border-indigo-500/50 transition-colors"
+                                            className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-indigo-600 shadow-sm hover:border-indigo-500/50 transition-colors"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setAssigningParticipant(participant.id);
                                             }}
                                         >
-                                            <Plus className="w-4 h-4 text-indigo-500" />
+                                            <Plus className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                     <button
-                                        className="flex items-center space-x-1.5 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-foreground shadow-sm hover:bg-accent transition-all"
+                                        className="flex items-center space-x-1.5 h-8 px-3 bg-background border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             navigate(`/participants/${participant.id}`);
