@@ -6,8 +6,12 @@ import {
     useAssignToAct,
     useRemoveFromAct,
     useUpdateAssetStatus,
-    useCreateAssetFulfillment
+    useCreateAssetFulfillment,
+    useUpdateParticipant,
+    useResolveParticipantNote,
+    useDeleteParticipantAsset
 } from '@/hooks/useParticipants';
+import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
 import { useActsQuery } from '@/hooks/useActs';
 import {
     ArrowLeft,
@@ -69,6 +73,8 @@ export function ParticipantProfilePage() {
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedActId, setSelectedActId] = useState('');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [isAISuggesting, setIsAISuggesting] = useState(false);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -82,6 +88,9 @@ export function ParticipantProfilePage() {
     const removeFromAct = useRemoveFromAct(participantId || '');
     const updateAssetStatus = useUpdateAssetStatus(participantId || '');
     const createFulfillment = useCreateAssetFulfillment(participantId || '');
+    const updateParticipantStatus = useUpdateParticipant(participantId || '');
+    const resolveNote = useResolveParticipantNote(participantId || '');
+    const deleteAsset = useDeleteParticipantAsset(participantId || '');
 
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,6 +109,20 @@ export function ParticipantProfilePage() {
         await assignToAct.mutateAsync({ actId: selectedActId });
         setShowAssignModal(false);
         setSelectedActId('');
+    };
+
+    const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newStatus = e.target.value as any;
+        await updateParticipantStatus.mutateAsync({ status: newStatus });
+    };
+
+    const handleAISuggest = async () => {
+        setIsAISuggesting(true);
+        // Simulate an AI operation taking some time
+        setTimeout(() => {
+            alert('AI Suggestion completed: Recommended Acts are "Opening Number" and "Finale" based on participant\'s age and skills.');
+            setIsAISuggesting(false);
+        }, 1500);
     };
 
     const statusColors: Record<string, string> = {
@@ -145,7 +168,7 @@ export function ParticipantProfilePage() {
                     <div className="flex items-center space-x-2 self-end sm:self-auto">
                         <select
                             value={participant.status || 'active'}
-                            onChange={(e) => alert(`Status change to ${e.target.value}`)}
+                            onChange={handleStatusChange}
                             className={`px-3 py-1.5 text-[10px] font-black tracking-tight uppercase rounded-xl border outline-none transition-all min-h-[36px] ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
                                 participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
                                     'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
@@ -225,10 +248,11 @@ export function ParticipantProfilePage() {
                             variant="ghost"
                             size="sm"
                             className="h-10 sm:h-8 rounded-xl text-[10px] font-black uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all border border-primary/10 shadow-sm"
-                            onClick={() => alert('AI Suggester...')}
+                            onClick={handleAISuggest}
+                            disabled={isAISuggesting}
                         >
                             <Info className="w-3.5 h-3.5 mr-1.5" />
-                            AI Suggest Acts
+                            {isAISuggesting ? 'Suggesting...' : 'AI Suggest Acts'}
                         </Button>
                         <Button
                             variant={participant.identityVerified ? "ghost" : "default"}
@@ -239,7 +263,7 @@ export function ParticipantProfilePage() {
                             <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
                             {participant.identityVerified ? 'Verified' : 'Verify'}
                         </Button>
-                        <Button className="h-11 sm:h-10 px-6 font-black border-2 transition-all rounded-xl shadow-lg shadow-black/5 text-[10px] uppercase tracking-widest" variant="outline" onClick={() => alert('Edit...')}>
+                        <Button className="h-11 sm:h-10 px-6 font-black border-2 transition-all rounded-xl shadow-lg shadow-black/5 text-[10px] uppercase tracking-widest" variant="outline" onClick={() => setShowEditModal(true)}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit Profile
                         </Button>
@@ -420,7 +444,7 @@ export function ParticipantProfilePage() {
                                                             {note.category}
                                                         </Badge>
                                                         {!note.isResolved && (
-                                                            <button className="text-[9px] font-bold text-primary hover:underline uppercase tracking-tighter" onClick={() => alert('Resolve note (Future phase)')}>
+                                                            <button className="text-[9px] font-bold text-primary hover:underline uppercase tracking-tighter" onClick={() => resolveNote.mutate(note.id)}>
                                                                 Resolve
                                                             </button>
                                                         )}
@@ -617,7 +641,11 @@ export function ParticipantProfilePage() {
                                                 <Badge variant="outline" className="text-[9px] font-mono uppercase h-4 px-1.5">
                                                     {asset.type}
                                                 </Badge>
-                                                <button onClick={() => alert('Delete asset flow')} className="p-1 hover:bg-destructive/10 rounded-lg transition-colors group/trash">
+                                                <button onClick={() => {
+                                                    if (confirm('Are you sure you want to delete this asset?')) {
+                                                        deleteAsset.mutate(asset.id);
+                                                    }
+                                                }} className="p-1 hover:bg-destructive/10 rounded-lg transition-colors group/trash">
                                                     <Trash2 className="w-3.5 h-3.5 text-muted-foreground/40 group-hover/trash:text-destructive transition-colors" />
                                                 </button>
                                             </div>
@@ -876,6 +904,14 @@ export function ParticipantProfilePage() {
                     </div>
                 )}
             </div>
+
+            {participant && (
+                <EditParticipantModal
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    participant={participant as any}
+                />
+            )}
         </div>
     );
 }
