@@ -1,7 +1,10 @@
-import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle } from 'lucide-react';
+import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { StatusPicker } from '@/components/acts/StatusPicker';
+import { useUpdateActStatus } from '@/hooks/useActs';
+import type { ActParticipantDetail } from '@/types/domain';
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -18,6 +21,8 @@ interface LivePerformanceControllerProps {
 }
 
 export function LivePerformanceController({ current, next, upcoming, status, actions }: LivePerformanceControllerProps) {
+    const { mutate: updateStatus, isPending } = useUpdateActStatus();
+
     if (status === 'Idle') {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center space-y-6">
@@ -70,9 +75,9 @@ export function LivePerformanceController({ current, next, upcoming, status, act
 
                                 {/* Participants List */}
                                 <div className="flex flex-wrap gap-2 pt-2">
-                                    {current?.act?.act_participants?.map((ap: any) => (
-                                        <Badge key={ap.participant.id} variant="outline" className="bg-neutral-800 border-neutral-700 text-neutral-300 font-bold px-3 py-1">
-                                            {ap.participant.first_name} {ap.participant.last_name}
+                                    {current?.act?.act_participants?.map((ap: ActParticipantDetail) => (
+                                        <Badge key={ap.participantId} variant="outline" className="bg-neutral-800 border-neutral-700 text-neutral-300 font-bold px-3 py-1">
+                                            {ap.firstName} {ap.lastName}
                                         </Badge>
                                     ))}
                                     {(!current?.act?.act_participants || current.act.act_participants.length === 0) && (
@@ -147,26 +152,43 @@ export function LivePerformanceController({ current, next, upcoming, status, act
                     </p>
                     <Card className="p-6 border-primary/20 bg-primary/[0.02] transition-colors hover:bg-primary/[0.04]">
                         {next ? (
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-2xl font-black text-foreground">{next.act.name}</h3>
-                                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 font-bold">
-                                        <div className="flex items-center gap-1">
-                                            <Timer size={14} />
-                                            <span>{next.act.durationMinutes}m</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Clock size={14} />
-                                            <span>{next.act.setupTimeMinutes}m Setup</span>
+                            <>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-2xl font-black text-foreground">{next.act.name}</h3>
+                                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 font-bold">
+                                            <div className="flex items-center gap-1">
+                                                <Timer size={14} />
+                                                <span>{next.act.durationMinutes}m</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Clock size={14} />
+                                                <span>{next.act.setupTimeMinutes}m Setup</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="text-right flex flex-col items-end gap-2">
+                                        <Badge variant="outline" className="font-black text-[10px]">
+                                            {new Date(next.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </Badge>
+                                        {next.act.arrivalStatus === 'Ready' && (
+                                            <div className="flex items-center gap-1 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
+                                                <CheckCircle2 size={12} /> Ready
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <Badge variant="outline" className="font-black text-[10px]">
-                                        {new Date(next.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </Badge>
+
+                                {/* Operational Status Workflow for Next Act */}
+                                <div className="mt-6 pt-4 border-t border-primary/10">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-3">Update Stage Status</p>
+                                    <StatusPicker
+                                        currentStatus={next.act.arrivalStatus}
+                                        onStatusChange={(status) => updateStatus({ actId: next.act.id, status })}
+                                        isLoading={isPending}
+                                    />
                                 </div>
-                            </div>
+                            </>
                         ) : (
                             <div className="text-muted-foreground font-bold italic py-2">Finishing Lineup...</div>
                         )}

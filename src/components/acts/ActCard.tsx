@@ -1,7 +1,5 @@
 import type { ActWithCounts } from '@/types/domain';
-import { useUpdateActStatus } from '@/hooks/useActs';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { StatusPicker } from '@/components/acts/StatusPicker';
 import { Clock, Info, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,11 +9,10 @@ interface ActCardProps {
 
 export function ActCard({ act }: ActCardProps) {
     const navigate = useNavigate();
-    const { mutate: updateStatus, isPending } = useUpdateActStatus();
 
     return (
         <div
-            className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all hover:border-primary/50 flex flex-col space-y-4 cursor-pointer group"
+            className="bg-card border border-border rounded-xl p-3 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group"
             onClick={() => navigate(`/acts/${act.id}`)}
         >
             {/* Top Section: Name and Indicators */}
@@ -46,21 +43,6 @@ export function ActCard({ act }: ActCardProps) {
                 />
             </div>
 
-            {/* Arrival Status Rapid Switcher */}
-            <div className="pt-2">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center justify-between">
-                    <span>Operational Status</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'
-                        }`}>
-                        {act.arrivalStatus}
-                    </span>
-                </div>
-                <StatusPicker
-                    currentStatus={act.arrivalStatus}
-                    onStatusChange={(status) => updateStatus({ actId: act.id, status })}
-                    isLoading={isPending}
-                />
-            </div>
         </div>
     );
 }

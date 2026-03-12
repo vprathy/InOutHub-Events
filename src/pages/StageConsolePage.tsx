@@ -6,7 +6,6 @@ import { useStageConsole } from '@/hooks/useStageConsole';
 import { LivePerformanceController } from '@/components/console/LivePerformanceController';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Badge } from '@/components/ui/Badge';
 import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
 
