@@ -126,6 +126,15 @@ export function ParticipantProfilePage() {
             setShowAssignModal(true);
             return;
         }
+        const existingPoster = participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled);
+        
+        if (existingPoster) {
+            const confirmRegen = window.confirm(
+                "A cinematic poster already exists for this act. Regenerating will use additional AI credits. Do you want to continue?"
+            );
+            if (!confirmRegen) return;
+        }
+
         setAiSuggestLoading(true);
         // Keep previous result visible until new one arrives to avoid "flicker/vanishing"
         try {
@@ -319,7 +328,7 @@ export function ParticipantProfilePage() {
                             disabled={aiSuggestLoading}
                         >
                             {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                            {aiSuggestLoading ? 'Generating...' : (participant.assets?.length ? 'Regenerate AI Assets' : 'AI Suggest Acts')}
+                            {aiSuggestLoading ? 'Generating...' : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate AI Assets' : 'AI Suggest Acts')}
                         </Button>
                         <Button 
                             className="h-9 w-full sm:w-auto px-4 font-bold border border-border/50 hover:border-primary/50 transition-all rounded-lg shadow-sm text-[10px] uppercase tracking-wider antialiased" 
