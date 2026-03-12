@@ -203,9 +203,19 @@ function OverviewTab({ act }: { act: any }) {
 
 function CastTab({ participants }: { participants: any[] }) {
     const navigate = useNavigate();
+    const [isAISuggesting, setIsAISuggesting] = useState(false);
 
     const team = participants.filter(p => ['Manager', 'Choreographer', 'Support'].includes(p.role));
     const performers = participants.filter(p => !['Manager', 'Choreographer', 'Support'].includes(p.role));
+
+    const handleAISuggest = async () => {
+        setIsAISuggesting(true);
+        // Simulate an AI operation taking some time
+        setTimeout(() => {
+            alert('AI Suggestion completed: Recommended participants to cast are "John Doe" and "Jane Smith".');
+            setIsAISuggesting(false);
+        }, 1500);
+    };
 
     return (
         <div className="space-y-6">
@@ -242,9 +252,9 @@ function CastTab({ participants }: { participants: any[] }) {
                         Cast / Performers
                     </h3>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="font-black text-primary text-xs bg-primary/5 hover:bg-primary/10 transition-all">
+                        <Button size="sm" variant="ghost" className="font-black text-primary text-xs bg-primary/5 hover:bg-primary/10 transition-all" onClick={handleAISuggest} disabled={isAISuggesting}>
                             <Info size={14} className="mr-1.5" />
-                            AI Suggest Cast
+                            {isAISuggesting ? 'Suggesting...' : 'AI Suggest Cast'}
                         </Button>
                         <Button size="sm" variant="outline" className="font-bold border-border">
                             <UserPlus size={16} className="mr-2" />

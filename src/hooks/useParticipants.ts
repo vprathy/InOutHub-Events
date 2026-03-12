@@ -326,13 +326,14 @@ export function useUpdateParticipant(participantId: string) {
     return useMutation({
         mutationFn: async (updates: Partial<Participant>) => {
             const dbUpdates: any = {};
-            if (updates.firstName) dbUpdates.first_name = updates.firstName;
-            if (updates.lastName) dbUpdates.last_name = updates.lastName;
+            if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
+            if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
             if (updates.guardianName !== undefined) dbUpdates.guardian_name = updates.guardianName;
             if (updates.guardianPhone !== undefined) dbUpdates.guardian_phone = updates.guardianPhone;
             if (updates.guardianRelationship !== undefined) dbUpdates.guardian_relationship = updates.guardianRelationship;
             if (updates.isMinor !== undefined) dbUpdates.is_minor = updates.isMinor;
             if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
 
             const { data, error } = await supabase
                 .from('participants')
@@ -350,6 +351,45 @@ export function useUpdateParticipant(participantId: string) {
         },
         onError: (error) => {
             console.error('Update error:', error);
+        }
+    });
+}
+
+export function useResolveParticipantNote(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (noteId: string) => {
+            const { data, error } = await (supabase as any)
+                .from('participant_notes')
+                .update({ is_resolved: true, resolved_at: new Date().toISOString() })
+                .eq('id', noteId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+        }
+    });
+}
+
+export function useDeleteParticipantAsset(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (assetId: string) => {
+            const { error } = await (supabase as any)
+                .from('participant_assets')
+                .delete()
+                .eq('id', assetId);
+
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
         }
     });
 }
