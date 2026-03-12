@@ -41,7 +41,29 @@ export function useStageConsole(stageId: string | null) {
                 .order('sort_order', { ascending: true });
 
             if (error) throw error;
-            return data as any[];
+
+            return (data as any[]).map((row): any => ({
+                id: row.id,
+                stageId: row.stage_id,
+                actId: row.act_id,
+                scheduledStartTime: row.scheduled_start_time,
+                sortOrder: row.sort_order,
+                executionStatus: row.execution_status || 'Queued',
+                act: {
+                    id: row.act.id,
+                    eventId: row.act.event_id,
+                    name: row.act.name,
+                    durationMinutes: row.act.duration_minutes,
+                    setupTimeMinutes: row.act.setup_time_minutes,
+                    arrivalStatus: row.act.arrival_status,
+                    notes: row.act.notes,
+                    act_participants: row.act.act_participants?.map((p: any) => ({
+                        participantId: p.participant.id,
+                        firstName: p.participant.first_name,
+                        lastName: p.participant.last_name,
+                    }))
+                }
+            }));
         },
         enabled: !!stageId,
     });
@@ -119,12 +141,24 @@ export function useStageConsole(stageId: string | null) {
         updateState.mutate({ status: 'Idle', current_lineup_item_id: null });
     };
 
+    const now = Date.now();
+    const scheduledStart = current ? new Date(current.scheduledStartTime).getTime() : 0;
+    const scheduledEnd = current ? scheduledStart + (current.act.durationMinutes * 60000) : 0;
+
+    // Drift is positive if we're past the scheduled start
+    const driftMinutes = current ? Math.floor((now - scheduledStart) / 60000) : 0;
+    const isOvertime = current && now > scheduledEnd;
+    const overtimeMinutes = isOvertime ? Math.floor((now - scheduledEnd) / 60000) : 0;
+
     return {
         stageState,
         lineup,
         current,
         next,
         upcoming,
+        driftMinutes,
+        isOvertime,
+        overtimeMinutes,
         isLoading: isLoadingState || isLoadingLineup,
         actions: {
             startShow,

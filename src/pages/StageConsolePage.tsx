@@ -19,6 +19,9 @@ export default function StageConsolePage() {
         current,
         next,
         upcoming,
+        driftMinutes,
+        isOvertime,
+        overtimeMinutes,
         isLoading,
         actions
     } = useStageConsole(selectedStageId);
@@ -93,6 +96,9 @@ export default function StageConsolePage() {
                     next={next}
                     upcoming={upcoming}
                     status={stageState?.status || 'Idle'}
+                    driftMinutes={driftMinutes}
+                    isOvertime={isOvertime}
+                    overtimeMinutes={overtimeMinutes}
                     actions={actions}
                 />
             ) : (
