@@ -55,15 +55,15 @@ export const router = createBrowserRouter([
                 path: 'stage-console',
                 element: <StageConsolePage />,
             },
-            {
-                path: 'dev/login',
-                element: <DevQuickLogin />,
-            },
-            {
-                path: 'prototype/intro',
-                element: <IntroVideoPrototype />,
-            },
         ],
+    },
+    {
+        path: '/dev/login',
+        element: <DevQuickLogin />,
+    },
+    {
+        path: '/prototype/intro',
+        element: <IntroVideoPrototype />,
     },
     {
         path: '/select-org',
