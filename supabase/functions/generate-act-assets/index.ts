@@ -121,7 +121,7 @@ serve(async (req: Request) => {
     }
 
     // 4. Persistence to Supabase Storage
-    const bucket = 'performance-assets'
+    const { bucket = 'participant-assets' } = await req.json().catch(() => ({}));
     const filePath = `acts/${actId}/poster_${Date.now()}.png`
     
     // Convert base64 to Uint8Array for upload
@@ -160,6 +160,8 @@ serve(async (req: Request) => {
         status: 'Assets Generated',
         message: 'AI Intro Assets Ready',
         publicUrl,
+        bucket,
+        filePath
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )

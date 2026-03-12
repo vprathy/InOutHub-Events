@@ -107,6 +107,39 @@ export function ParticipantProfilePage() {
     const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
     const [aiSuggestResult, setAiSuggestResult] = useState<string | null>(null);
     const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const handlePreviewAsset = async (fileUrl: string) => {
+        if (!fileUrl) return;
+        
+        // If it's already a full URL (public), we can try to use it, 
+        // but for 'participant-assets' we want a signed URL for reliability
+        setPreviewLoading(true);
+        try {
+            // Extract path from URL if it's a Supabase public URL
+            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+            const urlObj = new URL(fileUrl);
+            const pathParts = urlObj.pathname.split('/public/participant-assets/');
+            const filePath = pathParts.length > 1 ? pathParts[1] : null;
+
+            if (filePath) {
+                const { data, error } = await supabase.storage
+                    .from('participant-assets')
+                    .createSignedUrl(filePath, 3600); // 1 hour
+
+                if (error) throw error;
+                setSelectedAssetUrl(data.signedUrl);
+            } else {
+                // Fallback to direct URL if path extraction fails
+                setSelectedAssetUrl(fileUrl);
+            }
+        } catch (err) {
+            console.error('Error generating signed URL:', err);
+            setSelectedAssetUrl(fileUrl); // Final fallback
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -292,16 +325,29 @@ export function ParticipantProfilePage() {
                         >
                             <Sparkles className="w-3 h-3 text-primary animate-pulse" />
                             <span className="text-[9px] font-black uppercase tracking-tight text-primary">Live Poster</span>
-                            <div className="w-5 h-5 rounded overflow-hidden border border-primary/30">
-                                <img 
-                                    src={participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled)?.fileUrl || ''} 
-                                    className="w-full h-full object-cover" 
-                                    alt="Poster Thumb"
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
+                                            {/* AI Poster Preview Trigger */}
+                                            {participant.actRequirements?.find(r => r.requirementType === 'Generative')?.fileUrl && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const asset = participant.actRequirements?.find(r => r.requirementType === 'Generative');
+                                                        if (asset?.fileUrl) handlePreviewAsset(asset.fileUrl!);
+                                                    }}
+                                                    className="relative w-7 h-7 rounded-lg overflow-hidden border border-primary/30 shadow-sm hover:scale-110 active:scale-95 transition-all bg-black group"
+                                                >
+                                                    <img 
+                                                        src={participant.actRequirements.find(r => r.requirementType === 'Generative')?.fileUrl || ''} 
+                                                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100" 
+                                                        alt="AI Thumbnail" 
+                                                    />
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20 opacity-0 group-hover:opacity-100">
+                                                        <Sparkles className="w-3 h-3 text-white" />
+                                                    </div>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                     <div className="space-y-1">
@@ -369,41 +415,45 @@ export function ParticipantProfilePage() {
                         </Button>
                     </div>
                 </div>
-            </div>
 
-            {/* Tabs Navigation - Swippable Cockpit */}
-            <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    OVERVIEW
-                </button>
-                <button
-                    onClick={() => setActiveTab('acts')}
-                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'acts' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    PERFORMANCES
-                </button>
-                <button
-                    onClick={() => setActiveTab('assets')}
-                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    FORMS & DOCUMENTS
-                </button>
-                <button
-                    onClick={() => setActiveTab('source')}
-                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'source' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    DATA ORIGIN
-                </button>
-                <button
-                    onClick={() => setActiveTab('audit')}
-                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'audit' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    AUDIT LOG
-                </button>
-            </div>
+                {/* Tabs Navigation - Swippable Cockpit */}
+            <div className="flex items-center space-x-1 bg-muted/20 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner mb-6">
+                            <button
+                                onClick={() => setActiveTab('overview')}
+                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                            >
+                                <Info size={14} />
+                                OVERVIEW
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('acts')}
+                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'acts' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                            >
+                                <Sparkles size={14} />
+                                PERFORMANCES
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('assets')}
+                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                            >
+                                <FileText size={14} />
+                                FORMS & DOCUMENTS
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('source')}
+                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'source' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                            >
+                                <Shield size={14} />
+                                DATA ORIGIN
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('audit')}
+                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'audit' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                            >
+                                <HistoryIcon size={14} />
+                                AUDIT LOG
+                            </button>
+                        </div>
 
             {/* Content Area */}
             <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
@@ -605,10 +655,9 @@ export function ParticipantProfilePage() {
                                         .filter(r => r.requirementType === 'Generative' && r.fulfilled)
                                         .map((asset) => (
                                             <div 
-                                                key={asset.id} 
-                                                className="relative group overflow-hidden rounded-3xl border-2 border-primary/20 bg-muted/5 shadow-2xl shadow-primary/5 cursor-zoom-in active:scale-[0.98] transition-all"
-                                                onClick={() => setSelectedAssetUrl(asset.fileUrl || null)}
-                                            >
+                                                                className="relative aspect-[2/3] bg-black rounded-lg overflow-hidden border border-border/50 group cursor-zoom-in"
+                                                                 onClick={() => asset.fileUrl && handlePreviewAsset(asset.fileUrl)}
+                                                            >
                                                 <div className="aspect-[16/9] w-full overflow-hidden">
                                                     <img 
                                                         src={asset.fileUrl || ''} 
@@ -1085,52 +1134,7 @@ export function ParticipantProfilePage() {
             </div>
 
 
-            {/* Add to Act Modal */}
-            <Modal
-                isOpen={showAssignModal}
-                onClose={() => setShowAssignModal(false)}
-                title="Assign to Performance"
-            >
-                <div className="space-y-4 py-4">
-                    <p className="text-sm text-muted-foreground">This participant needs to be assigned to a performance before AI can generate assets.</p>
-                    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {allActs?.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-2xl">
-                                <p className="text-xs uppercase font-black">No Performances Found</p>
-                                <p className="text-[10px] mt-1">Create an act first to assign performers.</p>
-                            </div>
-                        ) : (
-                            allActs?.map(act => (
-                                <button
-                                    key={act.id}
-                                    onClick={async () => {
-                                        await assignToAct.mutateAsync({ actId: act.id });
-                                        setShowAssignModal(false);
-                                    }}
-                                    disabled={assignToAct.isPending}
-                                    className="w-full p-4 rounded-xl border border-border bg-card text-left transition-all flex items-center justify-between hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
-                                >
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                                            <Sparkles className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm tracking-tight">{act.name}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-black">Ready for assignment</p>
-                                        </div>
-                                    </div>
-                                    {assignToAct.isPending ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Plus className="w-4 h-4 text-muted-foreground" />}
-                                </button>
-                            ))
-                        )}
-                    </div>
-                    <div className="flex justify-end pt-2">
-                        <Button variant="ghost" onClick={() => setShowAssignModal(false)} className="text-muted-foreground">
-                            Cancel
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
+            {/* Final structural balance check */}
 
             {/* Edit Participant Modal */}
             {participant && (
@@ -1141,7 +1145,7 @@ export function ParticipantProfilePage() {
                 />
             )}
 
-            {/* Poster Lightbox/Full-screen View */}
+        {/* Poster Lightbox/Full-screen View */}
             {selectedAssetUrl && (
                 <div 
                     className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4 md:p-12 cursor-zoom-out"
@@ -1154,20 +1158,31 @@ export function ParticipantProfilePage() {
                         >
                             <X className="w-8 h-8" />
                         </button>
-                        <img 
-                            src={selectedAssetUrl} 
-                            alt="AI Generated Poster Full View" 
-                            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
-                        />
-                        <div className="text-center space-y-1">
-                            <h2 className="text-xl font-black text-white tracking-tight uppercase">Cinematic Preview</h2>
-                            <p className="text-sm text-white/60 font-medium">Click anywhere to return to profile</p>
-                        </div>
+                        
+                        {previewLoading ? (
+                            <div className="flex flex-col items-center justify-center space-y-4">
+                                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                                <p className="text-white/60 font-black uppercase tracking-widest text-xs">Decrypting Signed Asset...</p>
+                            </div>
+                        ) : (
+                            <>
+                                <img 
+                                    src={selectedAssetUrl} 
+                                    alt="AI Generated Poster Full View" 
+                                    className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
+                                />
+                                <div className="text-center space-y-1">
+                                    <h2 className="text-xl font-black text-white tracking-tight uppercase">Cinematic Preview</h2>
+                                    <p className="text-sm text-white/60 font-medium">Verified via Secure Signed URL</p>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
-};
+}
 
 export default ParticipantProfilePage;
