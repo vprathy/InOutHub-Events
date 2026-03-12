@@ -1,7 +1,9 @@
+/// <reference lib="webworker" />
+
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
 
-declare let self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & typeof globalThis;
 
 // Cleanup old caches and claim clients immediately
 cleanupOutdatedCaches();
@@ -13,7 +15,7 @@ precacheAndRoute(self.__WB_MANIFEST);
 // --- Manifest-Driven Asset Caching Logic ---
 const ASSET_CACHE_NAME = 'event-assets-cache-v1';
 
-self.addEventListener('message', (event) => {
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
     if (event.data && event.data.type === 'CACHE_EVENT_ASSETS') {
         const { urls } = event.data.payload;
 

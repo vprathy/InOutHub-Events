@@ -104,23 +104,23 @@ export function ActCard({ act }: ActCardProps) {
             </div>
 
             {/* Tactical Action Bar */}
-            <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest"
+                    className="h-11 lg:h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
                     onClick={(e) => {
                         e.stopPropagation();
                         setIsAddParticipantOpen(true);
                     }}
                 >
                     <UserPlus className="w-3.5 h-3.5 mr-2 text-primary" />
-                    Add Performer
+                    <span className="truncate">Add Performer</span>
                 </Button>
                 <Button
                     variant="outline"
                     size="sm"
-                    className={`h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
+                    className={`h-11 lg:h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
                         }`}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -128,21 +128,21 @@ export function ActCard({ act }: ActCardProps) {
                     }}
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
-                    Music/Tech
+                    <span className="truncate">Music/Tech</span>
                 </Button>
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5"
+                    className="h-11 lg:h-10 rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5 col-span-2 lg:col-span-1"
                     onClick={handleGenerateAI}
                     disabled={isGenerating}
                 >
                     {isGenerating ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin text-primary" />
                     ) : (
                         <Sparkles className="w-3.5 h-3.5 mr-2" />
                     )}
-                    AI Intro
+                    AI Intro Kit
                 </Button>
             </div>
 

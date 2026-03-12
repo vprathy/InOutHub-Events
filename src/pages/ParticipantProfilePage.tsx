@@ -134,21 +134,21 @@ export function ParticipantProfilePage() {
         <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 px-4 md:px-0 pb-12">
             {/* Operational Header */}
             <div className="flex flex-col space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <button
                         onClick={() => navigate('/participants')}
-                        className="flex items-center text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group"
+                        className="flex items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group min-h-[44px]"
                     >
-                        <ArrowLeft className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" />
+                        <ArrowLeft className="w-3.5 h-3.5 mr-2 group-hover:-translate-x-1 transition-transform" />
                         Back to Participants
                     </button>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 self-end sm:self-auto">
                         <select
                             value={participant.status || 'active'}
-                            onChange={(e) => alert(`Status change to ${e.target.value} (Future Phase: needs useUpdateParticipant status field)`)}
-                            className={`px-2 py-0.5 text-[10px] font-bold tracking-tight uppercase rounded border outline-none transition-all ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                    participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
-                                        'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            onChange={(e) => alert(`Status change to ${e.target.value}`)}
+                            className={`px-3 py-1.5 text-[10px] font-black tracking-tight uppercase rounded-xl border outline-none transition-all min-h-[36px] ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                                participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
+                                    'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                                 }`}
                         >
                             <option value="active">Active</option>
@@ -157,52 +157,53 @@ export function ParticipantProfilePage() {
                             <option value="refunded">Refunded</option>
                             <option value="missing_from_source">Missing (Source)</option>
                         </select>
-                        <Badge variant="outline" className={`px-2 py-0.5 text-[10px] font-bold tracking-tight uppercase ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
-                            {participant.identityVerified ? 'Identity Confirmed' : 'Verification Required'}
+                        <Badge variant="outline" className={`px-3 py-1.5 text-[10px] font-black tracking-tight uppercase rounded-xl min-h-[36px] ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
+                            {participant.identityVerified ? 'Verified' : 'Unverified'}
                         </Badge>
                     </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div className="space-y-1">
-                        <div className="flex items-center space-x-3">
-                            <h1 className="text-3xl font-black tracking-tight text-foreground">
+                    <div className="space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-foreground">
                                 {participant.firstName} {participant.lastName}
                             </h1>
-                            {participant.acts && participant.acts.length > 1 && (
-                                <Badge className="bg-indigo-500 text-white border-none text-[10px] font-black uppercase h-6 px-3 flex items-center shadow-lg shadow-indigo-500/20 animate-pulse">
-                                    <Activity className="w-3 h-3 mr-1.5" />
-                                    Multi-Act Performer
-                                </Badge>
-                            )}
-                            {participant.age && (
-                                <span className="text-xl font-medium text-muted-foreground/60 tabular-nums">
-                                    {participant.age}
-                                </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {participant.acts && participant.acts.length > 1 && (
+                                    <Badge className="bg-indigo-500 text-white border-none text-[10px] font-black uppercase h-7 px-3 flex items-center shadow-lg shadow-indigo-500/20 animate-pulse rounded-full">
+                                        <Activity className="w-3.5 h-3.5 mr-1.5" />
+                                        Multi-Act
+                                    </Badge>
+                                )}
+                                {participant.age && (
+                                    <span className="text-xl font-bold text-muted-foreground/40 tabular-nums">
+                                        {participant.age}y
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                             <div className="flex items-center">
                                 {participant.identityVerified ? (
-                                    <div className="flex items-center text-emerald-500 font-bold">
-                                        <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
-                                        <span>Identity Verified</span>
+                                    <div className="flex items-center text-emerald-500">
+                                        <ShieldCheck className="w-4 h-4 mr-1.5" />
+                                        <span>Verified</span>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center text-amber-500 font-bold">
-                                        <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
-                                        <span>Identity Unverified</span>
+                                    <div className="flex items-center text-amber-500">
+                                        <ShieldAlert className="w-4 h-4 mr-1.5" />
+                                        <span>Action Required</span>
                                     </div>
                                 )}
                             </div>
 
                             {participant.siblings && participant.siblings.length > 0 && (
                                 <>
-                                    <span className="opacity-20 hidden md:inline">•</span>
-                                    <div className="flex items-center font-bold text-primary">
-                                        <Users className="w-3.5 h-3.5 mr-1.5" />
-                                        <span>Family: </span>
-                                        <div className="flex items-center ml-1.5 space-x-1.5">
+                                    <span className="opacity-20 hidden sm:inline">•</span>
+                                    <div className="flex items-center text-primary">
+                                        <Users className="w-4 h-4 mr-1.5" />
+                                        <div className="flex items-center space-x-1.5">
                                             {participant.siblings.map((s, idx) => (
                                                 <Link
                                                     key={s.id}
@@ -216,34 +217,29 @@ export function ParticipantProfilePage() {
                                     </div>
                                 </>
                             )}
-
-                            <span className="opacity-20 hidden md:inline">•</span>
-                            <div className="flex items-center font-mono text-[11px] opacity-70">
-                                ID: {participant.id.slice(0, 8)}
-                            </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="grid grid-cols-1 sm:flex items-center gap-3">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 rounded-full text-[10px] font-black uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all"
-                            onClick={() => alert('AI is calculating optimal act placement based on age and style...')}
+                            className="h-10 sm:h-8 rounded-xl text-[10px] font-black uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all border border-primary/10 shadow-sm"
+                            onClick={() => alert('AI Suggester...')}
                         >
-                            <Info className="w-3 h-3 mr-1.5" />
+                            <Info className="w-3.5 h-3.5 mr-1.5" />
                             AI Suggest Acts
                         </Button>
                         <Button
                             variant={participant.identityVerified ? "ghost" : "default"}
                             size="sm"
-                            className={`h-8 rounded-full text-[10px] font-bold uppercase transition-all ${participant.identityVerified ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' : ''}`}
+                            className={`h-10 sm:h-8 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${participant.identityVerified ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/10' : ''}`}
                             onClick={handleVerify}
                         >
-                            <ShieldCheck className="w-3 h-3 mr-1.5" />
-                            {participant.identityVerified ? 'Verified' : 'Verify Identity'}
+                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                            {participant.identityVerified ? 'Verified' : 'Verify'}
                         </Button>
-                        <Button className="h-10 px-4 font-bold border-2 transition-all rounded-xl" variant="outline" onClick={() => alert('Editing participant...')}>
+                        <Button className="h-11 sm:h-10 px-6 font-black border-2 transition-all rounded-xl shadow-lg shadow-black/5 text-[10px] uppercase tracking-widest" variant="outline" onClick={() => alert('Edit...')}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit Profile
                         </Button>

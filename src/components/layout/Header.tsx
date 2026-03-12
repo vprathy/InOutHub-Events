@@ -57,25 +57,25 @@ export function Header() {
                 </div>
 
                 {selectionNames?.orgName && (
-                    <div className="hidden md:flex items-center space-x-2 text-sm font-bold uppercase tracking-wider">
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center space-x-1 sm:space-x-2 text-[10px] sm:text-sm font-bold uppercase tracking-wider overflow-hidden">
+                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                         <button
                             onClick={() => navigate('/select-org')}
-                            className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground min-h-[44px]"
+                            className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground min-h-[44px] max-w-[80px] sm:max-w-none"
                         >
-                            <Landmark className="w-4 h-4" />
-                            <span>{selectionNames.orgName}</span>
+                            <Landmark className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{selectionNames.orgName}</span>
                         </button>
 
                         {selectionNames.eventName && (
                             <>
-                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                                 <button
                                     onClick={() => navigate('/select-event')}
-                                    className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-muted transition-colors text-primary min-h-[44px]"
+                                    className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-xl hover:bg-muted transition-colors text-primary min-h-[44px] max-w-[100px] sm:max-w-none"
                                 >
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{selectionNames.eventName}</span>
+                                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                                    <span className="truncate">{selectionNames.eventName}</span>
                                 </button>
                             </>
                         )}
