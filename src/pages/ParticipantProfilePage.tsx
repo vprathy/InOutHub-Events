@@ -150,7 +150,7 @@ export function ParticipantProfilePage() {
                         'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
                         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
                     },
-                    body: JSON.stringify({ actId: participant.acts[0].id, testOnly: false }),
+                    body: JSON.stringify({ actId: participant.acts[0].id, bucket: 'participant-assets', testOnly: false }),
                 }
             );
             const result = await res.json();
@@ -283,6 +283,24 @@ export function ParticipantProfilePage() {
                     <Badge variant="outline" className="px-2 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-primary/5 text-primary border-none shrink-0">
                         {participant.eventId ? 'Event Registered' : 'Draft Roster'}
                     </Badge>
+
+                    {/* Cinematic Poster Thumbnail in Header */}
+                    {participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled) && (
+                        <div 
+                            className="ml-auto flex items-center gap-2 px-2 h-7 bg-primary/10 rounded-lg border border-primary/20 cursor-zoom-in group hover:bg-primary/20 transition-all"
+                            onClick={() => setSelectedAssetUrl(participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled)?.fileUrl || null)}
+                        >
+                            <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-tight text-primary">Live Poster</span>
+                            <div className="w-5 h-5 rounded overflow-hidden border border-primary/30">
+                                <img 
+                                    src={participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled)?.fileUrl || ''} 
+                                    className="w-full h-full object-cover" 
+                                    alt="Poster Thumb"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
@@ -359,31 +377,31 @@ export function ParticipantProfilePage() {
                     onClick={() => setActiveTab('overview')}
                     className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Overview
+                    OVERVIEW
                 </button>
                 <button
                     onClick={() => setActiveTab('acts')}
                     className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'acts' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Performances
+                    PERFORMANCES
                 </button>
                 <button
                     onClick={() => setActiveTab('assets')}
                     className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Management
+                    FORMS & DOCUMENTS
                 </button>
                 <button
                     onClick={() => setActiveTab('source')}
                     className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'source' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Origin
+                    DATA ORIGIN
                 </button>
                 <button
                     onClick={() => setActiveTab('audit')}
                     className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'audit' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Journal
+                    AUDIT LOG
                 </button>
             </div>
 
