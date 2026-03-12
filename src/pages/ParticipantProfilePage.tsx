@@ -204,6 +204,15 @@ export function ParticipantProfilePage() {
 
                     <div className="flex flex-wrap items-center gap-2">
                         <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-full text-[10px] font-black uppercase bg-primary/5 text-primary hover:bg-primary/10 transition-all"
+                            onClick={() => alert('AI is calculating optimal act placement based on age and style...')}
+                        >
+                            <Info className="w-3 h-3 mr-1.5" />
+                            AI Suggest Acts
+                        </Button>
+                        <Button
                             variant={participant.identityVerified ? "ghost" : "default"}
                             size="sm"
                             className={`h-8 rounded-full text-[10px] font-bold uppercase transition-all ${participant.identityVerified ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' : ''}`}

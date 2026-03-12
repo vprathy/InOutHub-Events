@@ -1,8 +1,9 @@
-import { GripVertical, ChevronUp, ChevronDown, XCircle, Timer, Clock as ClockIcon } from 'lucide-react';
+import { GripVertical, ChevronUp, ChevronDown, XCircle, Timer, Clock as ClockIcon, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { type LineupSlot } from '@/types/domain';
+import type { LineupSlot } from '@/types/domain';
+import type { FlowInsight } from '@/lib/optimizer';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
@@ -11,6 +12,8 @@ interface LineupItemCardProps {
     onRemove?: () => void;
     isFirst?: boolean;
     isLast?: boolean;
+    risk?: FlowInsight;
+    isHighlighted?: boolean;
 }
 
 export function LineupItemCard({
@@ -19,7 +22,9 @@ export function LineupItemCard({
     onMoveDown,
     onRemove,
     isFirst,
-    isLast
+    isLast,
+    risk,
+    isHighlighted
 }: LineupItemCardProps) {
     const formatTime = (isoString: string) => {
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -27,16 +32,30 @@ export function LineupItemCard({
 
     const totalDuration = slot.act.durationMinutes + slot.act.setupTimeMinutes;
 
+    const riskColors = {
+        low: 'border-blue-500/30 bg-blue-50/5',
+        medium: 'border-amber-500/30 bg-amber-50/5',
+        high: 'border-orange-500/50 bg-orange-50/10',
+        critical: 'border-rose-500 bg-rose-50/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
+    };
+
     return (
-        <Card className="p-4 relative hover:border-primary/50 transition-colors group">
+        <Card className={`p-4 relative transition-all duration-300 group ${risk ? riskColors[risk.level] : 'hover:border-primary/50'
+            } ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 scale-[1.01]' : ''}`}>
             <div className="flex items-center gap-4">
-                {/* Drag Handle (Visual for V1, functional later) */}
+                {/* Drag Handle */}
                 <div className="text-muted-foreground group-hover:text-foreground transition-colors cursor-grab active:cursor-grabbing">
                     <GripVertical size={20} />
                 </div>
 
                 {/* Performance Time */}
-                <div className="flex flex-col items-center min-w-[70px] border-r border-border pr-4">
+                <div className="flex flex-col items-center min-w-[70px] border-r border-border pr-4 relative">
+                    {risk && (
+                        <div className={`absolute -top-1 -right-1 p-0.5 rounded-full bg-white shadow-sm z-10 ${risk.level === 'high' || risk.level === 'critical' ? 'text-rose-500' : 'text-amber-500'
+                            }`}>
+                            <AlertCircle size={14} />
+                        </div>
+                    )}
                     <span className="text-lg font-bold text-foreground tracking-tight">
                         {formatTime(slot.scheduledStartTime)}
                     </span>
@@ -62,16 +81,23 @@ export function LineupItemCard({
                             )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
-                        <div className="flex items-center gap-1">
-                            <Timer size={12} className="text-primary/70" />
-                            <span>{slot.act.durationMinutes}m duration</span>
+                    {risk ? (
+                        <p className={`text-xs font-bold ${risk.level === 'high' || risk.level === 'critical' ? 'text-rose-600' : 'text-amber-600'
+                            }`}>
+                            ⚠️ {risk.title}: {risk.description}
+                        </p>
+                    ) : (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                            <div className="flex items-center gap-1">
+                                <Timer size={12} className="text-primary/70" />
+                                <span>{slot.act.durationMinutes}m duration</span>
+                            </div>
+                            <div className="flex items-center gap-1 border-l border-border pl-3">
+                                <ClockIcon size={12} className="text-primary/70" />
+                                <span>{slot.act.setupTimeMinutes}m setup</span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1 border-l border-border pl-3">
-                            <ClockIcon size={12} className="text-primary/70" />
-                            <span>{slot.act.setupTimeMinutes}m setup</span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Actions */}

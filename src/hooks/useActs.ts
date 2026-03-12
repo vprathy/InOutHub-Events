@@ -182,3 +182,105 @@ export function useCreateAct(eventId: string) {
         }
     });
 }
+export function useActDetail(actId: string | null) {
+    const queryClient = useQueryClient();
+
+    const query = useQuery({
+        queryKey: ['act', actId],
+        queryFn: async () => {
+            if (!actId) return null;
+
+            const { data, error } = await supabase
+                .from('acts')
+                .select(`
+                    *,
+                    act_participants(
+                        id,
+                        role,
+                        participant:participants(
+                            id,
+                            first_name,
+                            last_name,
+                            guardian_name,
+                            guardian_phone,
+                            status,
+                            participant_assets(status)
+                        )
+                    ),
+                    act_assets(id, asset_type, asset_name, notes),
+                    act_requirements(id, requirement_type, description, file_url, fulfilled)
+                `)
+                .eq('id', actId)
+                .single();
+
+            if (error) throw error;
+
+            const row = data as any;
+
+            // Map to domain model
+            const actDetails: any = {
+                id: row.id,
+                eventId: row.event_id,
+                name: row.name,
+                durationMinutes: row.duration_minutes,
+                setupTimeMinutes: row.setup_time_minutes,
+                arrivalStatus: row.arrival_status as ArrivalStatus,
+                notes: row.notes,
+                participants: (row.act_participants || []).map((ap: any) => ({
+                    id: ap.id,
+                    participantId: ap.participant.id,
+                    firstName: ap.participant.first_name,
+                    lastName: ap.participant.last_name,
+                    role: ap.role,
+                    guardianName: ap.participant.guardian_name,
+                    guardianPhone: ap.participant.guardian_phone,
+                    status: ap.participant.status,
+                    assets: ap.participant.participant_assets || []
+                })),
+                assets: (row.act_assets || []).map((a: any) => ({
+                    id: a.id,
+                    assetName: a.asset_name,
+                    assetType: a.asset_type,
+                    notes: a.notes
+                })),
+                requirements: (row.act_requirements || []).map((r: any) => ({
+                    id: r.id,
+                    requirementType: r.requirement_type,
+                    description: r.description,
+                    fileUrl: r.file_url,
+                    fulfilled: r.fulfilled
+                }))
+            };
+
+            return actDetails;
+        },
+        enabled: !!actId,
+    });
+
+    // Real-time subscription for this specific act
+    useEffect(() => {
+        if (!actId) return;
+
+        const channel = supabase
+            .channel(`act_detail_${actId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'acts',
+                    filter: `id=eq.${actId}`,
+                },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['act', actId] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [actId, queryClient]);
+
+    return query;
+}

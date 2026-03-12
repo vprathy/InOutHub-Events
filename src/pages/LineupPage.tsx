@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Timer, Clock as ClockIcon } from 'lucide-react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Timer, Clock as ClockIcon, Sparkles } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
 import {
@@ -13,6 +13,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { LineupItemCard } from '@/components/lineup/LineupItemCard';
 import { AddActToLineupModal } from '@/components/lineup/AddActToLineupModal';
 import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { scanLineup } from '@/lib/optimizer';
 
 export default function LineupPage() {
     const { eventId } = useSelection();
@@ -25,6 +27,10 @@ export default function LineupPage() {
     const addLineupItem = useAddLineupItem();
     const updateLineupSlot = useUpdateLineupSlot();
     const removeLineupItem = useRemoveLineupItem();
+
+    const [showReview, setShowReview] = useState(false);
+    const insights = lineup ? scanLineup(lineup) : [];
+    const criticalRisks = insights.filter(i => i.level === 'high' || i.level === 'critical').length;
 
     const totalDuration = lineup?.reduce((acc, slot) =>
         acc + (slot.act.durationMinutes || 0) + (slot.act.setupTimeMinutes || 0), 0
@@ -98,11 +104,26 @@ export default function LineupPage() {
                     <p className="text-muted-foreground">Schedule and organize performances across stages.</p>
                 </div>
 
-                {selectedStageId && (
-                    <Button onClick={() => setIsAddModalOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto">
-                        <Plus size={18} /> Add Performance
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {lineup && lineup.length > 0 && (
+                        <Button
+                            variant={showReview ? "default" : "outline"}
+                            onClick={() => setShowReview(!showReview)}
+                            className={`gap-2 ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
+                        >
+                            <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
+                            {showReview ? 'Hide Analysis' : 'Review Flow'}
+                            {criticalRisks > 0 && !showReview && (
+                                <Badge className="ml-1 bg-amber-600 px-1.5 py-0 min-w-[1.25rem] h-5">{criticalRisks}</Badge>
+                            )}
+                        </Button>
+                    )}
+                    {selectedStageId && (
+                        <Button onClick={() => setIsAddModalOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto">
+                            <Plus size={18} /> Add Performance
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Stage Selector */}
@@ -160,17 +181,21 @@ export default function LineupPage() {
                             ))}
                         </div>
                     ) : lineup && lineup.length > 0 ? (
-                        lineup.map((slot, index) => (
-                            <LineupItemCard
-                                key={slot.id}
-                                slot={slot}
-                                isFirst={index === 0}
-                                isLast={index === lineup.length - 1}
-                                onMoveUp={() => handleMove(index, 'up')}
-                                onMoveDown={() => handleMove(index, 'down')}
-                                onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
-                            />
-                        ))
+                        lineup.map((slot, index) => {
+                            const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
+                            return (
+                                <LineupItemCard
+                                    key={slot.id}
+                                    slot={slot}
+                                    isFirst={index === 0}
+                                    isLast={index === lineup.length - 1}
+                                    risk={risk}
+                                    onMoveUp={() => handleMove(index, 'up')}
+                                    onMoveDown={() => handleMove(index, 'down')}
+                                    onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                />
+                            );
+                        })
                     ) : (
                         <Card className="p-12 border-dashed border-border bg-transparent flex flex-col items-center justify-center text-center">
                             <ListOrdered size={48} className="text-muted-foreground/30 mb-4" />

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import ActsPage from '@/pages/ActsPage';
+import { PerformanceProfilePage } from '@/pages/PerformanceProfilePage';
 import ParticipantsPage from '@/pages/ParticipantsPage';
 import { ParticipantProfilePage } from '@/pages/ParticipantProfilePage';
 import LineupPage from '@/pages/LineupPage';
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
             {
                 path: 'acts',
                 element: <ActsPage />,
+            },
+            {
+                path: 'acts/:actId',
+                element: <PerformanceProfilePage />,
             },
             {
                 path: 'lineup',

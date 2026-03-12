@@ -14,6 +14,14 @@ export const OrganizationRole = {
 } as const;
 export type OrganizationRole = typeof OrganizationRole[keyof typeof OrganizationRole];
 
+export const PerformanceRole = {
+    Manager: 'Manager',
+    Choreographer: 'Choreographer',
+    Performer: 'Performer',
+    Support: 'Support',
+} as const;
+export type PerformanceRole = typeof PerformanceRole[keyof typeof PerformanceRole];
+
 export const ArrivalStatus = {
     NotArrived: 'Not Arrived',
     Arrived: 'Arrived',
@@ -109,7 +117,7 @@ export interface ActParticipantDetail {
     participantId: string; // The participants.id
     firstName: string;
     lastName: string;
-    role: string;
+    role: PerformanceRole | string;
     guardianName?: string | null;
     guardianPhone?: string | null;
 }
