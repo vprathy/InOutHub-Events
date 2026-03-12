@@ -34,6 +34,8 @@ import {
     ShieldAlert,
     Activity,
     Sparkles,
+    Workflow,
+    X,
     Loader2
 } from 'lucide-react';
 import { useState } from 'react';
@@ -105,6 +107,7 @@ export function ParticipantProfilePage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
     const [aiSuggestResult, setAiSuggestResult] = useState<string | null>(null);
+    const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -575,7 +578,11 @@ export function ParticipantProfilePage() {
                                     {participant.actRequirements
                                         .filter(r => r.requirementType === 'Generative' && r.fulfilled)
                                         .map((asset) => (
-                                            <div key={asset.id} className="relative group overflow-hidden rounded-3xl border-2 border-primary/20 bg-muted/5 shadow-2xl shadow-primary/5">
+                                            <div 
+                                                key={asset.id} 
+                                                className="relative group overflow-hidden rounded-3xl border-2 border-primary/20 bg-muted/5 shadow-2xl shadow-primary/5 cursor-zoom-in active:scale-[0.98] transition-all"
+                                                onClick={() => setSelectedAssetUrl(asset.fileUrl || null)}
+                                            >
                                                 <div className="aspect-[16/9] w-full overflow-hidden">
                                                     <img 
                                                         src={asset.fileUrl || ''} 
@@ -1092,6 +1099,32 @@ export function ParticipantProfilePage() {
                     onClose={() => setShowEditModal(false)}
                     participant={participant}
                 />
+            )}
+
+            {/* Poster Lightbox/Full-screen View */}
+            {selectedAssetUrl && (
+                <div 
+                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4 md:p-12 cursor-zoom-out"
+                    onClick={() => setSelectedAssetUrl(null)}
+                >
+                    <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center space-y-4">
+                        <button 
+                            className="absolute top-0 right-0 p-3 text-white/60 hover:text-white transition-colors"
+                            onClick={() => setSelectedAssetUrl(null)}
+                        >
+                            <X className="w-8 h-8" />
+                        </button>
+                        <img 
+                            src={selectedAssetUrl} 
+                            alt="AI Generated Poster Full View" 
+                            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
+                        />
+                        <div className="text-center space-y-1">
+                            <h2 className="text-xl font-black text-white tracking-tight uppercase">Cinematic Preview</h2>
+                            <p className="text-sm text-white/60 font-medium">Click anywhere to return to profile</p>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     </div>
