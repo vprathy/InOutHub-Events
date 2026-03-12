@@ -20,7 +20,15 @@ export default defineConfig({
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
+        start_url: '/',
+        scope: '/',
         icons: [
+          {
+            src: 'pwa-icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
           {
             src: 'pwa-icon-512.png',
             sizes: '512x512',
