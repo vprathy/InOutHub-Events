@@ -14,7 +14,20 @@ export function useLineupQuery(stageId: string | null) {
                 .from('lineup_items')
                 .select(`
                     *,
-                    act:acts(*)
+                    act:acts(
+                        *,
+                        participants:act_participants(
+                            id,
+                            participant_id,
+                            role,
+                            participant:participants(
+                                first_name,
+                                last_name,
+                                guardian_name,
+                                guardian_phone
+                            )
+                        )
+                    )
                 `)
                 .eq('stage_id', stageId)
                 .order('sort_order', { ascending: true });
@@ -36,6 +49,15 @@ export function useLineupQuery(stageId: string | null) {
                     setupTimeMinutes: row.act.setup_time_minutes,
                     arrivalStatus: row.act.arrival_status,
                     notes: row.act.notes,
+                    participants: row.act.participants?.map((p: any) => ({
+                        id: p.id,
+                        participantId: p.participant_id,
+                        firstName: p.participant.first_name,
+                        lastName: p.participant.last_name,
+                        role: p.role,
+                        guardianName: p.participant.guardian_name,
+                        guardianPhone: p.participant.guardian_phone
+                    }))
                 }
             }));
         },
@@ -174,4 +196,121 @@ export function useRemoveLineupItem() {
             queryClient.invalidateQueries({ queryKey: ['unassigned_acts'] });
         }
     });
+}
+
+export function useUpdateLineupOrder() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ items }: {
+            items: { id: string, sortOrder: number }[]
+        }) => {
+            const updates = items.map(item =>
+                supabase
+                    .from('lineup_items')
+                    .update({ sort_order: item.sortOrder })
+                    .eq('id', item.id)
+            );
+
+            const results = await Promise.all(updates);
+            const errors = results.filter(r => r.error).map(r => r.error);
+            if (errors.length > 0) throw errors[0];
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['lineup'] });
+            queryClient.invalidateQueries({ queryKey: ['all_event_lineup'] });
+        }
+    });
+}
+
+export function useAllEventLineupQuery(eventId: string) {
+    const queryClient = useQueryClient();
+
+    const query = useQuery({
+        queryKey: ['all_event_lineup', eventId],
+        queryFn: async () => {
+            const { data: stages, error: stageError } = await supabase
+                .from('stages')
+                .select('id')
+                .eq('event_id', eventId);
+
+            if (stageError) throw stageError;
+            const stageIds = stages.map(s => s.id);
+
+            if (stageIds.length === 0) return [];
+
+            const { data, error } = await supabase
+                .from('lineup_items')
+                .select(`
+                    *,
+                    act:acts(
+                        *,
+                        participants:act_participants(
+                            id,
+                            participant_id,
+                            role,
+                            participant:participants(
+                                first_name,
+                                last_name
+                            )
+                        )
+                    )
+                `)
+                .in('stage_id', stageIds);
+
+            if (error) throw error;
+
+            return (data as any[]).map((row): LineupSlot => ({
+                id: row.id,
+                stageId: row.stage_id,
+                actId: row.act_id,
+                scheduledStartTime: row.scheduled_start_time,
+                sortOrder: row.sort_order,
+                executionStatus: row.execution_status || 'Queued',
+                act: {
+                    id: row.act.id,
+                    eventId: row.act.event_id,
+                    name: row.act.name,
+                    durationMinutes: row.act.duration_minutes,
+                    setupTimeMinutes: row.act.setup_time_minutes,
+                    arrivalStatus: row.act.arrival_status,
+                    notes: row.act.notes,
+                    participants: row.act.participants?.map((p: any) => ({
+                        id: p.id,
+                        participantId: p.participant_id,
+                        firstName: p.participant.first_name,
+                        lastName: p.participant.last_name,
+                        role: p.role
+                    }))
+                }
+            }));
+        },
+        enabled: !!eventId,
+    });
+
+    // Real-time subscription for any lineup changes in this event
+    useEffect(() => {
+        if (!eventId) return;
+
+        const channel = supabase
+            .channel(`all_lineup_changes_${eventId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'lineup_items',
+                },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['all_event_lineup', eventId] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [eventId, queryClient]);
+
+    return query;
 }

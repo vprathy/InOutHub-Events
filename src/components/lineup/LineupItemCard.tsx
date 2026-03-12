@@ -1,138 +1,110 @@
-import { GripVertical, ChevronUp, ChevronDown, XCircle, Timer, Clock as ClockIcon, AlertCircle } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Trash2, GripVertical, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
 import type { LineupSlot } from '@/types/domain';
 import type { FlowInsight } from '@/lib/optimizer';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
-    onMoveUp?: () => void;
-    onMoveDown?: () => void;
-    onRemove?: () => void;
-    isFirst?: boolean;
-    isLast?: boolean;
     risk?: FlowInsight;
-    isHighlighted?: boolean;
+    onRemove: () => void;
 }
 
-export function LineupItemCard({
-    slot,
-    onMoveUp,
-    onMoveDown,
-    onRemove,
-    isFirst,
-    isLast,
-    risk,
-    isHighlighted
-}: LineupItemCardProps) {
-    const formatTime = (isoString: string) => {
-        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
+export function LineupItemCard({ slot, risk, onRemove }: LineupItemCardProps) {
+    const startTime = new Date(slot.scheduledStartTime);
+    const duration = slot.act.durationMinutes;
+    const setupTime = slot.act.setupTimeMinutes || 0;
 
-    const totalDuration = slot.act.durationMinutes + slot.act.setupTimeMinutes;
-
-    const riskColors = {
-        low: 'border-blue-500/30 bg-blue-50/5',
-        medium: 'border-amber-500/30 bg-amber-50/5',
-        high: 'border-orange-500/50 bg-orange-50/10',
-        critical: 'border-rose-500 bg-rose-50/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
-    };
+    const isCritical = risk?.level === 'critical';
+    const isMedium = risk?.level === 'medium' || risk?.level === 'high';
 
     return (
-        <Card className={`p-4 relative transition-all duration-300 group ${risk ? riskColors[risk.level] : 'hover:border-primary/50'
-            } ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 scale-[1.01]' : ''}`}>
-            <div className="flex items-center gap-4">
-                {/* Drag Handle */}
-                <div className="text-muted-foreground group-hover:text-foreground transition-colors cursor-grab active:cursor-grabbing">
+        <Card className={`group overflow-hidden border-border/50 hover:border-primary/30 transition-all ${isCritical ? 'bg-rose-500/5 border-rose-500/30' :
+                isMedium ? 'bg-amber-500/5 border-amber-500/30' :
+                    'bg-card shadow-sm'
+            }`}>
+            <div className="flex">
+                {/* Drag Handle - Tactile Grip area */}
+                <div className="flex items-center justify-center w-12 bg-muted/40 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary cursor-grab active:cursor-grabbing border-r border-border/20">
                     <GripVertical size={20} />
                 </div>
 
-                {/* Performance Time */}
-                <div className="flex flex-col items-center min-w-[70px] border-r border-border pr-4 relative">
-                    {risk && (
-                        <div className={`absolute -top-1 -right-1 p-0.5 rounded-full bg-white shadow-sm z-10 ${risk.level === 'high' || risk.level === 'critical' ? 'text-rose-500' : 'text-amber-500'
-                            }`}>
-                            <AlertCircle size={14} />
-                        </div>
-                    )}
-                    <span className="text-lg font-bold text-foreground tracking-tight">
-                        {formatTime(slot.scheduledStartTime)}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider py-0 px-1 border-border text-muted-foreground">
-                        {totalDuration}m
-                    </Badge>
-                </div>
-
-                {/* Act Info */}
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg text-foreground truncate">{slot.act.name}</h3>
-                        <div className="flex items-center gap-1.5 ml-1">
-                            {slot.act.arrivalStatus === 'Ready' && (
-                                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] py-0 px-1.5">
-                                    Ready
+                <div className="flex-1 p-4 lg:p-5">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        <div className="space-y-4 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center bg-primary/10 text-primary px-2.5 py-1 rounded-lg text-sm font-black">
+                                    <Clock size={14} className="mr-1.5" />
+                                    {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 border-border shadow-none">
+                                    {duration}m Performance
                                 </Badge>
-                            )}
-                            {slot.act.arrivalStatus === 'Arrived' && (
-                                <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-[10px] py-0 px-1.5">
-                                    Arrived
-                                </Badge>
-                            )}
-                        </div>
-                    </div>
-                    {risk ? (
-                        <p className={`text-xs font-bold ${risk.level === 'high' || risk.level === 'critical' ? 'text-rose-600' : 'text-amber-600'
-                            }`}>
-                            ⚠️ {risk.title}: {risk.description}
-                        </p>
-                    ) : (
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
-                            <div className="flex items-center gap-1">
-                                <Timer size={12} className="text-primary/70" />
-                                <span>{slot.act.durationMinutes}m duration</span>
+                                {setupTime > 0 && (
+                                    <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider py-0.5 bg-muted text-muted-foreground shadow-none">
+                                        +{setupTime}m Setup
+                                    </Badge>
+                                )}
                             </div>
-                            <div className="flex items-center gap-1 border-l border-border pl-3">
-                                <ClockIcon size={12} className="text-primary/70" />
-                                <span>{slot.act.setupTimeMinutes}m setup</span>
+
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-bold tracking-tight text-foreground truncate">
+                                    {slot.act.name}
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center text-xs text-muted-foreground font-medium">
+                                        <div className={`w-2 h-2 rounded-full mr-2 ${slot.act.arrivalStatus === 'Ready' ? 'bg-green-500' :
+                                                slot.act.arrivalStatus === 'Arrived' ? 'bg-blue-500' : 'bg-muted'
+                                            }`} />
+                                        {slot.act.arrivalStatus}
+                                    </div>
+                                    <div className="h-1 w-1 rounded-full bg-border" />
+                                    <span className="text-xs text-muted-foreground font-medium">
+                                        {slot.act.participants?.length || 0} Performers
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    )}
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                    <div className="flex flex-col gap-1 mr-2 border-r border-border pr-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 text-muted-foreground hover:text-foreground border border-border/50"
-                            onClick={onMoveUp}
-                            disabled={isFirst}
-                        >
-                            <ChevronUp size={20} />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 text-muted-foreground hover:text-foreground border border-border/50"
-                            onClick={onMoveDown}
-                            disabled={isLast}
-                        >
-                            <ChevronDown size={20} />
-                        </Button>
+                        <div className="flex items-end justify-between lg:justify-end lg:items-start lg:flex-row gap-3">
+                            <AnimatePresence>
+                                {risk && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className={`flex items-start gap-2 px-3 py-2 rounded-xl border ${isCritical ? 'bg-rose-500/10 border-rose-500/20 text-rose-600' :
+                                                'bg-amber-500/10 border-amber-500/20 text-amber-700'
+                                            }`}
+                                    >
+                                        {isCritical ? <AlertCircle size={16} className="mt-0.5 shrink-0" /> : <AlertTriangle size={16} className="mt-0.5 shrink-0" />}
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black uppercase leading-none mb-1">{risk.title}</span>
+                                            <span className="text-[10px] opacity-80 leading-tight max-w-[150px]">{risk.description}</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onRemove}
+                                className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
+                            >
+                                <Trash2 size={18} />
+                            </Button>
+                        </div>
                     </div>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border/50"
-                        onClick={onRemove}
-                    >
-                        <XCircle size={22} />
-                    </Button>
                 </div>
             </div>
+
+            {/* Visual Health Indicator (Bottom Accent) */}
+            <div className={`h-1.5 w-full mt-auto ${isCritical ? 'bg-rose-500' :
+                    isMedium ? 'bg-amber-500' :
+                        slot.act.arrivalStatus === 'Ready' ? 'bg-green-500' : 'bg-transparent'
+                }`} />
         </Card>
     );
 }

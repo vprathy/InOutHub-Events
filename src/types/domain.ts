@@ -289,5 +289,5 @@ export interface LineupSlot {
     scheduledStartTime: string; // ISO String
     sortOrder: number;
     executionStatus: string;
-    act: Act; // The nested act details
+    act: ActDetails; // The nested act details
 }

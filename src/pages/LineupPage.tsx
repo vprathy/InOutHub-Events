@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Timer, Clock as ClockIcon, Sparkles } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Timer, Clock as ClockIcon, Sparkles, AlertTriangle } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
 import {
     useLineupQuery,
     useAddLineupItem,
-    useUpdateLineupSlot,
-    useRemoveLineupItem
+    useRemoveLineupItem,
+    useUpdateLineupOrder,
+    useAllEventLineupQuery
 } from '@/hooks/useLineup';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,6 +16,7 @@ import { AddActToLineupModal } from '@/components/lineup/AddActToLineupModal';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { scanLineup } from '@/lib/optimizer';
+import { Reorder, AnimatePresence } from 'framer-motion';
 
 export default function LineupPage() {
     const { eventId } = useSelection();
@@ -23,18 +25,34 @@ export default function LineupPage() {
 
     const { data: stages, isLoading: isLoadingStages } = useStagesQuery(eventId || '');
     const { data: lineup, isLoading: isLoadingLineup } = useLineupQuery(selectedStageId);
+    const { data: allEventLineup } = useAllEventLineupQuery(eventId || '');
 
     const addLineupItem = useAddLineupItem();
-    const updateLineupSlot = useUpdateLineupSlot();
+    const updateLineupOrder = useUpdateLineupOrder();
     const removeLineupItem = useRemoveLineupItem();
 
     const [showReview, setShowReview] = useState(false);
-    const insights = lineup ? scanLineup(lineup) : [];
+    const [localItems, setLocalItems] = useState(lineup || []);
+
+    // Sync local items when lineup data changes
+    useEffect(() => {
+        if (lineup) {
+            setLocalItems(lineup);
+        }
+    }, [lineup]);
+
+    const insights = useMemo(() => {
+        if (!lineup) return [];
+        return scanLineup(lineup, allEventLineup);
+    }, [lineup, allEventLineup]);
+
     const criticalRisks = insights.filter(i => i.level === 'high' || i.level === 'critical').length;
 
-    const totalDuration = lineup?.reduce((acc, slot) =>
-        acc + (slot.act.durationMinutes || 0) + (slot.act.setupTimeMinutes || 0), 0
-    ) || 0;
+    const totalDuration = useMemo(() =>
+        lineup?.reduce((acc, slot) =>
+            acc + (slot.act.durationMinutes || 0) + (slot.act.setupTimeMinutes || 0), 0
+        ) || 0,
+        [lineup]);
 
     const estimatedEndTime = new Date();
     estimatedEndTime.setMinutes(estimatedEndTime.getMinutes() + totalDuration);
@@ -46,41 +64,38 @@ export default function LineupPage() {
         }
     }, [stages, selectedStageId]);
 
-    const handleMove = async (index: number, direction: 'up' | 'down') => {
-        if (!lineup || !selectedStageId) return;
+    const handleReorder = async (newItems: typeof localItems) => {
+        setLocalItems(newItems);
+        if (!selectedStageId) return;
 
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= lineup.length) return;
+        // Calculate new sort orders (incremental by 10)
+        const updates = newItems.map((item, index) => ({
+            id: item.id,
+            sortOrder: (index + 1) * 10
+        }));
 
-        const currentItem = lineup[index];
-        const targetItem = lineup[targetIndex];
-
-        // Swap sort orders
-        await Promise.all([
-            updateLineupSlot.mutateAsync({
-                id: currentItem.id,
-                stageId: selectedStageId,
-                updates: { sortOrder: targetItem.sortOrder }
-            }),
-            updateLineupSlot.mutateAsync({
-                id: targetItem.id,
-                stageId: selectedStageId,
-                updates: { sortOrder: currentItem.sortOrder }
-            })
-        ]);
+        try {
+            await updateLineupOrder.mutateAsync({
+                items: updates
+            });
+        } catch (error) {
+            console.error('Failed to update lineup order:', error);
+            // Revert on failure
+            setLocalItems(lineup || []);
+        }
     };
 
     const handleAddAct = async (actId: string) => {
         if (!selectedStageId) return;
 
-        const nextSortOrder = lineup && lineup.length > 0
+        const nextOrder = lineup && lineup.length > 0
             ? Math.max(...lineup.map(item => item.sortOrder)) + 10
             : 10;
 
         await addLineupItem.mutateAsync({
             stageId: selectedStageId,
             actId,
-            sortOrder: nextSortOrder
+            sortOrder: nextOrder
         });
 
         setIsAddModalOpen(false);
@@ -153,7 +168,7 @@ export default function LineupPage() {
                             <Timer size={24} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Total Program Duration</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Total Stage Duration</p>
                             <h2 className="text-2xl font-black text-primary">{totalDuration} <span className="text-sm font-medium">mins</span></h2>
                         </div>
                     </Card>
@@ -168,6 +183,17 @@ export default function LineupPage() {
                             </h2>
                         </div>
                     </Card>
+                    {criticalRisks > 0 && (
+                        <Card className="p-4 bg-rose-500/5 border-rose-500/20 flex items-center space-x-4">
+                            <div className="p-3 bg-rose-500/10 rounded-xl text-rose-600">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Critical Conflicts</p>
+                                <h2 className="text-2xl font-black text-rose-600">{criticalRisks} <span className="text-sm font-medium">High Alert</span></h2>
+                            </div>
+                        </Card>
+                    )}
                 </div>
             )}
 
@@ -180,22 +206,35 @@ export default function LineupPage() {
                                 <div key={i} className="h-24 bg-muted animate-pulse rounded-xl border border-border" />
                             ))}
                         </div>
-                    ) : lineup && lineup.length > 0 ? (
-                        lineup.map((slot, index) => {
-                            const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
-                            return (
-                                <LineupItemCard
-                                    key={slot.id}
-                                    slot={slot}
-                                    isFirst={index === 0}
-                                    isLast={index === lineup.length - 1}
-                                    risk={risk}
-                                    onMoveUp={() => handleMove(index, 'up')}
-                                    onMoveDown={() => handleMove(index, 'down')}
-                                    onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
-                                />
-                            );
-                        })
+                    ) : localItems.length > 0 ? (
+                        <Reorder.Group
+                            axis="y"
+                            values={localItems}
+                            onReorder={handleReorder}
+                            className="space-y-3"
+                        >
+                            <AnimatePresence mode="popLayout">
+                                {localItems.map((slot) => {
+                                    const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
+                                    return (
+                                        <Reorder.Item
+                                            key={slot.id}
+                                            value={slot}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className="cursor-default"
+                                        >
+                                            <LineupItemCard
+                                                slot={slot}
+                                                risk={risk}
+                                                onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                            />
+                                        </Reorder.Item>
+                                    );
+                                })}
+                            </AnimatePresence>
+                        </Reorder.Group>
                     ) : (
                         <Card className="p-12 border-dashed border-border bg-transparent flex flex-col items-center justify-center text-center">
                             <ListOrdered size={48} className="text-muted-foreground/30 mb-4" />
