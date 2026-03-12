@@ -62,10 +62,6 @@ export default function DevQuickLogin() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    // Protection: Ensure this never renders in production builds, even if routed to
-    if (!import.meta.env.DEV) {
-        return null;
-    }
 
     const handleReset = async () => {
         setIsResetting(true);
