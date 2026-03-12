@@ -50,79 +50,84 @@ export function PerformanceProfilePage() {
 
     return (
         <div className="flex flex-col space-y-6 max-w-5xl mx-auto pb-20">
-            {/* Header / Breadcrumbs */}
-            <div className="flex items-center justify-between">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/acts')}
-                    className="text-muted-foreground hover:text-foreground"
-                >
-                    <ChevronLeft size={16} className="mr-1" />
-                    Back to Performances
-                </Button>
-                <Button variant="ghost" size="icon">
-                    <MoreVertical size={20} />
-                </Button>
-            </div>
-
-            {/* Title & Status */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black px-3 py-1 tracking-widest text-[10px]">
-                            PERFORMANCE
-                        </Badge>
-                        <Badge variant="secondary" className={`${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'
-                            } font-bold`}>
-                            {act.arrivalStatus}
-                        </Badge>
-                    </div>
-                    <h1 className="text-5xl font-black tracking-tighter text-foreground">{act.name}</h1>
-                    <div className="flex items-center gap-4 text-muted-foreground font-medium text-sm">
-                        <div className="flex items-center gap-1.5">
-                            <Clock size={16} className="text-primary/70" />
-                            <span>{act.durationMinutes}m duration</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 border-l border-border pl-4">
-                            <Users size={16} className="text-primary/70" />
-                            <span>{act.participants.length} Cast Members</span>
-                        </div>
-                    </div>
+            {/* Operational Header - Unified Strip */}
+            <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/acts')}
+                        className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group p-0 h-auto"
+                    >
+                        <ChevronLeft className="w-3.5 h-3.5 mr-1 group-hover:-translate-x-1 transition-transform" />
+                        Back to Performances
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical size={18} />
+                    </Button>
                 </div>
 
-                <div className="flex flex-col gap-2 min-w-[240px]">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Operational State
-                    </p>
-                    <StatusPicker
-                        currentStatus={act.arrivalStatus}
-                        onStatusChange={(status) => updateStatus({ actId: act.id, status })}
-                        isLoading={isPending}
-                    />
+                {/* Unified Badge Strip - High Density Cockpit */}
+                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-xl border border-border/40 overflow-x-auto scrollbar-hide">
+                    <div className="min-w-[180px]">
+                        <StatusPicker
+                            currentStatus={act.arrivalStatus}
+                            onStatusChange={(status) => updateStatus({ actId: act.id, status })}
+                            isLoading={isPending}
+                        />
+                    </div>
+                    
+                    <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-primary/5 text-primary border-none shrink-0 antialiased">
+                        PERFORMANCE
+                    </Badge>
+
+                    <Badge variant="outline" className={`px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border-none shrink-0 antialiased ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted/50 text-muted-foreground'}`}>
+                        {act.arrivalStatus === 'Ready' ? 'Operational' : 'Draft Mode'}
+                    </Badge>
+
+                    {act.durationMinutes && (
+                        <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-muted text-muted-foreground border-none shrink-0 tabular-nums">
+                            <Clock size={10} className="mr-1.5" />
+                            {act.durationMinutes}m
+                        </Badge>
+                    )}
+
+                    <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-muted text-muted-foreground border-none shrink-0">
+                        <Users size={10} className="mr-1.5" />
+                        {act.participants.length} Cast
+                    </Badge>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-2xl w-fit">
-                <TabButton
-                    active={activeTab === 'overview'}
+            {/* Title Section */}
+            <div className="space-y-1 px-1">
+                <h1 className="text-4xl font-black tracking-tighter text-foreground antialiased italic">{act.name}</h1>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-[0.2em]">{act.participants.length} Active Cast Members Assigned</p>
+            </div>
+
+            {/* Navigation Tabs - Swippable Cockpit */}
+            <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
+                <button
                     onClick={() => setActiveTab('overview')}
-                    icon={<Info size={16} />}
-                    label="Overview"
-                />
-                <TabButton
-                    active={activeTab === 'cast'}
+                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                >
+                    <Info size={14} />
+                    Overview
+                </button>
+                <button
                     onClick={() => setActiveTab('cast')}
-                    icon={<Users size={16} />}
-                    label="Cast & Crew"
-                />
-                <TabButton
-                    active={activeTab === 'assets'}
+                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                >
+                    <Users size={14} />
+                    Cast & Crew
+                </button>
+                <button
                     onClick={() => setActiveTab('assets')}
-                    icon={<Music size={16} />}
-                    label="Requirements"
-                />
+                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                >
+                    <Music size={14} />
+                    Assets
+                </button>
             </div>
 
             {/* Tab Content */}
@@ -135,20 +140,6 @@ export function PerformanceProfilePage() {
     );
 }
 
-function TabButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
-    return (
-        <button
-            onClick={onClick}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${active
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-        >
-            {icon}
-            {label}
-        </button>
-    );
-}
 
 function OverviewTab({ act }: { act: any }) {
     return (
@@ -236,17 +227,17 @@ function CastTab({ participants }: { participants: any[] }) {
 
             {/* Performers Section */}
             <Card className="overflow-hidden">
-                <div className="p-6 border-b border-border flex items-center justify-between">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
+                <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
                         <Users size={20} className="text-primary" />
                         Cast / Performers
                     </h3>
-                    <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="font-black text-primary text-xs bg-primary/5 hover:bg-primary/10 transition-all">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <Button size="sm" variant="ghost" className="font-black text-primary text-[10px] uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-all w-full sm:w-auto order-2 sm:order-1 h-9">
                             <Info size={14} className="mr-1.5" />
                             AI Suggest Cast
                         </Button>
-                        <Button size="sm" variant="outline" className="font-bold border-border">
+                        <Button size="sm" className="font-black uppercase tracking-widest text-[10px] w-full sm:w-auto order-1 sm:order-2 h-9">
                             <UserPlus size={16} className="mr-2" />
                             Add Performer
                         </Button>

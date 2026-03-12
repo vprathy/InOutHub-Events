@@ -34,7 +34,6 @@ import {
     ShieldAlert,
     Activity,
     Sparkles,
-    Workflow,
     X,
     Loader2
 } from 'lucide-react';
@@ -234,57 +233,66 @@ export function ParticipantProfilePage() {
             )}
 
             <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 px-4 md:px-0 pb-12">
-            {/* Operational Header */}
-            <div className="flex flex-col space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Operational Header - Unified Strip */}
+            <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
                     <button
                         onClick={() => navigate('/participants')}
-                        className="flex items-center text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group antialiased"
+                        className="flex items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group antialiased"
                     >
                         <ArrowLeft className="w-3.5 h-3.5 mr-2 group-hover:-translate-x-1 transition-transform" />
                         Back to Participants
                     </button>
-                    <div className="flex items-center space-x-2">
-                        <select
-                            value={participant.status || 'active'}
-                            onChange={(e) => updateStatus.mutate(e.target.value as any)}
-                            className={`px-3 py-1.5 text-[10px] font-bold tracking-tight uppercase rounded-lg border outline-none transition-all h-8 antialiased ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
-                                    'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                }`}
-                        >
-                            <option value="active">Active</option>
-                            <option value="withdrawn">Withdrawn</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="refunded">Refunded</option>
-                            <option value="missing_from_source">Missing (Source)</option>
-                        </select>
-                        <Badge variant="outline" className={`px-3 py-1.5 text-[10px] font-bold tracking-tight uppercase rounded-lg h-8 antialiased ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
-                            {participant.identityVerified ? 'Verified' : 'Unverified'}
-                        </Badge>
-                    </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Unified Badge Strip - High Density Cockpit */}
+                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-xl border border-border/40 overflow-x-auto scrollbar-hide">
+                    <select
+                        value={participant.status || 'active'}
+                        onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                        className={`px-3 py-0.5 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border outline-none transition-all antialiased ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                            participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
+                                'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            }`}
+                    >
+                        <option value="active">Active</option>
+                        <option value="withdrawn">Withdrawn</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="refunded">Refunded</option>
+                        <option value="missing_from_source">Missing (Source)</option>
+                    </select>
+                    
+                    <Badge variant="outline" className={`px-2 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border-none antialiased flex items-center shrink-0 ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
+                        {participant.identityVerified ? <ShieldCheck className="w-3 h-3 mr-1" /> : <ShieldAlert className="w-3 h-3 mr-1" />}
+                        {participant.identityVerified ? 'Verified' : 'Unverified'}
+                    </Badge>
+
+                    {participant.age && (
+                        <Badge variant="outline" className="px-2 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-muted/50 border-none text-muted-foreground shrink-0 tabular-nums">
+                            Age: {participant.age}
+                        </Badge>
+                    )}
+
+                    {participant.acts && participant.acts.length > 1 && (
+                        <Badge className="bg-indigo-500 text-white border-none text-[9px] font-black uppercase h-7 px-3 flex items-center shadow-md shadow-indigo-500/20 animate-pulse shrink-0">
+                            <Activity className="w-3 h-3 mr-1" />
+                            Multi-Act
+                        </Badge>
+                    )}
+
+                    <Badge variant="outline" className="px-2 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-primary/5 text-primary border-none shrink-0">
+                        {participant.eventId ? 'Event Registered' : 'Draft Roster'}
+                    </Badge>
+                </div>
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-bold tracking-tighter text-foreground antialiased">
+                            <h1 className="text-3xl font-black tracking-tighter text-foreground antialiased italic">
                                 {participant.firstName} {participant.lastName}
                             </h1>
-                            <div className="flex items-center gap-2">
-                                {participant.acts && participant.acts.length > 1 && (
-                                    <Badge className="bg-indigo-500 text-white border-none text-[10px] font-black uppercase h-7 px-3 flex items-center shadow-lg shadow-indigo-500/20 animate-pulse rounded-full">
-                                        <Activity className="w-3.5 h-3.5 mr-1.5" />
-                                        Multi-Act
-                                    </Badge>
-                                )}
-                                {participant.age && (
-                                    <span className="text-xl font-bold text-muted-foreground/40 tabular-nums">
-                                        {participant.age}y
-                                    </span>
-                                )}
-                            </div>
                         </div>
+                    </div>
                         <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-[10px] font-medium text-muted-foreground uppercase tracking-wider antialiased">
                             <div className="flex items-center">
                                 {participant.identityVerified ? (
@@ -345,37 +353,37 @@ export function ParticipantProfilePage() {
                 </div>
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="flex items-center space-x-1 bg-muted/30 p-1 rounded-xl border border-border/50 w-full overflow-x-auto scrollbar-none antialiased">
+            {/* Tabs Navigation - Swippable Cockpit */}
+            <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
                 <button
                     onClick={() => setActiveTab('overview')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'overview' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
                     Overview
                 </button>
                 <button
                     onClick={() => setActiveTab('acts')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'acts' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'acts' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
                     Performances
                 </button>
                 <button
                     onClick={() => setActiveTab('assets')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'assets' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Forms & Documents
+                    Management
                 </button>
                 <button
                     onClick={() => setActiveTab('source')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'source' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'source' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Data Origin
+                    Origin
                 </button>
                 <button
                     onClick={() => setActiveTab('audit')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex-shrink-0 ${activeTab === 'audit' ? 'bg-background text-primary shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`whitespace-nowrap px-6 py-2 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center ${activeTab === 'audit' ? 'bg-background text-primary shadow-lg scale-[1.02] border border-primary/20' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
-                    Audit Log
+                    Journal
                 </button>
             </div>
 
@@ -771,13 +779,24 @@ export function ParticipantProfilePage() {
                             {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {participant.assets.filter(a => !a.templateId).map((asset) => (
-                                        <div key={asset.id} className="p-4 border-2 border-border/50 rounded-2xl bg-muted/5 group hover:border-primary/20 transition-all cursor-pointer">
+                                        <div 
+                                            key={asset.id} 
+                                            className="p-4 border-2 border-border/50 rounded-2xl bg-muted/5 group hover:border-primary/20 transition-all cursor-zoom-in"
+                                            onClick={async () => {
+                                                if (asset.fileUrl) {
+                                                    // Generate Signed URL for secure mobile viewing if needed, 
+                                                    // but for now we'll just use the public URL if it's already there
+                                                    setSelectedAssetUrl(asset.fileUrl);
+                                                }
+                                            }}
+                                        >
                                             <div className="flex items-center justify-between mb-4">
                                                 <Badge variant="outline" className="text-[9px] font-mono uppercase h-4 px-1.5">
                                                     {asset.type}
                                                 </Badge>
                                                 <button
-                                                    onClick={() => {
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         if (window.confirm('Delete this asset? This cannot be undone.')) {
                                                             deleteAsset.mutate(asset.id);
                                                         }
@@ -789,9 +808,12 @@ export function ParticipantProfilePage() {
                                                 </button>
                                             </div>
                                             <p className="font-bold text-sm truncate mb-1">{asset.name}</p>
-                                            <p className="text-[10px] text-muted-foreground/60 font-medium tabular-nums">
-                                                Added {new Date(asset.createdAt).toLocaleDateString()}
-                                            </p>
+                                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/10">
+                                                <p className="text-[10px] text-muted-foreground/60 font-medium tabular-nums">
+                                                    {new Date(asset.createdAt).toLocaleDateString()}
+                                                </p>
+                                                <div className="text-[10px] font-black text-primary uppercase opacity-0 group-hover:opacity-100 transition-opacity">Preview</div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1127,8 +1149,7 @@ export function ParticipantProfilePage() {
                 </div>
             )}
         </div>
-    </div>
-);
-}
+    );
+};
 
 export default ParticipantProfilePage;
