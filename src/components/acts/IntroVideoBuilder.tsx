@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { Loader2, Plus, Check, Play, Settings2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Check, Play, Settings2, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 interface ParticipantAsset {
   id: string;
@@ -17,7 +17,7 @@ interface IntroVideoBuilderProps {
   onComplete?: (url: string) => void;
 }
 
-export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId, onComplete }) => {
+export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) => {
   const [assets, setAssets] = useState<ParticipantAsset[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId, onC
   };
 
   const fetchComposition = async () => {
-    const { data, error } = await supabase
+    const { data, error: _error } = await supabase
       .from('act_requirements')
       .select('*')
       .eq('act_id', actId)
@@ -98,13 +98,29 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId, onC
       fulfilled: approved
     };
 
-    const { data, error } = await supabase
-      .from('act_requirements')
-      .upsert(compositionId ? { id: compositionId, ...payload } : payload)
-      .select()
-      .single();
+    let saveResult;
+    if (compositionId) {
+      saveResult = await supabase
+        .from('act_requirements')
+        .update({
+          ...payload
+        })
+        .eq('id', compositionId)
+        .select()
+        .single();
+    } else {
+      saveResult = await supabase
+        .from('act_requirements')
+        .insert({
+          ...payload
+        })
+        .select()
+        .single();
+    }
 
-    if (!error && data) {
+    const { data, error: _error } = saveResult;
+
+    if (!_error && data) {
       setCompositionId(data.id);
       setIsApproved(approved);
     }
@@ -132,17 +148,31 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId, onC
             curation: curationSuggestions,
             lastUpdated: new Date().toISOString()
           };
-          const { data: upsertData } = await supabase.from('act_requirements').upsert(compositionId ? { 
-              id: compositionId,
-              file_url: data.publicUrl,
-              description: JSON.stringify(metadata)
-          } : {
-              act_id: actId,
-              requirement_type: 'IntroComposition',
-              file_url: data.publicUrl,
-              description: JSON.stringify(metadata),
-              fulfilled: false
-          }).select().maybeSingle();
+          let upsertResult;
+          if (compositionId) {
+            upsertResult = await supabase
+              .from('act_requirements')
+              .update({
+                file_url: data.publicUrl,
+                description: JSON.stringify(metadata)
+              })
+              .eq('id', compositionId)
+              .select()
+              .maybeSingle();
+          } else {
+            upsertResult = await supabase
+              .from('act_requirements')
+              .insert({
+                act_id: actId,
+                requirement_type: 'IntroComposition',
+                file_url: data.publicUrl,
+                description: JSON.stringify(metadata),
+                fulfilled: false
+              })
+              .select()
+              .maybeSingle();
+          }
+          const { data: upsertData } = upsertResult;
           
           if (upsertData?.id) setCompositionId(upsertData.id);
       }
