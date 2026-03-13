@@ -118,15 +118,20 @@ serve(async (req: Request) => {
       }
     }
 
-    // STAGE 2: Call Imagen with the engineered prompt
-    const imagenUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-4.0-fast-generate-001:predict`
+    // STAGE 2: Call Imagen with the engineered prompt (March 2026 GA Spec)
+    const imagenUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-4.0-fast-generate-001:generateImages`
 
     const imagenPayload = {
-      instances: [{ prompt: finalPrompt }],
-      parameters: { sampleCount: 1, aspectRatio: '1:1', outputMimeType: 'image/png' },
+      prompt: finalPrompt,
+      aspectRatio: '1:1',
+      sampleCount: 1,
+      outputMimeType: 'image/png',
+      // Adds the "Safety Shield" configured in GCP Console
+      safetySetting: 'block_only_high',
+      personGeneration: 'allow_all' // Ensures performers' faces aren't blocked as "celebrities"
     }
 
-    console.log(`[VertexPipeline] Stage 2: Calling Imagen 3.0...`)
+    console.log(`[VertexPipeline] Stage 2: Calling Imagen 4.0 Fast (GA Spec)...`)
 
     const response = await fetch(imagenUrl, {
       method: 'POST',
@@ -155,7 +160,10 @@ serve(async (req: Request) => {
     }
 
     const result = await response.json()
-    const base64Data = result.predictions?.[0]?.bytesBase64
+    // In the generateImages spec, the response structure is flattened
+    // Result contains an array of images: { predictions: [{ bytesBase64: "..." }] } or { images: [{ bytesBase64: "..." }] }
+    // Based on the GA spec, we check for 'predictions' or 'images'
+    const base64Data = result.predictions?.[0]?.bytesBase64 || result.images?.[0]?.bytesBase64
     
     // Check for empty payload despite 200 (Vertex sometimes does this for safety)
     if (!base64Data) {
