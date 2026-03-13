@@ -119,7 +119,7 @@ serve(async (req: Request) => {
     }
 
     // STAGE 2: Call Imagen with the engineered prompt
-    const imagenUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-3.0-generate-001:predict`
+    const imagenUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-4.0-fast-generate-001:predict`
 
     const imagenPayload = {
       instances: [{ prompt: finalPrompt }],
