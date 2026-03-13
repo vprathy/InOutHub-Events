@@ -145,7 +145,9 @@ export function useParticipantDetail(participantId: string) {
 
             if (aError) throw aError;
 
-            const actIds = (actLinks || []).map((link: any) => link.act.id);
+            const actIds = (actLinks || [])
+                .map((link: any) => link.act?.id)
+                .filter(Boolean);
             const eventId = p.event_id;
 
             // 3. Fetch Organization ID (required for org-level templates)

@@ -37,7 +37,7 @@ import {
     X,
     Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -108,19 +108,63 @@ export function ParticipantProfilePage() {
     const [aiSuggestResult, setAiSuggestResult] = useState<string | null>(null);
     const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [headerThumbnailUrl, setHeaderThumbnailUrl] = useState<string | null>(null);
 
-    const handlePreviewAsset = async (fileUrl: string) => {
+    const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
+
+    const generativeAsset = participant?.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled);
+
+    // Fetch signed URL for header thumbnail
+    useEffect(() => {
+        if (generativeAsset?.fileUrl) {
+            (async () => {
+                try {
+                    const urlObj = new URL(generativeAsset.fileUrl!);
+                    const pathParts = urlObj.pathname.split('/v1/object/public/');
+                    const bucketAndPath = pathParts.length > 1 ? pathParts[1] : null;
+                    const filePath = bucketAndPath?.replace('participant-assets/', '') || null;
+
+                    if (filePath) {
+                        const { data } = await supabase.storage
+                            .from('participant-assets')
+                            .createSignedUrl(filePath, 3600);
+                        if (data?.signedUrl) setHeaderThumbnailUrl(data.signedUrl);
+                    } else {
+                        setHeaderThumbnailUrl(generativeAsset.fileUrl!);
+                    }
+                } catch (e) {
+                    setHeaderThumbnailUrl(generativeAsset.fileUrl!);
+                }
+            })();
+        } else {
+            setHeaderThumbnailUrl(null);
+        }
+    }, [generativeAsset?.fileUrl]);
+
+    const handlePreviewAsset = async (fileUrl: string, assetType?: string) => {
         if (!fileUrl) return;
         
-        // If it's already a full URL (public),    // 4. Persistence to Supabase Storage
-        // but for 'participant-assets' we want a signed URL for reliability
+        // Skip signed URL logic for non-poster assets to prevent undefined/bucket errors
+        if (assetType && assetType !== 'POSTER' && assetType !== 'Generative') {
+            console.log(`[Handshake] Skipping signed URL for asset type: ${assetType}`);
+            setSelectedAssetUrl(fileUrl);
+            return;
+        }
+
         setPreviewLoading(true);
         try {
-            // Extract path from URL if it's a Supabase public URL
-            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
-            const urlObj = new URL(fileUrl);
-            const pathParts = urlObj.pathname.split('/public/participant-assets/');
-            const filePath = pathParts.length > 1 ? pathParts[1] : null;
+            // Extract path robustly
+            let filePath = null;
+            if (fileUrl.includes('supabase.co/storage/v1/object/public/')) {
+                const parts = fileUrl.split('/public/')[1]?.split('/');
+                if (parts && parts.length > 1) {
+                    // Skip the bucket name (parts[0])
+                    filePath = parts.slice(1).join('/');
+                }
+            } else if (!fileUrl.startsWith('http')) {
+                // Assume it's already a path
+                filePath = fileUrl;
+            }
 
             if (filePath) {
                 const { data, error } = await supabase.storage
@@ -130,7 +174,7 @@ export function ParticipantProfilePage() {
                 if (error) throw error;
                 setSelectedAssetUrl(data.signedUrl);
             } else {
-                // Fallback to direct URL if path extraction fails
+                // Fallback to direct URL
                 setSelectedAssetUrl(fileUrl);
             }
         } catch (err) {
@@ -140,8 +184,6 @@ export function ParticipantProfilePage() {
             setPreviewLoading(false);
         }
     };
-
-    const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
     // Available acts for assignment
     const { data: allActs } = useActsQuery(participant?.eventId || '');
@@ -189,6 +231,11 @@ export function ParticipantProfilePage() {
             const result = await res.json();
             if (result.error) {
                 setAiSuggestResult(`Error: ${result.error}`);
+            } else if (result.isPending) {
+                // Handle Silent Failure / Brand Safety Review gracefully for Demo
+                setAiSuggestResult(result.message || 'Reviewing for Brand Safety');
+                // Don't auto-dismiss immediately so the user can see it
+                setTimeout(() => setAiSuggestResult(null), 8000);
             } else {
                 setAiSuggestResult('AI Intro Assets Ready');
                 // Refresh data to show the new asset in the Assets tab
@@ -279,11 +326,11 @@ export function ParticipantProfilePage() {
                 </div>
 
                 {/* Unified Badge Strip - High Density Cockpit */}
-                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-xl border border-border/40 overflow-x-auto scrollbar-hide">
+                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-xl border border-border/40 overflow-x-auto scrollbar-hide relative z-20">
                     <select
                         value={participant.status || 'active'}
                         onChange={(e) => updateStatus.mutate(e.target.value as any)}
-                        className={`px-3 py-0.5 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border outline-none transition-all antialiased ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                        className={`px-3 py-0.5 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border outline-none transition-all antialiased appearance-none cursor-pointer ${participant.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' :
                             participant.status === 'missing_from_source' ? 'bg-orange-500/10 text-orange-600 border-orange-500/20' :
                                 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                             }`}
@@ -318,30 +365,33 @@ export function ParticipantProfilePage() {
                     </Badge>
 
                     {/* Cinematic Poster Thumbnail in Header */}
-                    {participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled) && (
-                        <div className="ml-auto flex items-center gap-2 px-2 h-7 bg-primary/10 rounded-lg border border-primary/20 group hover:bg-primary/20 transition-all">
+                    {generativeAsset && (
+                        <div className="ml-auto flex items-center gap-2 px-2 h-7 bg-primary/10 rounded-lg border border-primary/20 group hover:bg-primary/20 transition-all cursor-pointer">
                             <Sparkles className="w-3 h-3 text-primary animate-pulse" />
                             <span className="text-[9px] font-black uppercase tracking-tight text-primary">Live Poster</span>
                             {/* AI Poster Preview Trigger */}
-                            {participant.actRequirements?.find(r => r.requirementType === 'Generative')?.fileUrl && (
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const asset = participant.actRequirements?.find(r => r.requirementType === 'Generative');
-                                        if (asset?.fileUrl) handlePreviewAsset(asset.fileUrl!);
-                                    }}
-                                    className="relative w-7 h-7 rounded-lg overflow-hidden border border-primary/30 shadow-sm hover:scale-110 active:scale-95 transition-all bg-black group"
-                                >
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (generativeAsset?.fileUrl) handlePreviewAsset(generativeAsset.fileUrl!, 'Generative');
+                                }}
+                                className="relative w-8 h-8 rounded-lg overflow-hidden border border-primary/30 shadow-sm hover:scale-110 active:scale-95 transition-all bg-black group"
+                            >
+                                {headerThumbnailUrl ? (
                                     <img 
-                                        src={participant.actRequirements.find(r => r.requirementType === 'Generative')?.fileUrl || ''} 
+                                        src={headerThumbnailUrl} 
                                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100" 
                                         alt="AI Thumbnail" 
                                     />
-                                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20 opacity-0 group-hover:opacity-100">
-                                        <Sparkles className="w-3 h-3 text-white" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                                        <Loader2 className="w-3 h-3 text-primary animate-spin" />
                                     </div>
-                                </button>
-                            )}
+                                )}
+                                <div className="absolute inset-0 flex items-center justify-center bg-primary/20 opacity-0 group-hover:opacity-100">
+                                    <Sparkles className="w-3 h-3 text-white" />
+                                </div>
+                            </button>
                         </div>
                     )}
                 </div>
@@ -653,7 +703,7 @@ export function ParticipantProfilePage() {
                                         .map((asset) => (
                                             <div 
                                                                 className="relative aspect-[2/3] bg-black rounded-lg overflow-hidden border border-border/50 group cursor-zoom-in"
-                                                                 onClick={() => asset.fileUrl && handlePreviewAsset(asset.fileUrl)}
+                                                                 onClick={() => asset.fileUrl && handlePreviewAsset(asset.fileUrl, 'POSTER')}
                                                             >
                                                 <div className="aspect-[16/9] w-full overflow-hidden">
                                                     <img 
@@ -1169,8 +1219,12 @@ export function ParticipantProfilePage() {
                                     className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
                                 />
                                 <div className="text-center space-y-1">
-                                    <h2 className="text-xl font-black text-white tracking-tight uppercase">Cinematic Preview</h2>
-                                    <p className="text-sm text-white/60 font-medium">Verified via Secure Signed URL</p>
+                                    <h2 className="text-xl font-black text-white tracking-tight uppercase">
+                                        {selectedAssetUrl?.includes('POSTER') || selectedAssetUrl?.includes('pout_') ? 'Cinematic Preview' : 'Asset Verification'}
+                                    </h2>
+                                    {selectedAssetUrl?.includes('token=') && (
+                                        <p className="text-sm text-white/60 font-medium animate-pulse">Verified via Secure Signed URL</p>
+                                    )}
                                 </div>
                             </>
                         )}
