@@ -12,7 +12,8 @@ import {
     AlertCircle,
     UserPlus,
     Music,
-    MoreVertical
+    MoreVertical,
+    MonitorPlay
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -347,17 +348,43 @@ function AssetsTab({ act }: { act: any }) {
                         <Button variant="ghost" size="sm" className="text-primary font-black text-xs">Manage</Button>
                     </div>
                     <div className="space-y-3">
-                        {(act.requirements || []).length > 0 ? (act.requirements || []).map((req: any) => (
-                            <div key={req.id} className="p-4 border border-border rounded-xl flex items-center justify-between bg-muted/20">
-                                <div>
-                                    <p className="font-bold text-sm">{req.requirementType}</p>
-                                    <p className="text-xs text-muted-foreground font-medium">{req.description}</p>
+                        {(act.requirements || []).length > 0 ? (act.requirements || []).map((req: any) => {
+                            let displayDescription = req.description;
+                            let isIntro = req.requirementType === 'IntroComposition';
+                            
+                            // Try to parse JSON to see if it's a hidden metadata field
+                            try {
+                                if (req.description?.startsWith('{')) {
+                                    const parsed = JSON.parse(req.description);
+                                    if (isIntro) {
+                                        displayDescription = `Composed with ${parsed.selectedAssetIds?.length || 0} performers`;
+                                    } else {
+                                        displayDescription = "Technical Configuration";
+                                    }
+                                }
+                            } catch (e) {
+                                // Fallback to raw description if not JSON
+                            }
+
+                            return (
+                                <div key={req.id} className="p-4 border border-border rounded-xl flex items-center justify-between bg-muted/20">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIntro ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                                            {isIntro ? <MonitorPlay size={16} /> : <Settings size={16} />}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-sm">
+                                                {isIntro ? "Intro Composition" : req.requirementType}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground font-medium">{displayDescription}</p>
+                                        </div>
+                                    </div>
+                                    <div className={req.fulfilled ? "text-emerald-500" : "text-amber-500"}>
+                                        {req.fulfilled ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+                                    </div>
                                 </div>
-                                <div className={req.fulfilled ? "text-emerald-500" : "text-amber-500"}>
-                                    {req.fulfilled ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                                </div>
-                            </div>
-                        )) : (
+                            );
+                        }) : (
                             <div className="text-center py-8 text-muted-foreground font-medium italic">
                                 No tech requirements listed.
                             </div>

@@ -138,7 +138,20 @@ CREATE TABLE act_assets (
 CREATE TABLE act_requirements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     act_id UUID NOT NULL REFERENCES acts(id) ON DELETE CASCADE,
-    requirement_type TEXT NOT NULL CHECK (requirement_type IN ('Audio', 'Lighting', 'Microphone', 'Video', 'Waiver')),
+    requirement_type TEXT NOT NULL CHECK (
+        requirement_type IN (
+            'Audio',
+            'Lighting',
+            'Microphone',
+            'Video',
+            'Waiver',
+            'Poster',
+            'Generative',
+            'Generative_Video',
+            'Generative_Audio',
+            'IntroComposition'
+        )
+    ),
     description TEXT NOT NULL,
     file_url TEXT, 
     fulfilled BOOLEAN DEFAULT false, 

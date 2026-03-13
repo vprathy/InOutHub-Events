@@ -61,7 +61,7 @@ export function useLineupQuery(stageId: string | null) {
                     })),
                     requirements: row.act.requirements?.map((r: any) => ({
                         id: r.id,
-                        type: r.requirement_type,
+                        requirementType: r.requirement_type,
                         description: r.description,
                         fileUrl: r.file_url,
                         fulfilled: r.fulfilled
@@ -293,7 +293,7 @@ export function useAllEventLineupQuery(eventId: string) {
                     })),
                     requirements: row.act.requirements?.map((r: any) => ({
                         id: r.id,
-                        type: r.requirement_type,
+                        requirementType: r.requirement_type,
                         description: r.description,
                         fileUrl: r.file_url,
                         fulfilled: r.fulfilled

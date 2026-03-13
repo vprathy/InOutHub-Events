@@ -38,6 +38,8 @@ export const RequirementType = {
     Waiver: 'Waiver',
     Poster: 'Poster',
     Generative: 'Generative',
+    GenerativeVideo: 'Generative_Video',
+    GenerativeAudio: 'Generative_Audio',
     IntroComposition: 'IntroComposition',
 } as const;
 export type RequirementType = typeof RequirementType[keyof typeof RequirementType];
@@ -163,6 +165,20 @@ export interface ActRequirement {
     description: string;
     fileUrl: string | null;
     fulfilled: boolean | null;
+}
+
+export interface IntroCurationItem {
+    id: string;
+    pacing: string;
+    focalPoint: string;
+    timing: number;
+    narrative: string;
+}
+
+export interface IntroComposition {
+    selectedAssetIds: string[];
+    curation: IntroCurationItem[];
+    lastUpdated: string;
 }
 
 export interface Participant {

@@ -33,7 +33,12 @@ export function useStageConsole(stageId: string | null) {
                     act:acts(
                         *,
                         act_participants(
-                            participant:participants(id, first_name, last_name)
+                            participant:participants(
+                                id,
+                                first_name,
+                                last_name,
+                                participant_assets(id, file_url, status, type)
+                            )
                         ),
                         requirements:act_requirements(*)
                     )
@@ -62,10 +67,16 @@ export function useStageConsole(stageId: string | null) {
                         participantId: p.participant.id,
                         firstName: p.participant.first_name,
                         lastName: p.participant.last_name,
+                        assets: (p.participant.participant_assets || []).map((asset: any) => ({
+                            id: asset.id,
+                            fileUrl: asset.file_url,
+                            status: asset.status,
+                            type: asset.type,
+                        })),
                     })),
                     requirements: row.act.requirements?.map((r: any) => ({
                         id: r.id,
-                        type: r.requirement_type,
+                        requirementType: r.requirement_type,
                         description: r.description,
                         fileUrl: r.file_url,
                         fulfilled: r.fulfilled
@@ -101,6 +112,30 @@ export function useStageConsole(stageId: string | null) {
         };
     }, [stageId, queryClient]);
 
+    useEffect(() => {
+        if (!stageId) return;
+
+        const channel = supabase
+            .channel(`stage_lineup_${stageId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'lineup_items',
+                    filter: `stage_id=eq.${stageId}`,
+                },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['lineup', stageId] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [stageId, queryClient]);
+
     const currentIndex = lineup?.findIndex(item => item.id === stageState?.current_lineup_item_id) ?? -1;
 
     const current = currentIndex !== -1 ? lineup?.[currentIndex] : null;
@@ -113,10 +148,10 @@ export function useStageConsole(stageId: string | null) {
 
         next.act.requirements.forEach((req: any) => {
             if (req.fulfilled && req.fileUrl) {
-                if (req.type === 'Poster') {
+                if (['Poster', 'Generative', 'IntroComposition'].includes(req.requirementType)) {
                     const img = new Image();
                     img.src = req.fileUrl;
-                } else if (req.type === 'Video') {
+                } else if (['Video', 'Generative_Video'].includes(req.requirementType)) {
                     const vid = document.createElement('video');
                     vid.src = req.fileUrl;
                     vid.preload = 'auto';

@@ -7,6 +7,7 @@ import { useUpdateActStatus } from '@/hooks/useActs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { IntroVideoPlayer } from './IntroVideoPlayer';
+import type { IntroComposition } from '@/types/domain';
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -53,8 +54,24 @@ export function LivePerformanceController({
     }, []);
 
     // Selection logic for AI assets
-    const currentPoster = current?.act?.requirements?.find((r: any) => r.type === 'Poster' || r.type === 'Lighting')?.fileUrl;
-    const currentVideo = current?.act?.requirements?.find((r: any) => r.type === 'Video')?.fileUrl;
+    const requirements = current?.act?.requirements || [];
+    const compositionReq = requirements.find((r: any) => r.requirementType === 'IntroComposition');
+    const isIntroReady = compositionReq?.fulfilled && compositionReq?.description;
+    
+    // Background priority: Composition background > Generative background
+    const currentPoster = compositionReq?.fileUrl || requirements.find((r: any) => r.requirementType === 'Generative')?.fileUrl;
+    
+    const generatedAudio = requirements.find((r: any) => r.requirementType === 'Generative_Audio')?.fileUrl;
+    const introAudio = generatedAudio;
+
+    let compositionData: IntroComposition | null = null;
+    if (isIntroReady) {
+        try {
+            compositionData = JSON.parse(compositionReq.description);
+        } catch (e) {
+            console.warn('Intro Composition parsing failed', e);
+        }
+    }
 
     if (status === 'Idle') {
         return (
@@ -192,14 +209,17 @@ export function LivePerformanceController({
                                             </Badge>
                                         ))}
                                     </div>
-                                    {currentVideo && (
+                                    {isIntroReady && (
                                         <Button 
                                             size="sm" 
                                             variant="ghost" 
                                             onClick={() => setShowIntro(true)}
-                                            className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2"
+                                            className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2 flex flex-col items-center justify-center leading-none"
                                         >
-                                            <MonitorPlay size={14} /> PLAY AI INTRO
+                                            <div className="flex items-center gap-2">
+                                                <MonitorPlay size={14} /> PLAY AI INTRO
+                                            </div>
+                                            <span className="text-[8px] opacity-40 font-black uppercase tracking-widest mt-0.5">Step 4: Play</span>
                                         </Button>
                                     )}
                                 </div>
@@ -295,11 +315,16 @@ export function LivePerformanceController({
                 </div>
 
                 <AnimatePresence>
-                    {showIntro && currentVideo && (
+                    {showIntro && isIntroReady && compositionData && (
                         <IntroVideoPlayer 
-                            videoUrl={currentVideo}
-                            posterUrl={currentPoster || ''}
+                            composition={{
+                                backgroundUrl: currentPoster || '',
+                                selectedAssetIds: compositionData.selectedAssetIds || [],
+                                curation: compositionData.curation || [],
+                            }}
+                            audioUrl={introAudio}
                             actName={current?.act?.name || ''}
+                            participants={current?.act?.act_participants || []}
                             onClose={() => setShowIntro(false)}
                         />
                     )}

@@ -62,6 +62,7 @@ This document represents the definitive plan for the InOutHub Events Command Cen
     - **On-Demand AI Lineup Validator:** An AI review that analyzes the schedule for logistical issues (e.g., insufficient setup time) and presents suggestions for the Admin to accept or reject.
     - **Enhanced Data Ingestion:** Add support for Google Sheets and Excel file imports.
     - **Advanced Readiness Board:** Introduce `Requirements` (checklists) that can be assigned to `Acts` for more granular readiness tracking (e.g., "Waiver Signed").
+    - **Assistive Intro Composition Tools:** Admin-only tooling may help curate and assemble act intro media, but all outputs remain approval-driven and secondary to live event execution.
 
 ### V3: The Participant & Family Experience
 
@@ -96,14 +97,14 @@ This document represents the definitive plan for the InOutHub Events Command Cen
 ## 5. Non-Functional Requirements
 
 - **Security:**
-    - All data access will be governed by Firestore Security Rules.
-    - Authentication will be handled via Firebase Auth, supporting social logins (Google) and password-based accounts.
+    - All data access will be governed by Supabase Row Level Security policies and role-scoped access rules.
+    - Authentication will be handled via Supabase Auth and organization/event membership controls.
     - Sensitive PII and child data protection will be paramount in rule design.
 - **Performance & Latency:**
     - The Stage Console **must** have real-time synchronization with the backend. Changes made by the Admin must reflect on the console with sub-second latency.
     - UI interactions should feel instant. Page loads should be fast.
 - **Cost & Budget Considerations:**
-    - The architecture will be designed to leverage the generous free tiers of Firebase (Firestore, Auth) and Genkit/Google AI as much as possible for V1.
+    - The architecture will be designed to leverage Supabase and Google AI services cost-effectively for V1.
     - Storing large assets (audio/video files) will be deferred to later versions. V1 will link to files, not host them.
     - Polling frequencies and AI model usage will be optimized to be cost-effective, scaling with usage.
 - **Resilience (SPOF Mitigation):**

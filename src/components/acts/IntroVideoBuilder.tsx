@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Loader2, Check, Play, Settings2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import type { IntroComposition, IntroCurationItem } from '@/types/domain';
 
 interface ParticipantAsset {
   id: string;
@@ -23,11 +24,19 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
   const [isCurating, setIsCurating] = useState(false);
-  const [curationSuggestions, setCurationSuggestions] = useState<any[]>([]);
+  const [curationSuggestions, setCurationSuggestions] = useState<IntroCurationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [compositionId, setCompositionId] = useState<string | null>(null);
   const [isApproved, setIsApproved] = useState(false);
+
+  const resetCompositionState = () => {
+    setSelectedIds([]);
+    setBackgroundUrl(null);
+    setCurationSuggestions([]);
+    setCompositionId(null);
+    setIsApproved(false);
+  };
 
   useEffect(() => {
     init();
@@ -35,6 +44,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
   const init = async () => {
     setIsLoading(true);
+    resetCompositionState();
     await fetchAssets();
     await fetchComposition();
     setIsLoading(false);
@@ -66,27 +76,37 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       .eq('requirement_type', 'IntroComposition')
       .maybeSingle();
 
-    if (data) {
-      setCompositionId(data.id);
-      setBackgroundUrl(data.file_url);
-      setIsApproved(data.fulfilled || false);
-      if (data.description) {
-        try {
-          const meta = JSON.parse(data.description);
-          setSelectedIds(meta.selectedAssetIds || []);
-          setCurationSuggestions(meta.curation || []);
-        } catch (e) {
-          console.error('Failed to parse composition metadata', e);
-        }
+    if (!data) return;
+
+    setCompositionId(data.id);
+    setBackgroundUrl(data.file_url);
+    setIsApproved(data.fulfilled || false);
+    if (data.description) {
+      try {
+        const meta = JSON.parse(data.description) as Partial<IntroComposition>;
+        setSelectedIds(meta.selectedAssetIds || []);
+        setCurationSuggestions(meta.curation || []);
+      } catch (e) {
+        console.error('Failed to parse composition metadata', e);
       }
     }
   };
 
-  const saveComposition = async (approved = false) => {
+  const saveComposition = async ({
+    approved = false,
+    selectedAssetIds = selectedIds,
+    curation = curationSuggestions,
+    fileUrl = backgroundUrl,
+  }: {
+    approved?: boolean;
+    selectedAssetIds?: string[];
+    curation?: IntroCurationItem[];
+    fileUrl?: string | null;
+  } = {}) => {
     setIsSaving(true);
-    const metadata = {
-      selectedAssetIds: selectedIds,
-      curation: curationSuggestions,
+    const metadata: IntroComposition = {
+      selectedAssetIds,
+      curation,
       lastUpdated: new Date().toISOString()
     };
 
@@ -94,7 +114,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       act_id: actId,
       requirement_type: 'IntroComposition',
       description: JSON.stringify(metadata),
-      file_url: backgroundUrl,
+      file_url: fileUrl,
       fulfilled: approved
     };
 
@@ -142,39 +162,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       const data = await response.json();
       if (data.publicUrl) {
           setBackgroundUrl(data.publicUrl);
-          // Auto-save background update
-          const metadata = { 
-            selectedAssetIds: selectedIds, 
-            curation: curationSuggestions,
-            lastUpdated: new Date().toISOString()
-          };
-          let upsertResult;
-          if (compositionId) {
-            upsertResult = await supabase
-              .from('act_requirements')
-              .update({
-                file_url: data.publicUrl,
-                description: JSON.stringify(metadata)
-              })
-              .eq('id', compositionId)
-              .select()
-              .maybeSingle();
-          } else {
-            upsertResult = await supabase
-              .from('act_requirements')
-              .insert({
-                act_id: actId,
-                requirement_type: 'IntroComposition',
-                file_url: data.publicUrl,
-                description: JSON.stringify(metadata),
-                fulfilled: false
-              })
-              .select()
-              .maybeSingle();
-          }
-          const { data: upsertData } = upsertResult;
-          
-          if (upsertData?.id) setCompositionId(upsertData.id);
+          await saveComposition({ approved: false, fileUrl: data.publicUrl });
       }
     } catch (err) {
       console.error('Background Gen Failed', err);
@@ -187,7 +175,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     if (selectedIds.length === 0) return;
     setIsCurating(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/Functions/v1/generate-act-assets`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-act-assets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,11 +186,14 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       });
       const data = await response.json();
       if (data.suggestions) {
-          const parsed = typeof data.suggestions === 'string' ? JSON.parse(data.suggestions.replace(/```json|```/g, '')) : data.suggestions;
-          const suggestions = parsed.suggestions || [];
+          // The edge function returns a stringified JSON in suggestions
+          const rawSuggestions = typeof data.suggestions === 'string' 
+            ? JSON.parse(data.suggestions.replace(/```json|```/g, '')) 
+            : data.suggestions;
+            
+          const suggestions = (rawSuggestions.suggestions || []) as IntroCurationItem[];
           setCurationSuggestions(suggestions);
-          // Auto-save curation
-          await saveComposition(false);
+          await saveComposition({ approved: false, curation: suggestions });
       }
     } catch (err) {
       console.error('Curation Failed', err);
@@ -257,6 +248,28 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         </div>
       </div>
 
+      {/* Step Indicator */}
+      <div className="flex items-center justify-between px-4 py-3 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+        {[
+          { id: 'select', label: '1. Select', active: selectedIds.length === 0, done: selectedIds.length > 0 },
+          { id: 'curate', label: '2. Curate', active: selectedIds.length > 0 && curationSuggestions.length === 0, done: curationSuggestions.length > 0 },
+          { id: 'approve', label: '3. Approve', active: curationSuggestions.length > 0 && !isApproved, done: isApproved },
+          { id: 'play', label: '4. Play', active: isApproved, done: false },
+        ].map((step, idx) => (
+          <React.Fragment key={step.id}>
+            <div className={`flex items-center gap-2 ${step.active ? 'opacity-100' : 'opacity-40'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 ${step.done ? 'bg-green-500 border-green-500 text-white' : step.active ? 'border-primary text-primary' : 'border-gray-500 text-gray-500'}`}>
+                {step.done ? <Check className="w-3 h-3" /> : idx + 1}
+              </div>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${step.active ? 'text-primary' : 'text-gray-500'}`}>
+                {step.label}
+              </span>
+            </div>
+            {idx < 3 && <div className="h-px flex-1 mx-4 bg-gray-500/10" />}
+          </React.Fragment>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Step 1: Asset Selection */}
         <section className="space-y-3">
@@ -306,9 +319,9 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                      <div className="flex gap-2 p-4">
                         {selectedIds.slice(0, 4).map((id, idx) => {
                             const asset = assets.find(a => a.id === id);
-                            const suggestion = curationSuggestions[idx];
+                            const suggestion = curationSuggestions.find(s => s.id === id);
                             return (
-                                <div key={id} className="relative w-16 h-24 bg-black/40 backdrop-blur-md rounded border border-white/20 overflow-hidden shadow-lg animate-in zoom-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 100}ms` }}>
+                                <div key={id} className={`relative w-16 h-24 bg-black/40 backdrop-blur-md rounded border overflow-hidden shadow-lg animate-in zoom-in slide-in-from-bottom-2 duration-300 ${suggestion ? 'border-primary/50' : 'border-white/20'}`} style={{ animationDelay: `${idx * 100}ms` }}>
                                     {asset && <img src={asset.file_url} className="w-full h-full object-cover opacity-80" />}
                                     {suggestion && (
                                         <div className="absolute inset-0 border-2 border-primary/40 pointer-events-none" />
@@ -327,22 +340,38 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           </Card>
           
           <div className={`p-4 rounded-xl border transition-all ${curationSuggestions.length > 0 ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-muted/5 border-border/50'}`}>
-            <h4 className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 mb-2 ${curationSuggestions.length > 0 ? 'text-indigo-400' : 'text-muted-foreground'}`}>
+            <h4 className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 mb-3 ${curationSuggestions.length > 0 ? 'text-indigo-400' : 'text-muted-foreground'}`}>
                 <Sparkles className="w-3 h-3" />
                 AI Curation Workspace
             </h4>
             {curationSuggestions.length > 0 ? (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    {curationSuggestions.map((s, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-[10px] border-b border-white/5 py-1">
-                            <span className="text-gray-500">IMAGE {idx + 1}</span>
-                            <span className="font-bold text-indigo-300 uppercase">{s.quality}</span>
+                <div className="space-y-2">
+                    {curationSuggestions.slice(0, 4).map((s, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[10px] border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                            <div className="flex flex-col">
+                              <span className="text-gray-500 font-bold">POS {idx + 1}</span>
+                              <span className="text-indigo-300/80 italic">{s.narrative || 'Spotlight'}</span>
+                            </div>
+                            <div className="flex gap-3">
+                              <div className="text-right">
+                                <span className="text-gray-600 block">PACING</span>
+                                <span className="font-bold text-white uppercase">{s.pacing || 'Cinematic'}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-gray-600 block">FOCAL</span>
+                                <span className="font-bold text-white uppercase">{s.focalPoint || 'Center'}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-gray-600 block">DURATION</span>
+                                <span className="font-bold text-white uppercase">{s.timing || 3}s</span>
+                              </div>
+                            </div>
                         </div>
                     ))}
                 </div>
             ) : (
                 <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                    Select photos and run curation to identify optimal cropping and narrative flow for this act.
+                    Select photos and run curation to identify optimal movement, focal points, and narrative flow for this act.
                 </p>
             )}
           </div>
@@ -356,7 +385,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         <div className="flex gap-3">
             <Button 
                 variant="outline" 
-                onClick={() => saveComposition(false)}
+                onClick={() => saveComposition({ approved: false })}
                 disabled={isSaving || isApproved || (selectedIds.length === 0 && !backgroundUrl)}
                 className="font-bold uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl border-2"
             >
@@ -366,7 +395,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
             <Button 
                 disabled={!backgroundUrl || selectedIds.length === 0 || isSaving || isApproved} 
                 variant="default"
-                onClick={() => saveComposition(true)}
+                onClick={() => saveComposition({ approved: true })}
                 className="font-bold uppercase tracking-widest text-[10px] h-10 px-8 rounded-xl shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
             >
                 {isApproved ? <Check className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2 text-white/50" />}
