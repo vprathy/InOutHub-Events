@@ -37,7 +37,10 @@ export function ActCard({ act }: ActCardProps) {
         setIsGenerating(true);
         try {
             const { data, error } = await supabase.functions.invoke('generate-act-assets', {
-                body: { actId: act.id, mode: 'Manual' }
+                body: { actId: act.id, mode: 'Manual' },
+                headers: {
+                    'x-inouthub-trust': 'inouthub-internal-2026-v16'
+                }
             });
 
             if (error) throw error;

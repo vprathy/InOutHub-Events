@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { StatusPicker } from '@/components/acts/StatusPicker';
+import { IntroVideoBuilder } from '@/components/acts/IntroVideoBuilder';
 
 type TabType = 'overview' | 'cast' | 'assets';
 
@@ -365,48 +366,9 @@ function AssetsTab({ act }: { act: any }) {
                 </Card>
             </div>
 
-            {/* Auto-Video Section */}
-            <Card className="p-8 border-dashed border-2 border-primary/20 bg-primary/[0.02] flex flex-col md:flex-row gap-8 items-center">
-                <div className="w-full md:w-72 aspect-video bg-black rounded-2xl flex flex-col items-center justify-center text-white/50 relative overflow-hidden group border border-white/10 shadow-2xl">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-500/20 opacity-50" />
-                    <Settings size={48} className="animate-spin-slow mb-2 relative z-10" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] relative z-10">AI Intro Preview</p>
-                    <div className="absolute bottom-4 left-4 right-4 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary w-2/3" />
-                    </div>
-                </div>
-
-                <div className="flex-1 space-y-6">
-                    <div>
-                        <Badge className="bg-primary/10 text-primary border-none mb-2 font-black text-[10px] tracking-widest px-3">
-                            AUTOMATION ALPHA
-                        </Badge>
-                        <h3 className="text-3xl font-black tracking-tighter">Auto-Generated Performance Intro</h3>
-                        <p className="text-muted-foreground font-medium mt-2 leading-relaxed">
-                            The system is assembling a high-energy intro video using participant headshots, act music, and kinetic typography.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-4">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-xl border border-border">
-                            <CheckCircle size={16} className="text-emerald-500" />
-                            <span className="text-xs font-bold text-foreground/80 lowercase">content scan: safe</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-xl border border-border">
-                            <Users size={16} className="text-primary" />
-                            <span className="text-xs font-bold text-foreground/80 lowercase">{act.participants.length} assets merged</span>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-8">
-                            Approve for Show
-                        </Button>
-                        <Button variant="outline" className="font-bold">
-                            Customize Video
-                        </Button>
-                    </div>
-                </div>
+            {/* Intro Video Builder Section */}
+            <Card className="p-1 border shadow-xl bg-card/50">
+                <IntroVideoBuilder actId={act.id} />
             </Card>
         </div>
     );

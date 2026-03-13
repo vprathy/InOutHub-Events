@@ -38,6 +38,7 @@ export const RequirementType = {
     Waiver: 'Waiver',
     Poster: 'Poster',
     Generative: 'Generative',
+    IntroComposition: 'IntroComposition',
 } as const;
 export type RequirementType = typeof RequirementType[keyof typeof RequirementType];
 

@@ -223,7 +223,8 @@ export function ParticipantProfilePage() {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                        'x-inouthub-trust': 'inouthub-internal-2026-v16'
                     },
                     body: JSON.stringify({ actId: participant.acts[0].id, bucket: 'participant-assets', testOnly: false }),
                 }
@@ -480,12 +481,13 @@ export function ParticipantProfilePage() {
                                 PERFORMANCES
                             </button>
                             <button
-                                onClick={() => setActiveTab('assets')}
-                                className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                            >
-                                <FileText size={14} />
-                                FORMS & DOCUMENTS
-                            </button>
+                            onClick={() => setActiveTab('assets')}
+                            className={`flex flex-col items-start px-4 py-3 rounded-xl transition-all border-2 relative group ${activeTab === 'assets' ? 'bg-indigo-500/10 border-indigo-500/30' : 'hover:bg-muted/50 border-transparent text-muted-foreground'}`}
+                        >
+                            <Plus className={`w-4 h-4 mb-2 ${activeTab === 'assets' ? 'text-indigo-500' : ''}`} />
+                            <span className="text-[10px] font-black uppercase tracking-widest tabular-nums">Assets</span>
+                        </button>
+
                             <button
                                 onClick={() => setActiveTab('source')}
                                 className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'source' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
