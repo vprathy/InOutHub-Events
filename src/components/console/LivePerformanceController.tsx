@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { IntroVideoPlayer } from './IntroVideoPlayer';
 import type { IntroComposition } from '@/types/domain';
+import { getPlayableIntro } from '@/lib/introCapabilities';
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -41,6 +42,13 @@ export function LivePerformanceController({
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
     const [showIntro, setShowIntro] = useState(false);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [playableIntro, setPlayableIntro] = useState<{
+        composition: IntroComposition;
+        actName: string;
+        participants: any[];
+    } | null>(null);
+    const [isLoadingIntro, setIsLoadingIntro] = useState(false);
+    const [introError, setIntroError] = useState<string | null>(null);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -61,17 +69,24 @@ export function LivePerformanceController({
     // Background priority: Composition background > Generative background
     const currentPoster = compositionReq?.fileUrl || requirements.find((r: any) => r.requirementType === 'Generative')?.fileUrl;
     
-    const generatedAudio = requirements.find((r: any) => r.requirementType === 'Generative_Audio')?.fileUrl;
-    const introAudio = generatedAudio;
-
-    let compositionData: IntroComposition | null = null;
-    if (isIntroReady) {
+    const handlePlayIntro = async () => {
+        if (!current?.act?.id || isLoadingIntro) return;
+        setIsLoadingIntro(true);
+        setIntroError(null);
         try {
-            compositionData = JSON.parse(compositionReq.description);
-        } catch (e) {
-            console.warn('Intro Composition parsing failed', e);
+            const response = await getPlayableIntro(current.act.id);
+            setPlayableIntro({
+                composition: response.composition,
+                actName: response.actName,
+                participants: response.participants,
+            });
+            setShowIntro(true);
+        } catch (error) {
+            setIntroError(error instanceof Error ? error.message : 'Playable intro fetch failed');
+        } finally {
+            setIsLoadingIntro(false);
         }
-    }
+    };
 
     if (status === 'Idle') {
         return (
@@ -141,6 +156,11 @@ export function LivePerformanceController({
             </div>
 
             <div className="flex flex-col gap-6 relative">
+                {introError ? (
+                    <Card className="ml-8 p-3 border-amber-500/20 bg-amber-500/5 text-amber-700 text-sm font-medium">
+                        {introError}
+                    </Card>
+                ) : null}
                 <div className="absolute left-6 top-20 bottom-20 w-1 bg-gradient-to-b from-rose-500/30 via-primary/20 to-transparent" />
 
                 {/* NOW STACK */}
@@ -213,11 +233,12 @@ export function LivePerformanceController({
                                         <Button 
                                             size="sm" 
                                             variant="ghost" 
-                                            onClick={() => setShowIntro(true)}
+                                            onClick={handlePlayIntro}
+                                            disabled={isLoadingIntro}
                                             className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2 flex flex-col items-center justify-center leading-none"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <MonitorPlay size={14} /> PLAY AI INTRO
+                                                <MonitorPlay size={14} /> {isLoadingIntro ? 'LOADING INTRO' : 'PLAY AI INTRO'}
                                             </div>
                                             <span className="text-[8px] opacity-40 font-black uppercase tracking-widest mt-0.5">Step 4: Play</span>
                                         </Button>
@@ -315,17 +336,15 @@ export function LivePerformanceController({
                 </div>
 
                 <AnimatePresence>
-                    {showIntro && isIntroReady && compositionData && (
+                    {showIntro && playableIntro && (
                         <IntroVideoPlayer 
-                            composition={{
-                                backgroundUrl: currentPoster || '',
-                                selectedAssetIds: compositionData.selectedAssetIds || [],
-                                curation: compositionData.curation || [],
+                            composition={playableIntro.composition}
+                            actName={playableIntro.actName}
+                            participants={playableIntro.participants}
+                            onClose={() => {
+                                setShowIntro(false);
+                                setPlayableIntro(null);
                             }}
-                            audioUrl={introAudio}
-                            actName={current?.act?.name || ''}
-                            participants={current?.act?.act_participants || []}
-                            onClose={() => setShowIntro(false)}
                         />
                     )}
                 </AnimatePresence>

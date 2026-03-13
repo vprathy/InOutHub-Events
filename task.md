@@ -180,8 +180,8 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 - [x] Intro Builder: Handle rich curation metadata and graceful fallbacks
 - [x] Console: Update `LivePerformanceController` to recognize `IntroComposition` readiness
 - [x] Console: Build `IntroVideoPlayer` Ken Burns engine (Dynamic Assembly)
-- [ ] Revalidate loop against current code (Select -> Curate -> Save -> Approve -> Play)
-- [ ] Reconcile intro metadata contract across builder, persistence, console, and playback
+- [ ] Revalidate loop against current code (Select -> Curate -> Save -> Approve -> Play) - Backend verified on 2026-03-13; manual Builder/Stage Console pass still pending
+- [x] Reconcile intro metadata contract across builder, persistence, console, and playback
 
 ## 🟡 Gate 17: Intro Builder UX Overhaul (Industry Standard)
 *Transforming the incoherent builder into a premium "Intro Studio".*

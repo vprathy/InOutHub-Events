@@ -134,6 +134,8 @@ export interface ActWithCounts extends Act {
     // Core readiness indicators
     hasTechnicalRider: boolean;
     hasMusicTrack: boolean;
+    hasApprovedIntro: boolean;
+    introBackgroundUrl?: string | null;
     // Operational readiness
     missingAssetCount: number;
     specialRequestCount: number;
@@ -175,9 +177,20 @@ export interface IntroCurationItem {
     narrative: string;
 }
 
+export interface IntroMediaRef {
+    fileUrl: string | null;
+    source: string | null;
+    stylePreset?: string | null;
+    optional?: boolean;
+}
+
 export interface IntroComposition {
+    version: string;
     selectedAssetIds: string[];
     curation: IntroCurationItem[];
+    background: IntroMediaRef;
+    audio: IntroMediaRef;
+    approved: boolean;
     lastUpdated: string;
 }
 

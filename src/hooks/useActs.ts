@@ -21,7 +21,7 @@ export function useActsQuery(eventId: string) {
                         )
                     ),
                     act_assets(id, asset_type, asset_name),
-                    act_requirements(id, requirement_type)
+                    act_requirements(id, requirement_type, file_url, fulfilled)
                 `)
                 .eq('event_id', eventId)
                 .order('name');
@@ -46,6 +46,8 @@ export function useActsQuery(eventId: string) {
                     ap.participant?.has_special_requests
                 ).length;
 
+                const introRequirement = (row.act_requirements || []).find((r: any) => r.requirement_type === 'IntroComposition');
+
                 return {
                     id: row.id,
                     eventId: row.event_id,
@@ -65,6 +67,8 @@ export function useActsQuery(eventId: string) {
                     hasMusicTrack: (row.act_assets || []).some((a: any) =>
                         a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
                     ),
+                    hasApprovedIntro: Boolean(introRequirement?.fulfilled),
+                    introBackgroundUrl: introRequirement?.file_url || (row.act_requirements || []).find((r: any) => r.requirement_type === 'Generative')?.file_url || null,
                 };
             });
         },

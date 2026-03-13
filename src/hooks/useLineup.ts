@@ -213,16 +213,27 @@ export function useUpdateLineupOrder() {
         mutationFn: async ({ items }: {
             items: { id: string, sortOrder: number }[]
         }) => {
-            const updates = items.map(item =>
-                supabase
-                    .from('lineup_items')
-                    .update({ sort_order: item.sortOrder })
-                    .eq('id', item.id)
+            // Two-phase reorder to avoid colliding with the unique (stage_id, sort_order) constraint.
+            const tempResults = await Promise.all(
+                items.map((item, index) =>
+                    supabase
+                        .from('lineup_items')
+                        .update({ sort_order: -1000 - index })
+                        .eq('id', item.id)
+                )
             );
 
-            const results = await Promise.all(updates);
-            const errors = results.filter(r => r.error).map(r => r.error);
-            if (errors.length > 0) throw errors[0];
+            const tempErrors = tempResults.filter((result) => result.error).map((result) => result.error);
+            if (tempErrors.length > 0) throw tempErrors[0];
+
+            for (const item of items) {
+                const { error } = await supabase
+                    .from('lineup_items')
+                    .update({ sort_order: item.sortOrder })
+                    .eq('id', item.id);
+
+                if (error) throw error;
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['lineup'] });

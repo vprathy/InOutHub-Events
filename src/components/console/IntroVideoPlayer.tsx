@@ -1,24 +1,21 @@
-import { X, Loader2, Music } from 'lucide-react';
+import { X, Loader2, Music, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { IntroComposition } from '@/types/domain';
 
 interface IntroVideoPlayerProps {
-    composition: {
-        backgroundUrl: string;
-        selectedAssetIds: IntroComposition['selectedAssetIds'];
-        curation: IntroComposition['curation'];
-    };
-    audioUrl?: string;
+    composition: IntroComposition;
     actName: string;
     participants: any[];
     onClose: () => void;
+    defaultFullscreen?: boolean;
 }
 
-export function IntroVideoPlayer({ composition, audioUrl, actName, participants, onClose }: IntroVideoPlayerProps) {
+export function IntroVideoPlayer({ composition, actName, participants, onClose, defaultFullscreen = true }: IntroVideoPlayerProps) {
     const [currentIndex, setCurrentIndex] = useState(-1); // -1 is Title/Ambient start
     const [allImagesLoaded, setAllImagesLoaded] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(defaultFullscreen);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const photos = composition.selectedAssetIds.map(id => {
@@ -33,27 +30,45 @@ export function IntroVideoPlayer({ composition, audioUrl, actName, participants,
     }).filter(p => p.url);
 
     useEffect(() => {
-       // Preload images
-       const imageUrls = [composition.backgroundUrl, ...photos.map(p => p.url)].filter(Boolean);
+       setAllImagesLoaded(false);
+       setCurrentIndex(-1);
+
+       const imageUrls = [composition.background.fileUrl, ...photos.map(p => p.url)].filter(Boolean);
        if (imageUrls.length === 0) {
            setAllImagesLoaded(true);
            return;
        }
-       let loadedCount = 0;
+
+       let isDisposed = false;
+       let settledCount = 0;
+       const markSettled = () => {
+           settledCount++;
+           if (!isDisposed && settledCount >= imageUrls.length) {
+               setAllImagesLoaded(true);
+           }
+       };
+
+       const timeout = window.setTimeout(() => {
+           if (!isDisposed) setAllImagesLoaded(true);
+       }, 2500);
+
        imageUrls.forEach(url => {
            const img = new Image();
            img.src = url;
-           img.onload = () => {
-               loadedCount++;
-               if (loadedCount === imageUrls.length) setAllImagesLoaded(true);
-           };
+           img.onload = markSettled;
+           img.onerror = markSettled;
        });
 
-       if (audioRef.current && audioUrl) {
+       if (audioRef.current && composition.audio.fileUrl) {
            audioRef.current.volume = 0.5;
            audioRef.current.play().catch(e => console.warn('Audio autoplay blocked', e));
        }
-    }, [audioUrl, composition.backgroundUrl, photos]);
+
+       return () => {
+           isDisposed = true;
+           window.clearTimeout(timeout);
+       };
+    }, [composition.audio.fileUrl, composition.background.fileUrl, photos]);
 
     useEffect(() => {
         if (!allImagesLoaded) return;
@@ -106,32 +121,50 @@ export function IntroVideoPlayer({ composition, audioUrl, actName, participants,
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden"
+            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center overflow-hidden p-4"
         >
-            {audioUrl && <audio ref={audioRef} src={audioUrl} />}
+            {composition.audio.fileUrl && <audio ref={audioRef} src={composition.audio.fileUrl} />}
+
+            <motion.div
+                layout
+                className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl ${isFullscreen ? 'h-full w-full rounded-none border-none' : 'h-[min(78vh,720px)] w-full max-w-5xl'}`}
+            >
             
-            <div className="absolute top-6 right-6 z-[110]">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={onClose}
-                    className="text-white hover:bg-white/10 rounded-full h-12 w-12"
+                <div className="absolute top-4 right-4 z-[110] flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsFullscreen((value) => !value)}
+                        className="text-white hover:bg-white/10 rounded-full h-11 w-11"
+                    >
+                        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={onClose}
+                        className="text-white hover:bg-white/10 rounded-full h-11 w-11"
+                    >
+                        <X size={28} />
+                    </Button>
+                </div>
+
+                {/* Background Layer */}
+                <motion.div
+                    className="absolute inset-0 z-0"
+                    initial={{ scale: 1.04, x: 0 }}
+                    animate={{ scale: [1.04, 1.12, 1.08], x: [0, -12, 8] }}
+                    transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
                 >
-                    <X size={32} />
-                </Button>
-            </div>
+                    <img 
+                        src={composition.background.fileUrl || ''} 
+                        className="w-full h-full object-cover opacity-18 blur-xl scale-110 saturate-75" 
+                        alt="" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80" />
+                </motion.div>
 
-            {/* Background Layer (Static but blurred slightly for depth) */}
-            <div className="absolute inset-0 z-0">
-                <img 
-                    src={composition.backgroundUrl} 
-                    className="w-full h-full object-cover opacity-40 blur-sm scale-105" 
-                    alt="" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80" />
-            </div>
-
-            <div className="relative z-10 w-full h-full flex items-center justify-center">
+                <div className="relative z-10 w-full h-full flex items-center justify-center">
                 {!allImagesLoaded ? (
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 className="w-12 h-12 text-primary animate-spin" />
@@ -160,7 +193,7 @@ export function IntroVideoPlayer({ composition, audioUrl, actName, participants,
                                 {...getKenBurns(photos[currentIndex].suggestion)}
                                 className="relative w-full h-full flex items-center justify-center"
                             >
-                                <div className="relative aspect-[2/3] h-[70vh] shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/10 rounded-lg overflow-hidden">
+                                <div className={`relative aspect-[2/3] shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/10 rounded-lg overflow-hidden ${isFullscreen ? 'h-[70vh]' : 'h-[62vh]'}`}>
                                      <img 
                                         src={photos[currentIndex].url} 
                                         className="w-full h-full object-cover" 
@@ -187,23 +220,24 @@ export function IntroVideoPlayer({ composition, audioUrl, actName, participants,
                         )}
                     </AnimatePresence>
                 )}
-            </div>
-
-            {/* Status Overlays */}
-            <div className="absolute bottom-10 left-10 z-[110] flex items-center gap-4">
-                <div className="bg-black/60 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                    <span className="text-[10px] text-white font-black uppercase tracking-wider">
-                        {currentIndex === -1 ? 'Initializing' : `Active Scene ${currentIndex + 1}/${photos.length}`}
-                    </span>
                 </div>
-                {audioUrl && (
-                    <div className="bg-primary/20 backdrop-blur-xl px-4 py-2 rounded-full border border-primary/30 flex items-center gap-3">
-                        <Music className="w-3 h-3 text-primary" />
-                        <span className="text-[10px] text-primary font-black uppercase tracking-wider">Audio Active</span>
+
+                {/* Status Overlays */}
+                <div className="absolute bottom-6 left-6 z-[110] flex flex-wrap items-center gap-3">
+                    <div className="bg-black/60 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        <span className="text-[10px] text-white font-black uppercase tracking-wider">
+                            {currentIndex === -1 ? 'Initializing' : `Active Scene ${currentIndex + 1}/${photos.length}`}
+                        </span>
                     </div>
-                )}
-            </div>
+                    {composition.audio.fileUrl && (
+                        <div className="bg-primary/20 backdrop-blur-xl px-4 py-2 rounded-full border border-primary/30 flex items-center gap-3">
+                            <Music className="w-3 h-3 text-primary" />
+                            <span className="text-[10px] text-primary font-black uppercase tracking-wider">Audio Active</span>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
         </motion.div>
     );
 }

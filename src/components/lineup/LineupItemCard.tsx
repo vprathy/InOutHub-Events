@@ -1,4 +1,5 @@
 import { Trash2, GripVertical, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { LineupSlot } from '@/types/domain';
 import type { FlowInsight } from '@/lib/optimizer';
 import { Card } from '@/components/ui/Card';
@@ -8,11 +9,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
+    orderIndex: number;
     risk?: FlowInsight;
     onRemove: () => void;
+    onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }
 
-export function LineupItemCard({ slot, risk, onRemove }: LineupItemCardProps) {
+export function LineupItemCard({ slot, orderIndex, risk, onRemove, onDragStart }: LineupItemCardProps) {
     const startTime = new Date(slot.scheduledStartTime);
     const duration = slot.act.durationMinutes;
     const setupTime = slot.act.setupTimeMinutes || 0;
@@ -27,11 +30,26 @@ export function LineupItemCard({ slot, risk, onRemove }: LineupItemCardProps) {
             }`}>
             <div className="flex">
                 {/* Drag Handle - Tactile Grip area */}
-                <div className="flex items-center justify-center w-12 bg-muted/40 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary cursor-grab active:cursor-grabbing border-r border-border/20">
-                    <GripVertical size={20} />
-                </div>
-
+                <button
+                    type="button"
+                    onPointerDown={onDragStart}
+                    className="flex w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary cursor-grab active:cursor-grabbing touch-none"
+                    aria-label={`Reorder performance ${orderIndex}`}
+                >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground/80">{orderIndex}</span>
+                    <GripVertical size={22} />
+                </button>
                 <div className="flex-1 p-4 lg:p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-primary">
+                                #{orderIndex}
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                Flow Position
+                            </span>
+                        </div>
+                    </div>
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                         <div className="space-y-4 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
