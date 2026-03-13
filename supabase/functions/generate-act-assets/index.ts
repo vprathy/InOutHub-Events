@@ -126,9 +126,9 @@ serve(async (req: Request) => {
       aspectRatio: '1:1',
       sampleCount: 1,
       outputMimeType: 'image/png',
-      // Adds the "Safety Shield" configured in GCP Console
       safetySetting: 'block_only_high',
-      personGeneration: 'allow_all' // Ensures performers' faces aren't blocked as "celebrities"
+      personSetting: 'allow_all',
+      addWatermark: true // Required for SynthID compliance in 2026
     }
 
     console.log(`[VertexPipeline] Stage 2: Calling Imagen 4.0 Fast (GA Spec)...`)
