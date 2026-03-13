@@ -34,7 +34,7 @@ export const BottomNav: React.FC = () => {
             
             {/* Subtle version indicator for cache validation */}
             <div className="absolute bottom-1 right-2 text-[8px] font-medium text-muted-foreground/30 tabular-nums pointer-events-none">
-                v1.0.14
+                v1.0.15
             </div>
         </nav>
     );
