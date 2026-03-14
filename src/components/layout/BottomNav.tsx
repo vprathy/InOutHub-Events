@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { PRIMARY_NAV_ITEMS } from '@/components/layout/NavItems';
 
 export const BottomNav: React.FC = () => {
+    const version = import.meta.env.VITE_APP_VERSION || '1.0.0';
+
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
             <div className="max-w-md mx-auto flex items-stretch justify-around h-16 px-4">
@@ -34,7 +36,7 @@ export const BottomNav: React.FC = () => {
             
             {/* Subtle version indicator for cache validation */}
             <div className="absolute bottom-1 right-2 text-[8px] font-medium text-muted-foreground/30 tabular-nums pointer-events-none">
-                v1.0.15
+                v{version}
             </div>
         </nav>
     );

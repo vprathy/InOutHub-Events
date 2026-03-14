@@ -306,7 +306,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
             className="h-11 rounded-2xl px-4 font-bold shadow-lg shadow-primary/20"
           >
              {isCurating ? <Loader2 className="animate-spin mr-2" /> : <WandSparkles className="mr-2" />}
-             AI Curation
+             Arrange Photos
           </Button>
         </div>
       </div>
@@ -315,7 +315,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         <Card className="flex items-start gap-3 rounded-2xl border-rose-500/20 bg-rose-500/5 p-4 text-rose-700">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-500">Intro Capability Error</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-500">Intro Error</p>
             <p className="text-sm font-medium">{errorMessage}</p>
           </div>
         </Card>
@@ -446,7 +446,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           <div className={`rounded-3xl border p-5 transition-all ${curationSuggestions.length > 0 ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-muted/5'}`}>
             <h4 className={`mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] ${curationSuggestions.length > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                 <Sparkles className="w-3 h-3" />
-                AI Curation Workspace
+                Photo Direction
             </h4>
             {curationSuggestions.length > 0 ? (
                 <div className="space-y-3">
@@ -475,7 +475,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                 </div>
             ) : (
                 <p className="text-xs italic leading-relaxed text-muted-foreground">
-                    Select photos and run curation to identify optimal movement, focal points, and narrative flow for this act.
+                    Select photos and arrange them to shape movement, focal points, and narrative flow for this act.
                 </p>
             )}
           </div>

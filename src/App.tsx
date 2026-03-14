@@ -4,6 +4,7 @@ import { router } from '@/router/AppRouter';
 import { usePwaManifest } from '@/hooks/usePwaManifest';
 import { SplashScreen } from '@/components/ui/SplashScreen';
 import { AnimatePresence } from 'framer-motion';
+import { PwaUpdateBanner } from '@/components/pwa/PwaUpdateBanner';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
         {isLoading && <SplashScreen />}
       </AnimatePresence>
       <RouterProvider router={router} />
+      <PwaUpdateBanner />
     </>
   );
 }

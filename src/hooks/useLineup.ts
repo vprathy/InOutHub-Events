@@ -226,6 +226,14 @@ export function useUpdateLineupOrder() {
             const tempErrors = tempResults.filter((result) => result.error).map((result) => result.error);
             if (tempErrors.length > 0) throw tempErrors[0];
 
+            const { data: firstItem, error: firstItemError } = await supabase
+                .from('lineup_items')
+                .select('id, stage_id')
+                .eq('id', items[0]?.id || '')
+                .maybeSingle();
+
+            if (firstItemError) throw firstItemError;
+
             for (const item of items) {
                 const { error } = await supabase
                     .from('lineup_items')
@@ -234,10 +242,30 @@ export function useUpdateLineupOrder() {
 
                 if (error) throw error;
             }
+
+            if (firstItem?.stage_id) {
+                const { data: stageState, error: stageStateError } = await supabase
+                    .from('stage_state')
+                    .select('status')
+                    .eq('stage_id', firstItem.stage_id)
+                    .maybeSingle();
+
+                if (stageStateError) throw stageStateError;
+
+                if (stageState && ['Idle', 'Finished'].includes(stageState.status)) {
+                    const { error: syncError } = await supabase
+                        .from('stage_state')
+                        .update({ current_lineup_item_id: firstItem.id })
+                        .eq('stage_id', firstItem.stage_id);
+
+                    if (syncError) throw syncError;
+                }
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['lineup'] });
             queryClient.invalidateQueries({ queryKey: ['all_event_lineup'] });
+            queryClient.invalidateQueries({ queryKey: ['stage_state'] });
         }
     });
 }

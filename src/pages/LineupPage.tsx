@@ -24,11 +24,13 @@ function SortableLineupItem({
     orderIndex,
     risk,
     onRemove,
+    onMoveToTop,
 }: {
     slot: LineupSlot;
     orderIndex: number;
     risk?: ReturnType<typeof scanLineup>[number];
     onRemove: () => void;
+    onMoveToTop: () => void;
 }) {
     const dragControls = useDragControls();
 
@@ -47,6 +49,7 @@ function SortableLineupItem({
                 orderIndex={orderIndex}
                 risk={risk}
                 onDragStart={(event) => dragControls.start(event)}
+                onMoveToTop={onMoveToTop}
                 onRemove={onRemove}
             />
         </Reorder.Item>
@@ -100,11 +103,10 @@ export default function LineupPage() {
         }
     }, [stages, selectedStageId]);
 
-    const handleReorder = async (newItems: typeof localItems) => {
+    const persistReorder = async (newItems: typeof localItems) => {
         setLocalItems(newItems);
         if (!selectedStageId) return;
 
-        // Calculate new sort orders (incremental by 10)
         const updates = newItems.map((item, index) => ({
             id: item.id,
             sortOrder: (index + 1) * 10
@@ -119,6 +121,20 @@ export default function LineupPage() {
             // Revert on failure
             setLocalItems(lineup || []);
         }
+    };
+
+    const handleReorder = async (newItems: typeof localItems) => {
+        await persistReorder(newItems);
+    };
+
+    const moveSlotToTop = async (slotId: string) => {
+        const currentItems = [...localItems];
+        const sourceIndex = currentItems.findIndex((item) => item.id === slotId);
+        if (sourceIndex <= 0) return;
+
+        const [slot] = currentItems.splice(sourceIndex, 1);
+        currentItems.unshift(slot);
+        await persistReorder(currentItems);
     };
 
     const handleAddAct = async (actId: string) => {
@@ -279,6 +295,7 @@ export default function LineupPage() {
                                             slot={slot}
                                             orderIndex={localItems.findIndex((item) => item.id === slot.id) + 1}
                                             risk={risk}
+                                            onMoveToTop={() => moveSlotToTop(slot.id)}
                                             onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
                                         />
                                     );

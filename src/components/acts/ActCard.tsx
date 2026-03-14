@@ -31,6 +31,8 @@ export function ActCard({ act }: ActCardProps) {
     const updateStatus = useUpdateActStatus();
 
     const isReady = act.arrivalStatus === 'Ready';
+    const primaryMeta = [`${act.durationMinutes}m`, `${act.setupTimeMinutes}m setup`];
+    const secondaryMeta = `${act.participantCount} performers`;
 
     const handleToggleReady = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -84,7 +86,7 @@ export function ActCard({ act }: ActCardProps) {
 
     return (
         <div
-            className={`bg-card border rounded-[2rem] p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-4 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
+            className={`bg-card border rounded-[2rem] p-5 md:p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-4 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
                 }`}
             onClick={() => navigate(`/acts/${act.id}`)}
         >
@@ -101,25 +103,46 @@ export function ActCard({ act }: ActCardProps) {
             )}
 
             {/* Top Section: Name and Indicators */}
-            <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-bold leading-tight group-hover:text-primary transition-colors truncate">{act.name}</h3>
-                        <ExternalLink size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground font-black uppercase tracking-widest">
-                        <div className="flex items-center space-x-1.5">
-                            <Clock className="w-4 h-4 text-primary" />
-                            <span>{act.durationMinutes}m</span>
+            <div className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                            <h3 className="text-xl font-black leading-tight tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1">
+                                {act.name}
+                            </h3>
+                            <ExternalLink size={14} className="mt-1 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <div className="flex items-center space-x-1.5">
-                            <Info className="w-4 h-4 text-primary" />
-                            <span>{act.setupTimeMinutes}m Setup</span>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground font-black uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-primary" />
+                                <span>{primaryMeta[0]}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <Info className="w-4 h-4 text-primary" />
+                                <span>{primaryMeta[1]}</span>
+                            </div>
+                            <span className="text-[11px] font-bold normal-case tracking-normal text-muted-foreground/80">
+                                {secondaryMeta}
+                            </span>
                         </div>
                     </div>
+
+                    <button
+                        onClick={handleToggleReady}
+                        disabled={updateStatus.isPending}
+                        className={`min-h-[44px] shrink-0 self-start rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all border ${isReady
+                            ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20'
+                            : 'bg-secondary text-muted-foreground border-border/50 hover:border-emerald-500/50 hover:text-emerald-600'
+                            }`}
+                    >
+                        <span className="inline-flex items-center gap-2">
+                            <CheckCircle2 className={`w-3.5 h-3.5 ${isReady ? 'animate-pulse' : ''}`} />
+                            {isReady ? 'Stage Ready' : 'Mark Ready'}
+                        </span>
+                    </button>
                 </div>
 
-                <div className="flex flex-col items-end space-y-3">
+                <div className="overflow-x-auto pb-1">
                     <ActIndicators
                         participantCount={act.participantCount}
                         hasMusicTrack={act.hasMusicTrack}
@@ -127,53 +150,71 @@ export function ActCard({ act }: ActCardProps) {
                         missingAssetCount={act.missingAssetCount}
                         specialRequestCount={act.specialRequestCount}
                     />
-
-                    {/* Stage Ready Toggle (Tactical) */}
-                    <button
-                        onClick={handleToggleReady}
-                        disabled={updateStatus.isPending}
-                        className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${isReady
-                            ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20'
-                            : 'bg-secondary text-muted-foreground border-border/50 hover:border-emerald-500/50 hover:text-emerald-600'
-                            }`}
-                    >
-                        <CheckCircle2 className={`w-3.5 h-3.5 ${isReady ? 'animate-pulse' : ''}`} />
-                        <span>{isReady ? 'Stage Ready' : 'Mark Ready'}</span>
-                    </button>
                 </div>
             </div>
 
             {act.hasApprovedIntro ? (
-                <div className="relative z-10 rounded-[1.6rem] border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Signature Intro</p>
-                            <h4 className="text-lg font-black tracking-tight text-foreground">Preview directly from the performance card</h4>
-                            <p className="text-xs font-medium text-muted-foreground">Run the approved intro here without opening the workspace first.</p>
-                        </div>
-                        <Button
-                            onClick={handlePlayIntro}
-                            disabled={isPreviewLoading}
-                            className="h-11 rounded-2xl bg-primary px-6 text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20"
-                        >
-                            {isPreviewLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MonitorPlay className="mr-2 h-4 w-4" />}
-                            {isPreviewLoading ? 'Loading Intro' : 'Play AI Intro'}
-                        </Button>
-                    </div>
-                    {previewError ? (
-                        <div className="mt-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm font-medium text-rose-700">
-                            {previewError}
-                        </div>
+                <div className="relative z-10 overflow-hidden rounded-[1.75rem] border border-primary/20 bg-slate-950">
+                    {act.introBackgroundUrl ? (
+                        <img src={act.introBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
                     ) : null}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-900/5" />
+                    <button
+                        onClick={handlePlayIntro}
+                        disabled={isPreviewLoading}
+                        className="group/intro relative flex min-h-[176px] w-full items-end overflow-hidden p-4 sm:p-5 text-left transition hover:border-primary/60 disabled:cursor-wait disabled:opacity-80"
+                    >
+                        <div className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/75 backdrop-blur-sm">
+                            Intro Ready
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-xl transition group-hover/intro:scale-105">
+                                {isPreviewLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <MonitorPlay className="h-6 w-6" />}
+                            </div>
+                        </div>
+                        <div className="relative z-10 flex w-full items-end justify-between gap-3">
+                            <div className="max-w-[70%]">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">
+                                    {isPreviewLoading ? 'Loading Preview' : 'Preview Intro'}
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-white/85">
+                                    Open the approved intro from this card.
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-primary px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-primary/20">
+                                Play
+                            </span>
+                        </div>
+                    </button>
+                    <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                        {previewError ? (
+                            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-100">
+                                {previewError}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
             ) : null}
 
             {/* Tactical Action Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-3 pt-1">
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-11 lg:h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
+                    className="min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/acts/${act.id}`);
+                    }}
+                >
+                    <ExternalLink className="w-3.5 h-3.5 mr-2 text-primary" />
+                    <span className="truncate">Details</span>
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
                     onClick={(e) => {
                         e.stopPropagation();
                         setIsAddParticipantOpen(true);
@@ -185,7 +226,7 @@ export function ActCard({ act }: ActCardProps) {
                 <Button
                     variant="outline"
                     size="sm"
-                    className={`h-11 lg:h-10 rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
+                    className={`min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
                         }`}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -198,7 +239,7 @@ export function ActCard({ act }: ActCardProps) {
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-11 lg:h-10 rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5 col-span-2 lg:col-span-1"
+                    className="min-h-[44px] rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5 col-span-2"
                     onClick={handleGenerateAI}
                     disabled={isGenerating}
                 >
@@ -207,7 +248,7 @@ export function ActCard({ act }: ActCardProps) {
                     ) : (
                         <Sparkles className="w-3.5 h-3.5 mr-2" />
                     )}
-                    AI Intro Kit
+                    Intro Studio
                 </Button>
             </div>
 

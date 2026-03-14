@@ -61,7 +61,7 @@ export function LivePerformanceController({
         };
     }, []);
 
-    // Selection logic for AI assets
+    // Selection logic for intro assets
     const requirements = current?.act?.requirements || [];
     const compositionReq = requirements.find((r: any) => r.requirementType === 'IntroComposition');
     const isIntroReady = compositionReq?.fulfilled && compositionReq?.description;
@@ -174,7 +174,7 @@ export function LivePerformanceController({
                     >
                         <div className="absolute -left-1 top-10 w-3 h-3 rounded-full bg-rose-500 z-10 border-2 border-background shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
                         <Card className="bg-neutral-950 border-rose-500/30 overflow-hidden shadow-2xl ml-8 relative">
-                            {/* AI Backdrop Layer */}
+                            {/* Intro backdrop layer */}
                             {currentPoster && (
                                 <div className="absolute inset-0 opacity-20 pointer-events-none">
                                     <img src={currentPoster} className="w-full h-full object-cover blur-3xl scale-110" alt="" />
@@ -238,7 +238,7 @@ export function LivePerformanceController({
                                             className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2 flex flex-col items-center justify-center leading-none"
                                         >
                                             <div className="flex items-center gap-2">
-                                                <MonitorPlay size={14} /> {isLoadingIntro ? 'LOADING INTRO' : 'PLAY AI INTRO'}
+                                                <MonitorPlay size={14} /> {isLoadingIntro ? 'LOADING INTRO' : 'PLAY INTRO'}
                                             </div>
                                             <span className="text-[8px] opacity-40 font-black uppercase tracking-widest mt-0.5">Step 4: Play</span>
                                         </Button>

@@ -1,4 +1,4 @@
-import { Trash2, GripVertical, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Trash2, GripVertical, Clock, AlertCircle, AlertTriangle, ArrowUpToLine } from 'lucide-react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { LineupSlot } from '@/types/domain';
 import type { FlowInsight } from '@/lib/optimizer';
@@ -12,10 +12,11 @@ interface LineupItemCardProps {
     orderIndex: number;
     risk?: FlowInsight;
     onRemove: () => void;
+    onMoveToTop?: () => void;
     onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }
 
-export function LineupItemCard({ slot, orderIndex, risk, onRemove, onDragStart }: LineupItemCardProps) {
+export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, onDragStart }: LineupItemCardProps) {
     const startTime = new Date(slot.scheduledStartTime);
     const duration = slot.act.durationMinutes;
     const setupTime = slot.act.setupTimeMinutes || 0;
@@ -105,14 +106,27 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onDragStart }
                                 )}
                             </AnimatePresence>
 
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={onRemove}
-                                className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
-                            >
-                                <Trash2 size={18} />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {orderIndex > 1 && onMoveToTop ? (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={onMoveToTop}
+                                        className="h-10 rounded-xl border-border/60 px-3 text-[10px] font-black uppercase tracking-[0.18em]"
+                                    >
+                                        <ArrowUpToLine size={14} className="mr-2" />
+                                        Top
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onRemove}
+                                    className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
+                                >
+                                    <Trash2 size={18} />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -137,10 +137,16 @@ export function useStageConsole(stageId: string | null) {
     }, [stageId, queryClient]);
 
     const currentIndex = lineup?.findIndex(item => item.id === stageState?.current_lineup_item_id) ?? -1;
+    const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
+    const anchorIndex = currentIndex !== -1
+        ? currentIndex
+        : !isLiveRun && (lineup?.length ?? 0) > 0
+            ? 0
+            : -1;
 
-    const current = currentIndex !== -1 ? lineup?.[currentIndex] : null;
-    const next = currentIndex + 1 < (lineup?.length ?? 0) ? lineup?.[currentIndex + 1] : null;
-    const upcoming = currentIndex + 2 < (lineup?.length ?? 0) ? lineup?.[currentIndex + 2] : null;
+    const current = anchorIndex !== -1 ? lineup?.[anchorIndex] : null;
+    const next = anchorIndex + 1 < (lineup?.length ?? 0) ? lineup?.[anchorIndex + 1] : null;
+    const upcoming = anchorIndex + 2 < (lineup?.length ?? 0) ? lineup?.[anchorIndex + 2] : null;
 
     // Prefetch media for the next act to ensure smooth offline transitions
     useEffect(() => {
@@ -207,8 +213,8 @@ export function useStageConsole(stageId: string | null) {
     const scheduledEnd = current ? scheduledStart + (current.act.durationMinutes * 60000) : 0;
 
     // Drift is positive if we're past the scheduled start
-    const driftMinutes = current ? Math.floor((now - scheduledStart) / 60000) : 0;
-    const isOvertime = current && now > scheduledEnd;
+    const driftMinutes = isLiveRun && current ? Math.floor((now - scheduledStart) / 60000) : 0;
+    const isOvertime = Boolean(isLiveRun && current && now > scheduledEnd);
     const overtimeMinutes = isOvertime ? Math.floor((now - scheduledEnd) / 60000) : 0;
 
     return {

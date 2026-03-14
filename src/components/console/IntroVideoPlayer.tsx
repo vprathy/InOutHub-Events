@@ -1,5 +1,5 @@
 import { X, Loader2, Music, Maximize2, Minimize2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { IntroComposition } from '@/types/domain';
@@ -18,23 +18,29 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
     const [isFullscreen, setIsFullscreen] = useState(defaultFullscreen);
     const audioRef = useRef<HTMLAudioElement>(null);
 
-    const photos = composition.selectedAssetIds.map(id => {
-        const participant = participants.find((p: any) => (p.assets || []).some((a: any) => a.id === id));
-        const asset = participants.flatMap((p: any) => p.assets || []).find((a: any) => a.id === id);
-        const suggestion = composition.curation.find((s) => s.id === id);
-        return {
-            url: asset?.fileUrl,
-            name: participant ? `${participant.firstName} ${participant.lastName}` : 'Performer',
-            suggestion: suggestion || { pacing: 'cinematic', focalPoint: 'center', timing: 3 }
-        };
-    }).filter(p => p.url);
+    const photos = useMemo(() => (
+        composition.selectedAssetIds.map(id => {
+            const participant = participants.find((p: any) => (p.assets || []).some((a: any) => a.id === id));
+            const asset = participants.flatMap((p: any) => p.assets || []).find((a: any) => a.id === id);
+            const suggestion = composition.curation.find((s) => s.id === id);
+            return {
+                url: asset?.fileUrl,
+                name: participant ? `${participant.firstName} ${participant.lastName}` : 'Performer',
+                suggestion: suggestion || { pacing: 'cinematic', focalPoint: 'center', timing: 3 }
+            };
+        }).filter(p => p.url)
+    ), [composition.curation, composition.selectedAssetIds, participants]);
+
+    const preloadUrls = useMemo(
+        () => [composition.background.fileUrl, ...photos.map((photo) => photo.url)].filter(Boolean) as string[],
+        [composition.background.fileUrl, photos],
+    );
 
     useEffect(() => {
        setAllImagesLoaded(false);
        setCurrentIndex(-1);
 
-       const imageUrls = [composition.background.fileUrl, ...photos.map(p => p.url)].filter(Boolean);
-       if (imageUrls.length === 0) {
+       if (preloadUrls.length === 0) {
            setAllImagesLoaded(true);
            return;
        }
@@ -43,7 +49,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
        let settledCount = 0;
        const markSettled = () => {
            settledCount++;
-           if (!isDisposed && settledCount >= imageUrls.length) {
+           if (!isDisposed && settledCount >= preloadUrls.length) {
                setAllImagesLoaded(true);
            }
        };
@@ -52,7 +58,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
            if (!isDisposed) setAllImagesLoaded(true);
        }, 2500);
 
-       imageUrls.forEach(url => {
+       preloadUrls.forEach(url => {
            const img = new Image();
            img.src = url;
            img.onload = markSettled;
@@ -68,7 +74,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
            isDisposed = true;
            window.clearTimeout(timeout);
        };
-    }, [composition.audio.fileUrl, composition.background.fileUrl, photos]);
+    }, [composition.audio.fileUrl, preloadUrls]);
 
     useEffect(() => {
         if (!allImagesLoaded) return;
@@ -168,7 +174,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
                 {!allImagesLoaded ? (
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                        <p className="text-white/40 font-black tracking-widest text-[10px] uppercase">Buffering Dynamic Assets</p>
+                        <p className="text-white/40 font-black tracking-widest text-[10px] uppercase">Preparing Preview</p>
                     </div>
                 ) : (
                     <AnimatePresence mode="wait">
@@ -181,7 +187,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
                                 transition={{ duration: 1 }}
                                 className="text-center space-y-4"
                             >
-                                <p className="text-primary font-black tracking-[0.5em] text-xs uppercase animate-pulse">Live Intro Cue</p>
+                                <p className="text-primary font-black tracking-[0.5em] text-xs uppercase animate-pulse">Opening Moment</p>
                                 <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter uppercase italic">{actName}</h1>
                                 <div className="h-0.5 w-24 bg-primary mx-auto" />
                             </motion.div>
@@ -233,7 +239,7 @@ export function IntroVideoPlayer({ composition, actName, participants, onClose, 
                     {composition.audio.fileUrl && (
                         <div className="bg-primary/20 backdrop-blur-xl px-4 py-2 rounded-full border border-primary/30 flex items-center gap-3">
                             <Music className="w-3 h-3 text-primary" />
-                            <span className="text-[10px] text-primary font-black uppercase tracking-wider">Audio Active</span>
+                            <span className="text-[10px] text-primary font-black uppercase tracking-wider">Audio On</span>
                         </div>
                     )}
                 </div>
