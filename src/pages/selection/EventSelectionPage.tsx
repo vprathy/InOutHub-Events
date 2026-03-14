@@ -68,6 +68,13 @@ export default function EventSelectionPage() {
         navigate('/dashboard');
     };
 
+    const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>, id: string) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleSelect(id);
+        }
+    };
+
     const handleBack = () => {
         setOrganizationId(null);
         navigate('/select-org');
@@ -105,9 +112,12 @@ export default function EventSelectionPage() {
                         ) : (
                             <>
                                 {events.map((event) => (
-                                    <button
+                                    <div
                                         key={event.id}
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => handleSelect(event.id)}
+                                        onKeyDown={(keyboardEvent) => handleCardKeyDown(keyboardEvent, event.id)}
                                         className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                     >
                                         <div className="flex items-center space-x-5">
@@ -155,7 +165,7 @@ export default function EventSelectionPage() {
                                                 />
                                             </div>
                                         </div>
-                                    </button>
+                                    </div>
                                 ))}
 
                                 <button

@@ -74,6 +74,13 @@ export default function OrgSelectionPage() {
         navigate('/select-event');
     };
 
+    const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>, id: string) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleSelect(id);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/dev/login');
@@ -135,9 +142,12 @@ export default function OrgSelectionPage() {
                     ) : (
                         <>
                             {orgs.map((org) => (
-                                <button
+                                <div
                                     key={org.id}
+                                    role="button"
+                                    tabIndex={0}
                                     onClick={() => handleSelect(org.id)}
+                                    onKeyDown={(event) => handleCardKeyDown(event, org.id)}
                                     className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                 >
                                     <div className="flex items-center space-x-5">
@@ -176,7 +186,7 @@ export default function OrgSelectionPage() {
                                             />
                                         </div>
                                     </div>
-                                </button>
+                                </div>
                             ))}
 
                             <button

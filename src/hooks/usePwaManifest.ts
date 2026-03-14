@@ -43,17 +43,19 @@ export function usePwaManifest() {
                     .map(r => r.file_url)
                     .filter((url): url is string => !!url);
 
-                if (urls.length === 0) return;
+                const uniqueUrls = Array.from(new Set(urls));
+
+                if (uniqueUrls.length === 0) return;
 
                 // 3. Send to Service Worker
                 if ('serviceWorker' in navigator) {
                     // Wait for the SW to be ready/active
                     const registration = await navigator.serviceWorker.ready;
                     if (registration.active) {
-                        console.log(`[PWA] Broadcasting ${urls.length} event assets to SW for pre-caching.`);
+                        console.log(`[PWA] Broadcasting ${uniqueUrls.length} event assets to SW for pre-caching.`);
                         registration.active.postMessage({
                             type: 'CACHE_EVENT_ASSETS',
-                            payload: { urls }
+                            payload: { urls: uniqueUrls }
                         });
                     }
                 }

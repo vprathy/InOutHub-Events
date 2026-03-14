@@ -42,7 +42,7 @@ export function useDashboardRadar(eventId: string) {
             // 2. Participants & Safety
             const { data: participants } = await supabase
                 .from('participants')
-                .select('is_minor, guardian_name, guardian_phone')
+                .select('id, is_minor, guardian_name, guardian_phone')
                 .eq('event_id', eventId);
 
             const pTotal = participants?.length || 0;
