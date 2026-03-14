@@ -62,6 +62,10 @@ export const router = createBrowserRouter([
         element: <DevQuickLogin />,
     },
     {
+        path: '/login',
+        element: <Navigate to="/dev/login" replace />,
+    },
+    {
         path: '/prototype/intro',
         element: <IntroVideoPrototype />,
     },

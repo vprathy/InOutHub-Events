@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { StatusPicker } from '@/components/acts/StatusPicker';
 import { IntroVideoBuilder } from '@/components/acts/IntroVideoBuilder';
+import { UploadActAssetModal } from '@/components/acts/UploadActAssetModal';
 
 type TabType = 'overview' | 'cast' | 'assets';
 
@@ -28,6 +29,7 @@ export function PerformanceProfilePage() {
     const { actId } = useParams();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [isUploadOpen, setIsUploadOpen] = useState(false);
     const { data: act, isLoading } = useActDetail(actId || null);
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
 
@@ -136,8 +138,16 @@ export function PerformanceProfilePage() {
             <div className="mt-2">
                 {activeTab === 'overview' && <OverviewTab act={act} />}
                 {activeTab === 'cast' && <CastTab participants={act.participants} />}
-                {activeTab === 'assets' && <AssetsTab act={act} />}
+                {activeTab === 'assets' && <AssetsTab act={act} onOpenAssetManager={() => setIsUploadOpen(true)} />}
             </div>
+
+            <UploadActAssetModal
+                isOpen={isUploadOpen}
+                onClose={() => setIsUploadOpen(false)}
+                actId={act.id}
+                actName={act.name}
+                eventId={act.eventId}
+            />
         </div>
     );
 }
@@ -303,7 +313,13 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
     );
 }
 
-function AssetsTab({ act }: { act: any }) {
+function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: () => void }) {
+    const scrollToIntroBuilder = () => {
+        const builder = document.getElementById('intro-builder');
+        if (!builder) return;
+        builder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -313,8 +329,18 @@ function AssetsTab({ act }: { act: any }) {
                             <Music size={20} className="text-primary" />
                             Music & Audio
                         </h3>
-                        <Button variant="ghost" size="sm" className="text-primary font-black text-xs">Manage</Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary font-black text-xs"
+                            onClick={onOpenAssetManager}
+                        >
+                            Manage
+                        </Button>
                     </div>
+                    <p className="text-xs font-medium leading-5 text-muted-foreground">
+                        This workspace currently tracks production asset records only. Direct file upload is not wired into the current act asset schema yet.
+                    </p>
                     <div className="space-y-3">
                         {(act.assets || []).length > 0 ? (act.assets || []).map((asset: any) => (
                             <div key={asset.id} className="p-4 border border-border rounded-xl flex items-center justify-between bg-muted/20">
@@ -345,7 +371,14 @@ function AssetsTab({ act }: { act: any }) {
                             <Settings size={20} className="text-primary" />
                             Stage Requirements
                         </h3>
-                        <Button variant="ghost" size="sm" className="text-primary font-black text-xs">Manage</Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary font-black text-xs"
+                            onClick={scrollToIntroBuilder}
+                        >
+                            Manage
+                        </Button>
                     </div>
                     <div className="space-y-3">
                         {(act.requirements || []).length > 0 ? (act.requirements || []).map((req: any) => {
@@ -394,7 +427,7 @@ function AssetsTab({ act }: { act: any }) {
             </div>
 
             {/* Intro Video Builder Section */}
-            <Card className="p-1 border shadow-xl bg-card/50">
+            <Card id="intro-builder" className="p-1 border shadow-xl bg-card/50 scroll-mt-28">
                 <IntroVideoBuilder actId={act.id} />
             </Card>
         </div>

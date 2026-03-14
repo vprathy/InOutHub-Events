@@ -62,6 +62,17 @@ export default function DevQuickLogin() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    const withTimeout = async <T,>(promise: Promise<T>, label: string, timeoutMs = 12000): Promise<T> => {
+        return await Promise.race([
+            promise,
+            new Promise<T>((_, reject) =>
+                window.setTimeout(() => {
+                    reject(new Error(`${label} timed out. Check network access to Supabase and retry.`));
+                }, timeoutMs)
+            ),
+        ]);
+    };
+
 
     const handleReset = async () => {
         setIsResetting(true);
@@ -88,23 +99,44 @@ export default function DevQuickLogin() {
 
             console.log(`[DEV ONLY] Attempting login for: ${credentials.email}`);
 
+            const signIn = async () =>
+                withTimeout(
+                    supabase.auth.signInWithPassword({
+                        email: credentials.email,
+                        password: credentials.password,
+                    }),
+                    'Sign in'
+                );
+
             // Step 1: Try to sign in normally
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: credentials.email,
-                password: credentials.password,
-            });
+            let { data: signInData, error: signInError } = await signIn();
 
             // Step 2: If the user doesn't exist yet, sign them up automatically!
             if (signInError && signInError.message.includes('Invalid login credentials')) {
                 console.log(`[DEV ONLY] User not found, automatically registering ${credentials.email}...`);
-                const { error: signUpError } = await supabase.auth.signUp({
-                    email: credentials.email,
-                    password: credentials.password,
-                });
+                const { data: signUpData, error: signUpError } = await withTimeout(
+                    supabase.auth.signUp({
+                        email: credentials.email,
+                        password: credentials.password,
+                    }),
+                    'Sign up'
+                );
 
                 if (signUpError) throw signUpError;
+                if (!signUpData.session) {
+                    ({ data: signInData, error: signInError } = await signIn());
+                }
             } else if (signInError) {
                 throw signInError;
+            }
+
+            if (signInError) {
+                throw signInError;
+            }
+
+            const session = signInData?.session ?? (await supabase.auth.getSession()).data.session;
+            if (!session) {
+                throw new Error('Dev login did not establish an authenticated session. Retry login.');
             }
 
             console.log(`[DEV ONLY] Success! Logged in as: ${credentials.email}`);

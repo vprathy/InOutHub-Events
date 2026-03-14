@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Landmark, Plus, Loader2, ChevronRight, LogOut, Edit2 } from 'lucide-react';
+import { Landmark, Plus, Loader2, ChevronRight, LogOut, Edit2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
 import { CreateOrgModal } from '@/components/selection/CreateOrgModal';
@@ -11,6 +11,7 @@ import { ShieldAlert } from 'lucide-react';
 export default function OrgSelectionPage() {
     const [orgs, setOrgs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isManageAccessOpen, setIsManageAccessOpen] = useState(false);
     const [editingOrg, setEditingOrg] = useState<{ id: string; name: string } | null>(null);
@@ -30,15 +31,34 @@ export default function OrgSelectionPage() {
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('organizations')
-                .select(`
-          id,
-          name,
-          organization_members!inner (
-            role
-          )
-        `);
+            const { data: superAdminRows, error: superAdminError } = await supabase
+                .from('app_super_admins')
+                .select('user_id')
+                .eq('user_id', user.id)
+                .limit(1);
+
+            if (superAdminError) throw superAdminError;
+
+            const userIsSuperAdmin = Boolean(superAdminRows?.length);
+            setIsSuperAdmin(userIsSuperAdmin);
+
+            const orgQuery = userIsSuperAdmin
+                ? supabase
+                    .from('organizations')
+                    .select('id, name')
+                    .order('name')
+                : supabase
+                    .from('organizations')
+                    .select(`
+                      id,
+                      name,
+                      organization_members!inner (
+                        role
+                      )
+                    `)
+                    .order('name');
+
+            const { data, error } = await orgQuery;
 
             if (error) throw error;
             setOrgs(data || []);
@@ -75,6 +95,43 @@ export default function OrgSelectionPage() {
                         <div className="col-span-full flex justify-center py-12">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         </div>
+                    ) : orgs.length === 0 ? (
+                        <div className="col-span-full rounded-[2rem] border border-border bg-card p-8 text-center shadow-sm">
+                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                                <Landmark className="h-7 w-7" />
+                            </div>
+                            <h2 className="text-xl font-black text-foreground">No organizations available</h2>
+                            <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+                                {isSuperAdmin
+                                    ? 'No organizations exist yet for this environment. Create one to continue.'
+                                    : 'This account is authenticated but is not assigned to any organization yet. Go back to the dev login flow or ask an admin to grant organization access.'}
+                            </p>
+                            <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
+                                <button
+                                    onClick={() => navigate('/dev/login')}
+                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                                >
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span>Back to Dev Login</span>
+                                </button>
+                                <button
+                                    onClick={() => void fetchOrgs()}
+                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary-foreground transition-opacity hover:opacity-90"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                    <span>Refresh Organizations</span>
+                                </button>
+                                {isSuperAdmin && (
+                                    <button
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary transition-colors hover:bg-primary/5"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        <span>Create Organization</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     ) : (
                         <>
                             {orgs.map((org) => (
@@ -90,7 +147,7 @@ export default function OrgSelectionPage() {
                                         <div>
                                             <p className="font-black text-lg text-foreground leading-tight">{org.name}</p>
                                             <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mt-1">
-                                                {org.organization_members[0]?.role || 'Owner'}
+                                                {isSuperAdmin ? 'Super Admin' : org.organization_members[0]?.role || 'Owner'}
                                             </p>
                                         </div>
                                     </div>

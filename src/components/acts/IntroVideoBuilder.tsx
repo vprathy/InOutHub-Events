@@ -55,6 +55,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [compositionId, setCompositionId] = useState<string | null>(null);
   const [isApproved, setIsApproved] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [brokenAssetIds, setBrokenAssetIds] = useState<string[]>([]);
   const [isBackgroundBroken, setIsBackgroundBroken] = useState(false);
 
@@ -65,6 +66,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     setCurationSuggestions([]);
     setCompositionId(null);
     setIsApproved(false);
+    setInfoMessage(null);
     setBrokenAssetIds([]);
     setIsBackgroundBroken(false);
   };
@@ -181,13 +183,52 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const generateBackground = async () => {
     setIsGeneratingBackground(true);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
+      const previousBackgroundUrl = backgroundUrl;
       const result = await generateIntroBackground(actId);
       setCompositionId(result.compositionId);
       setBackgroundUrl(result.composition.background.fileUrl);
       setAudioUrl(result.composition.audio.fileUrl);
       setIsApproved(result.composition.approved);
       setIsBackgroundBroken(false);
+
+      if (result.isPending) {
+        setInfoMessage(result.message || 'Background generation is still processing.');
+
+        let pollCount = 0;
+        const interval = window.setInterval(async () => {
+          pollCount += 1;
+          try {
+            const refreshed = await getIntroComposition(actId);
+            const refreshedBackgroundUrl = refreshed.composition.background.fileUrl;
+
+            if (refreshedBackgroundUrl && refreshedBackgroundUrl !== previousBackgroundUrl) {
+              setCompositionId(refreshed.compositionId);
+              setBackgroundUrl(refreshedBackgroundUrl);
+              setAudioUrl(refreshed.composition.audio.fileUrl);
+              setSelectedIds(refreshed.composition.selectedAssetIds || []);
+              setCurationSuggestions(refreshed.composition.curation || []);
+              setIsApproved(refreshed.composition.approved);
+              setIsBackgroundBroken(false);
+              setInfoMessage('Background updated. Review the new preview before approval.');
+              window.clearInterval(interval);
+              return;
+            }
+          } catch (_error) {
+            // Keep polling quietly; the info banner already explains the state.
+          }
+
+          if (pollCount >= 12) {
+            window.clearInterval(interval);
+            setInfoMessage(result.message || 'Background generation is still under review. Try again in a moment.');
+          }
+        }, 5000);
+      } else if (!result.composition.background.fileUrl || result.composition.background.fileUrl === previousBackgroundUrl) {
+        setInfoMessage('Background request completed, but no new image was published yet.');
+      } else {
+        setInfoMessage('Background updated. Review the new preview before approval.');
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Background generation failed');
     } finally {
@@ -217,6 +258,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     if (selectedIds.length === 0) return;
     setIsCurating(true);
     setErrorMessage(null);
+    setInfoMessage(null);
     try {
       const result = await curateIntroPhotos(actId, selectedIds);
       setCompositionId(result.compositionId);
@@ -317,6 +359,16 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-rose-500">Intro Error</p>
             <p className="text-sm font-medium">{errorMessage}</p>
+          </div>
+        </Card>
+      ) : null}
+
+      {infoMessage ? (
+        <Card className="flex items-start gap-3 rounded-2xl border-blue-500/20 bg-blue-500/5 p-4 text-blue-700">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-500">Intro Update</p>
+            <p className="text-sm font-medium">{infoMessage}</p>
           </div>
         </Card>
       ) : null}

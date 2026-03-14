@@ -16,7 +16,7 @@ interface UploadActAssetModalProps {
 export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }: UploadActAssetModalProps) {
     const addAsset = useAddActAsset(eventId);
     const [name, setName] = useState('');
-    const [type, setType] = useState('Audio');
+    const [type, setType] = useState('Prop');
     const [notes, setNotes] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,16 +37,20 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Assets: ${actName}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Asset Record: ${actName}`}>
             <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="space-y-4">
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                        This form creates an asset record only. File upload is not available in the current act asset data model yet.
+                    </div>
+
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center">
                             <Music className="w-3 h-3 mr-2 text-primary" />
                             Asset Name
                         </label>
                         <Input
-                            placeholder="e.g. Master Track v2, Stage Map"
+                            placeholder="e.g. Floor Prop Set, Spare Violin, Backup Cable"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -60,7 +64,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                             Asset Type
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {['Audio', 'Video', 'Technical', 'Document', 'Other'].map((t) => (
+                            {['Prop', 'Instrument', 'Other'].map((t) => (
                                 <button
                                     key={t}
                                     type="button"
@@ -99,7 +103,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                         disabled={addAsset.isPending || !name}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6"
                     >
-                        {addAsset.isPending ? 'Adding...' : 'Add Asset'}
+                        {addAsset.isPending ? 'Saving...' : 'Save Asset Record'}
                     </Button>
                 </div>
             </form>
