@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play } from 'lucide-react';
 import ReactPlayer from 'react-player';
+import { BrandMark } from '@/components/branding/BrandMark';
 
 const DUMMY_LIVESTREAM_BG = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=3174&auto=format&fit=crop";
 
@@ -198,8 +199,8 @@ export default function IntroVideoPrototype() {
                                     transition={{ duration: 0.5 }}
                                     className="text-center"
                                 >
-                                    <div className="w-32 h-32 mx-auto rounded-full bg-primary flex items-center justify-center mb-8 shadow-[0_0_80px_rgba(var(--primary),0.8)]">
-                                        <span className="text-white font-black text-4xl tracking-tighter">IOH</span>
+                                    <div className="mx-auto mb-8 flex w-32 justify-center rounded-[2rem] bg-card/10 p-3 shadow-[0_0_80px_rgba(var(--primary),0.35)]">
+                                        <BrandMark size="lg" />
                                     </div>
                                     <h3 className="text-white font-black tracking-[0.5em] uppercase text-4xl">Get Ready</h3>
                                 </motion.div>
