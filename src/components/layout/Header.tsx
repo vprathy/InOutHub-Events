@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { Radio, ChevronRight, Landmark, Calendar, LogOut } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
 import { supabase } from '@/lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BrandMark } from '@/components/branding/BrandMark';
 
 export function Header() {
     const { organizationId, eventId, setOrganizationId } = useSelection();
@@ -47,14 +48,7 @@ export function Header() {
     return (
         <header className="sticky top-0 w-full h-16 bg-background/95 backdrop-blur shadow-sm border-b border-border z-50 flex items-center justify-between px-6">
             <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                        <Radio className="w-5 h-5 animate-pulse" />
-                    </div>
-                    <span className="font-bold tracking-tight text-foreground hidden sm:inline-block">
-                        InOutHub <span className="text-muted-foreground font-medium">Events</span>
-                    </span>
-                </div>
+                <BrandMark size="sm" showLabel className="shrink-0" />
 
                 {selectionNames?.orgName && (
                     <div className="flex items-center space-x-1 sm:space-x-2 text-[10px] sm:text-sm font-bold uppercase tracking-wider overflow-hidden">

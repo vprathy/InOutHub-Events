@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/Badge';
 import { scanLineup } from '@/lib/optimizer';
 import { Reorder, AnimatePresence, useDragControls } from 'framer-motion';
 import type { LineupSlot } from '@/types/domain';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 function SortableLineupItem({
     slot,
@@ -25,12 +27,14 @@ function SortableLineupItem({
     risk,
     onRemove,
     onMoveToTop,
+    lockedReason,
 }: {
     slot: LineupSlot;
     orderIndex: number;
     risk?: ReturnType<typeof scanLineup>[number];
     onRemove: () => void;
     onMoveToTop: () => void;
+    lockedReason?: string | null;
 }) {
     const dragControls = useDragControls();
 
@@ -50,6 +54,7 @@ function SortableLineupItem({
                 risk={risk}
                 onDragStart={(event) => dragControls.start(event)}
                 onMoveToTop={onMoveToTop}
+                lockedReason={lockedReason}
                 onRemove={onRemove}
             />
         </Reorder.Item>
@@ -64,6 +69,20 @@ export default function LineupPage() {
     const { data: stages, isLoading: isLoadingStages } = useStagesQuery(eventId || '');
     const { data: lineup, isLoading: isLoadingLineup } = useLineupQuery(selectedStageId);
     const { data: allEventLineup } = useAllEventLineupQuery(eventId || '');
+    const { data: stageState } = useQuery({
+        queryKey: ['stage_state', selectedStageId],
+        queryFn: async () => {
+            if (!selectedStageId) return null;
+            const { data, error } = await supabase
+                .from('stage_state')
+                .select('*')
+                .eq('stage_id', selectedStageId)
+                .maybeSingle();
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!selectedStageId,
+    });
 
     const addLineupItem = useAddLineupItem();
     const updateLineupOrder = useUpdateLineupOrder();
@@ -86,12 +105,39 @@ export default function LineupPage() {
 
     const criticalRisks = insights.filter(i => i.level === 'high' || i.level === 'critical').length;
     const readyCount = lineup?.filter((slot) => slot.act.arrivalStatus === 'Ready').length || 0;
+    const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
+    const liveIndex = localItems.findIndex((item) => item.id === stageState?.current_lineup_item_id);
 
     const totalDuration = useMemo(() =>
         lineup?.reduce((acc, slot) =>
             acc + (slot.act.durationMinutes || 0) + (slot.act.setupTimeMinutes || 0), 0
         ) || 0,
         [lineup]);
+
+    const coordinationLeadMinutes = 10;
+    const reorderStartIndex = useMemo(() => {
+        if (!isLiveRun) return 0;
+        const futureStartIndex = liveIndex >= 0 ? liveIndex + 1 : 0;
+        const now = Date.now();
+        for (let index = futureStartIndex; index < localItems.length; index += 1) {
+            const slot = localItems[index];
+            const minutesUntil = Math.floor((new Date(slot.scheduledStartTime).getTime() - now) / 60000);
+            const threshold = Math.max(coordinationLeadMinutes, slot.act.setupTimeMinutes || 0);
+            if (minutesUntil > threshold) {
+                return index;
+            }
+        }
+        return localItems.length;
+    }, [isLiveRun, liveIndex, localItems]);
+
+    const lockedPrefixItems = useMemo(
+        () => localItems.slice(0, reorderStartIndex),
+        [localItems, reorderStartIndex],
+    );
+    const reorderableItems = useMemo(
+        () => localItems.slice(reorderStartIndex),
+        [localItems, reorderStartIndex],
+    );
 
     const estimatedEndTime = new Date();
     estimatedEndTime.setMinutes(estimatedEndTime.getMinutes() + totalDuration);
@@ -103,11 +149,12 @@ export default function LineupPage() {
         }
     }, [stages, selectedStageId]);
 
-    const persistReorder = async (newItems: typeof localItems) => {
-        setLocalItems(newItems);
+    const persistReorder = async (reorderedSuffix: typeof localItems) => {
+        const mergedItems = [...lockedPrefixItems, ...reorderedSuffix];
+        setLocalItems(mergedItems);
         if (!selectedStageId) return;
 
-        const updates = newItems.map((item, index) => ({
+        const updates = mergedItems.map((item, index) => ({
             id: item.id,
             sortOrder: (index + 1) * 10
         }));
@@ -128,7 +175,7 @@ export default function LineupPage() {
     };
 
     const moveSlotToTop = async (slotId: string) => {
-        const currentItems = [...localItems];
+        const currentItems = [...reorderableItems];
         const sourceIndex = currentItems.findIndex((item) => item.id === slotId);
         if (sourceIndex <= 0) return;
 
@@ -268,9 +315,16 @@ export default function LineupPage() {
                                 {stages?.find((stage) => stage.id === selectedStageId)?.name || 'Selected Stage'}
                             </h2>
                         </div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                            Drag from the numbered handle to reorder this stage lineup.
-                        </p>
+                        <div className="text-right">
+                            <p className="text-xs font-medium text-muted-foreground">
+                                {isLiveRun ? 'Only the future queue can be reordered while the show is live.' : 'Drag from the numbered handle to reorder this stage lineup.'}
+                            </p>
+                            {isLiveRun ? (
+                                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                    Acts within the next {coordinationLeadMinutes} minutes stay locked for backstage coordination.
+                                </p>
+                            ) : null}
+                        </div>
                     </div>
                     {selectedStageId ? (
                         isLoadingLineup ? (
@@ -280,28 +334,58 @@ export default function LineupPage() {
                             ))}
                         </div>
                     ) : localItems.length > 0 ? (
-                        <Reorder.Group
-                            axis="y"
-                            values={localItems}
-                            onReorder={handleReorder}
-                            className="space-y-3"
-                        >
-                            <AnimatePresence mode="popLayout">
-                                {localItems.map((slot) => {
-                                    const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
-                                    return (
-                                        <SortableLineupItem
-                                            key={slot.id}
-                                            slot={slot}
-                                            orderIndex={localItems.findIndex((item) => item.id === slot.id) + 1}
-                                            risk={risk}
-                                            onMoveToTop={() => moveSlotToTop(slot.id)}
-                                            onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
-                                        />
-                                    );
-                                })}
-                            </AnimatePresence>
-                        </Reorder.Group>
+                        <div className="space-y-3">
+                            {lockedPrefixItems.length > 0 ? (
+                                <div className="space-y-3">
+                                    {lockedPrefixItems.map((slot, index) => {
+                                        const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
+                                        const isCurrent = isLiveRun && index === liveIndex;
+                                        const lockedReason = isCurrent
+                                            ? 'Live on stage now'
+                                            : isLiveRun
+                                                ? 'Locked for backstage coordination'
+                                                : null;
+
+                                        return (
+                                            <LineupItemCard
+                                                key={slot.id}
+                                                slot={slot}
+                                                orderIndex={index + 1}
+                                                risk={risk}
+                                                lockedReason={lockedReason}
+                                                onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
+
+                            {reorderableItems.length > 0 ? (
+                                <Reorder.Group
+                                    axis="y"
+                                    values={reorderableItems}
+                                    onReorder={handleReorder}
+                                    className="space-y-3"
+                                >
+                                    <AnimatePresence mode="popLayout">
+                                        {reorderableItems.map((slot) => {
+                                            const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
+                                            const overallIndex = localItems.findIndex((item) => item.id === slot.id) + 1;
+                                            return (
+                                                <SortableLineupItem
+                                                    key={slot.id}
+                                                    slot={slot}
+                                                    orderIndex={overallIndex}
+                                                    risk={risk}
+                                                    onMoveToTop={() => moveSlotToTop(slot.id)}
+                                                    onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                                />
+                                            );
+                                        })}
+                                    </AnimatePresence>
+                                </Reorder.Group>
+                            ) : null}
+                        </div>
                     ) : (
                         <Card className="p-12 border-dashed border-border bg-transparent flex flex-col items-center justify-center text-center">
                             <ListOrdered size={48} className="text-muted-foreground/30 mb-4" />

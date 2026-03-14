@@ -16,22 +16,22 @@ export function ActIndicators({
     specialRequestCount
 }: ActIndicatorsProps) {
     return (
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center gap-1.5 min-w-max">
             {/* Special Requests Flag */}
             {specialRequestCount > 0 && (
                 <div
-                    className="flex items-center space-x-1 px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-tighter border border-amber-500/20"
+                    className="flex min-h-[28px] items-center space-x-1 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-tighter text-amber-600"
                     title={`${specialRequestCount} participants have special requests`}
                 >
                     <MessageSquare className="w-2.5 h-2.5" />
-                    <span>Req</span>
+                    <span>Requests</span>
                 </div>
             )}
 
             {/* Missing Forms Alert */}
             {missingAssetCount > 0 && (
                 <div
-                    className="flex items-center space-x-1 px-1.5 py-0.5 bg-rose-500/10 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-tighter border border-rose-500/20"
+                    className="flex min-h-[28px] items-center space-x-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-tighter text-rose-600"
                     title={`${missingAssetCount} participants have pending forms`}
                 >
                     <AlertCircle className="w-2.5 h-2.5" />
@@ -41,7 +41,7 @@ export function ActIndicators({
 
             {/* Technical Rider Status */}
             <div
-                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-lg transition-all border ${hasTechnicalRider ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm' : 'bg-muted/30 text-muted-foreground/30 border-transparent shadow-none'
+                className={`hidden min-h-[28px] items-center space-x-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-tighter transition-all sm:flex ${hasTechnicalRider ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm' : 'bg-muted/30 text-muted-foreground/40 border-transparent shadow-none'
                     }`}
                 title={hasTechnicalRider ? 'Tech Rider Received' : 'No Tech Rider'}
             >
@@ -51,7 +51,7 @@ export function ActIndicators({
 
             {/* Music Sync Status */}
             <div
-                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-lg transition-all border ${hasMusicTrack ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm' : 'bg-rose-500/10 text-rose-600 border-rose-500/20 shadow-none'
+                className={`flex min-h-[28px] items-center space-x-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-tighter transition-all ${hasMusicTrack ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-sm' : 'bg-rose-500/10 text-rose-600 border-rose-500/20 shadow-none'
                     }`}
                 title={hasMusicTrack ? 'Music Track Uploaded' : 'No Music Uploaded'}
             >
@@ -60,9 +60,9 @@ export function ActIndicators({
             </div>
 
             {/* Participant Count */}
-            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-secondary/50 rounded-lg text-[9px] font-black uppercase tracking-tighter text-muted-foreground border border-border/50">
+            <div className="flex min-h-[28px] items-center space-x-1 rounded-lg border border-border/50 bg-secondary/50 px-2 py-1 text-[9px] font-black uppercase tracking-tighter text-muted-foreground">
                 <Users className="w-2.5 h-2.5" />
-                <span>{participantCount}</span>
+                <span>{participantCount} Cast</span>
             </div>
         </div>
     );

@@ -14,9 +14,10 @@ interface LineupItemCardProps {
     onRemove: () => void;
     onMoveToTop?: () => void;
     onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+    lockedReason?: string | null;
 }
 
-export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, onDragStart }: LineupItemCardProps) {
+export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, onDragStart, lockedReason }: LineupItemCardProps) {
     const startTime = new Date(slot.scheduledStartTime);
     const duration = slot.act.durationMinutes;
     const setupTime = slot.act.setupTimeMinutes || 0;
@@ -33,8 +34,9 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                 {/* Drag Handle - Tactile Grip area */}
                 <button
                     type="button"
-                    onPointerDown={onDragStart}
-                    className="flex w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary cursor-grab active:cursor-grabbing touch-none"
+                    onPointerDown={lockedReason ? undefined : onDragStart}
+                    disabled={Boolean(lockedReason)}
+                    className={`flex w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary touch-none ${lockedReason ? 'cursor-not-allowed opacity-45' : 'cursor-grab active:cursor-grabbing'}`}
                     aria-label={`Reorder performance ${orderIndex}`}
                 >
                     <span className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground/80">{orderIndex}</span>
@@ -49,6 +51,11 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                                 Flow Position
                             </span>
+                            {lockedReason ? (
+                                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[9px] font-black uppercase tracking-[0.16em] text-amber-700">
+                                    Locked
+                                </Badge>
+                            ) : null}
                         </div>
                     </div>
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
@@ -112,6 +119,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                         variant="outline"
                                         size="sm"
                                         onClick={onMoveToTop}
+                                        disabled={Boolean(lockedReason)}
                                         className="h-10 rounded-xl border-border/60 px-3 text-[10px] font-black uppercase tracking-[0.18em]"
                                     >
                                         <ArrowUpToLine size={14} className="mr-2" />
@@ -129,6 +137,11 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                             </div>
                         </div>
                     </div>
+                    {lockedReason ? (
+                        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-700">
+                            {lockedReason}
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
