@@ -6,7 +6,7 @@ import {
     useAssignToAct,
     useRemoveFromAct,
     useUpdateAssetStatus,
-    useCreateAssetFulfillment,
+    useUploadParticipantAsset,
     useUpdateParticipantStatus,
     useResolveNote,
     useDeleteAsset
@@ -30,6 +30,7 @@ import {
     RefreshCw,
     Plus,
     Trash2,
+    Upload,
     ShieldCheck,
     ShieldAlert,
     Activity,
@@ -109,6 +110,12 @@ export function ParticipantProfilePage() {
     const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [headerThumbnailUrl, setHeaderThumbnailUrl] = useState<string | null>(null);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [uploadTarget, setUploadTarget] = useState<{ templateId?: string | null; replaceAssetId?: string | null; type: 'waiver' | 'photo' | 'intro_media' | 'other'; title: string } | null>(null);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadName, setUploadName] = useState('');
+    const [uploadType, setUploadType] = useState<'waiver' | 'photo' | 'intro_media' | 'other'>('other');
+    const [uploadNotes, setUploadNotes] = useState('');
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -193,11 +200,49 @@ export function ParticipantProfilePage() {
     const assignToAct = useAssignToAct(participantId || '');
     const removeFromAct = useRemoveFromAct(participantId || '');
     const updateAssetStatus = useUpdateAssetStatus(participantId || '');
-    const createFulfillment = useCreateAssetFulfillment(participantId || '');
     const updateStatus = useUpdateParticipantStatus(participantId || '');
     const resolveNote = useResolveNote(participantId || '');
     const deleteAsset = useDeleteAsset(participantId || '');
+    const uploadAsset = useUploadParticipantAsset(participantId || '');
     const hasAssignedActs = Boolean(participant?.acts && participant.acts.length > 0);
+
+    const openUploadModal = ({
+        templateId = null,
+        replaceAssetId = null,
+        type,
+        title,
+        suggestedName,
+    }: {
+        templateId?: string | null;
+        replaceAssetId?: string | null;
+        type: 'waiver' | 'photo' | 'intro_media' | 'other';
+        title: string;
+        suggestedName?: string;
+    }) => {
+        setUploadTarget({ templateId, replaceAssetId, type, title });
+        setUploadType(type);
+        setUploadFile(null);
+        setUploadName(suggestedName || '');
+        setUploadNotes('');
+        setShowUploadModal(true);
+    };
+
+    const handleUploadAsset = async () => {
+        if (!uploadFile || !uploadTarget) return;
+        await uploadAsset.mutateAsync({
+            file: uploadFile,
+            templateId: uploadTarget.templateId,
+            replaceAssetId: uploadTarget.replaceAssetId,
+            type: uploadType,
+            name: uploadName.trim() || uploadFile.name,
+            reviewNotes: uploadNotes.trim() || null,
+        });
+        setShowUploadModal(false);
+        setUploadTarget(null);
+        setUploadFile(null);
+        setUploadName('');
+        setUploadNotes('');
+    };
 
     const handleAiSuggest = async () => {
         if (!participant?.acts || participant.acts.length === 0) {
@@ -838,10 +883,16 @@ export function ParticipantProfilePage() {
                                                             size="sm"
                                                             variant={fulfillment ? "ghost" : "default"}
                                                             className="h-7 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg"
-                                                            onClick={() => !fulfillment && createFulfillment.mutate({ templateId: template.id, status: 'approved' })}
-                                                            disabled={createFulfillment.isPending}
+                                                            onClick={() => openUploadModal({
+                                                                templateId: template.id,
+                                                                replaceAssetId: fulfillment?.id || null,
+                                                                type: template.assetType || 'other',
+                                                                title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
+                                                                suggestedName: template.name,
+                                                            })}
+                                                            disabled={uploadAsset.isPending}
                                                         >
-                                                            {fulfillment ? 'Replace' : 'Direct Approve'}
+                                                            {fulfillment ? 'Replace Upload' : 'Upload'}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -892,7 +943,16 @@ export function ParticipantProfilePage() {
                                     <Plus className="w-4 h-4 mr-2 text-primary" />
                                     Other Participant Assets
                                 </h3>
-                                <Button size="sm" variant="outline" className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2"
+                                    onClick={() => openUploadModal({
+                                        type: 'other',
+                                        title: 'Upload Participant Asset',
+                                    })}
+                                >
+                                    <Upload className="w-3.5 h-3.5 mr-1.5" />
                                     Manual Upload
                                 </Button>
                             </div>
@@ -1044,6 +1104,82 @@ export function ParticipantProfilePage() {
                                         disabled={!selectedActId || assignToAct.isPending}
                                     >
                                         {assignToAct.isPending ? 'Assigning...' : 'Confirm Assignment'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </Modal>
+
+                        <Modal
+                            isOpen={showUploadModal}
+                            onClose={() => {
+                                setShowUploadModal(false);
+                                setUploadTarget(null);
+                            }}
+                            title={uploadTarget?.title || 'Upload Asset'}
+                        >
+                            <div className="space-y-4 pt-2">
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Name</label>
+                                    <input
+                                        type="text"
+                                        value={uploadName}
+                                        onChange={(e) => setUploadName(e.target.value)}
+                                        placeholder="Waiver, photo, audio note..."
+                                        className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                </div>
+
+                                {!uploadTarget?.templateId && (
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Type</label>
+                                        <select
+                                            value={uploadType}
+                                            onChange={(e) => setUploadType(e.target.value as typeof uploadType)}
+                                            className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        >
+                                            <option value="other">Other</option>
+                                            <option value="waiver">Waiver / Doc</option>
+                                            <option value="photo">Photo</option>
+                                            <option value="intro_media">Intro Media</option>
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Choose File</label>
+                                    <input
+                                        type="file"
+                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                        className="block w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-bold file:uppercase file:tracking-widest file:text-primary"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Notes</label>
+                                    <textarea
+                                        value={uploadNotes}
+                                        onChange={(e) => setUploadNotes(e.target.value)}
+                                        rows={3}
+                                        placeholder="Optional review notes or upload context"
+                                        className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-4 border-t border-border/50">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setShowUploadModal(false);
+                                            setUploadTarget(null);
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleUploadAsset}
+                                        disabled={!uploadFile || uploadAsset.isPending}
+                                    >
+                                        {uploadAsset.isPending ? 'Uploading...' : 'Upload Asset'}
                                     </Button>
                                 </div>
                             </div>

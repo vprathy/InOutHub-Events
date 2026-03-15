@@ -206,6 +206,8 @@ export function useParticipantDetail(participantId: string) {
                         actId: template.act_id,
                         name: template.name,
                         description: template.description,
+                        assetType: template.asset_type,
+                        targetLevel: template.target_level,
                         isRequired: template.is_required,
                         createdAt: template.created_at
                     },
@@ -522,6 +524,83 @@ export function useCreateAssetFulfillment(participantId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+        }
+    });
+}
+
+export function useUploadParticipantAsset(participantId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            file,
+            templateId,
+            type,
+            name,
+            reviewNotes,
+            replaceAssetId,
+        }: {
+            file: File;
+            templateId?: string | null;
+            type: 'waiver' | 'photo' | 'intro_media' | 'other';
+            name?: string;
+            reviewNotes?: string | null;
+            replaceAssetId?: string | null;
+        }) => {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+            const filePath = `participants/${participantId}/${Date.now()}-${safeName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('participant-assets')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false,
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicData } = supabase.storage
+                .from('participant-assets')
+                .getPublicUrl(filePath);
+
+            if (replaceAssetId) {
+                const { data, error } = await (supabase as any)
+                    .from('participant_assets')
+                    .update({
+                        file_url: publicData.publicUrl,
+                        name: name || file.name,
+                        type,
+                        status: 'uploaded',
+                        review_notes: reviewNotes || null,
+                    })
+                    .eq('id', replaceAssetId)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return data;
+            }
+
+            const { data, error } = await (supabase as any)
+                .from('participant_assets')
+                .insert([{
+                    participant_id: participantId,
+                    template_id: templateId || null,
+                    file_url: publicData.publicUrl,
+                    status: 'uploaded',
+                    name: name || file.name,
+                    review_notes: reviewNotes || null,
+                    type,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
+            queryClient.invalidateQueries({ queryKey: ['participants'] });
         }
     });
 }
