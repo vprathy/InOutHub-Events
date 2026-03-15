@@ -106,6 +106,7 @@ export default function ParticipantsPage() {
         special: participants?.filter(p => p.hasSpecialRequests).length || 0,
         atRisk: participants?.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
     };
+    const clearanceRisk = stats.missing + stats.atRisk;
 
     const filteredParticipants = participants?.filter(p => {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
@@ -178,12 +179,13 @@ export default function ParticipantsPage() {
 
     return (
             <div className="flex flex-col space-y-5">
-            <div className="flex items-start justify-between">
-                <div className="space-y-1">
+            <div className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Event Roster</h1>
                     <div className="flex flex-col space-y-1">
                         <p className="text-xs text-muted-foreground font-medium">
-                            {participants?.length || 0} People on Roster
+                            {stats.total} people, {stats.unassigned} still need placement
                         </p>
                         {eventId && (
                             <div className={`flex items-center text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(eventData?.last_synced_at || null) ? 'text-amber-500 animate-pulse' : 'text-emerald-500/80'}`}>
@@ -193,47 +195,41 @@ export default function ParticipantsPage() {
                         )}
                     </div>
                 </div>
-                <button
-                    onClick={() => {
-                        const nextParams = new URLSearchParams(searchParams);
-                        nextParams.set('action', 'import');
-                        setSearchParams(nextParams, { replace: true });
-                        setIsImportModalOpen(true);
-                    }}
-                    className="flex items-center space-x-2 bg-primary text-primary-foreground h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Sync Now</span>
-                </button>
-            </div>
-
-            {/* Operational Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
-                    <div onClick={() => updateFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.total}</p>
-                    </div>
-                    <div onClick={() => updateFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-600">Needs Placement</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.unassigned}</p>
-                    </div>
-                    <div onClick={() => updateFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-amber-600">Docs Pending</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.missing}</p>
-                    </div>
-                    <div onClick={() => updateFilter('special')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'special' ? 'bg-rose-500/5 border-rose-500 shadow-sm' : 'bg-card border-border hover:border-rose-500/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-rose-600">Special</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.special}</p>
-                    </div>
-                    <div onClick={() => updateFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Assigned</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.assigned}</p>
-                    </div>
-                    <div onClick={() => updateFilter('at_risk')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'at_risk' ? 'bg-rose-600/5 border-rose-600 shadow-sm' : 'bg-card border-border hover:border-rose-600/50'}`}>
-                        <p className="text-[10px] font-medium uppercase tracking-widest text-rose-700">Minor Safety</p>
-                        <p className="text-xl font-bold mt-0.5">{stats.atRisk}</p>
-                    </div>
+                    <button
+                        onClick={() => {
+                            const nextParams = new URLSearchParams(searchParams);
+                            nextParams.set('action', 'import');
+                            setSearchParams(nextParams, { replace: true });
+                            setIsImportModalOpen(true);
+                        }}
+                        className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Sync Now</span>
+                    </button>
                 </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-border bg-card px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Roster</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-foreground">{stats.total}</p>
+                    </div>
+                    <button
+                        onClick={() => updateFilter('unassigned')}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'unassigned' ? 'border-indigo-500 bg-indigo-500/5' : 'border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40'}`}
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700">Needs Placement</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-indigo-700">{stats.unassigned}</p>
+                    </button>
+                    <button
+                        onClick={() => updateFilter('at_risk')}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'at_risk' ? 'border-rose-600 bg-rose-600/5' : 'border-amber-500/20 bg-amber-500/5 hover:border-amber-500/40'}`}
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Clearance Risk</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-amber-700">{clearanceRisk}</p>
+                    </button>
+                </div>
+            </div>
 
             {/* Search, Sort and Quick Filters */}
             <div className="space-y-3">
@@ -269,6 +265,7 @@ export default function ParticipantsPage() {
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         All
+                        <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'all' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.total}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('ready')}
@@ -276,6 +273,7 @@ export default function ParticipantsPage() {
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Ready</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.assigned}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('missing')}
@@ -283,6 +281,7 @@ export default function ParticipantsPage() {
                     >
                         <Clock className="w-3.5 h-3.5" />
                         <span>Docs Pending</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'missing' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.missing}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('unassigned')}
@@ -290,6 +289,7 @@ export default function ParticipantsPage() {
                     >
                         <User className="w-3.5 h-3.5" />
                         <span>Needs Placement</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'unassigned' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.unassigned}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('special')}
@@ -297,6 +297,7 @@ export default function ParticipantsPage() {
                     >
                         <AlertCircle className="w-3.5 h-3.5" />
                         <span>Special Requests</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'special' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.special}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('no_phone')}
@@ -318,6 +319,7 @@ export default function ParticipantsPage() {
                     >
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Minor Info Missing</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'at_risk' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.atRisk}</span>
                     </button>
                 </div>
             </div>
@@ -410,43 +412,43 @@ export default function ParticipantsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Quick Info Tags */}
-                                    <div className="flex flex-wrap gap-1.5 mt-2.5">
-                                        {participant.actCount ? (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 text-[9px] font-bold uppercase">
-                                                <User className="w-3 h-3 mr-1" />
-                                                {participant.actCount} Acts
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 text-[9px] font-bold uppercase">
-                                                <AlertCircle className="w-3 h-3 mr-1" />
-                                                Needs Placement
-                                            </div>
-                                        )}
-                                        {participant.hasSpecialRequests && (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 text-[9px] font-bold uppercase">
-                                                <AlertTriangle className="w-3 h-3 mr-1" />
-                                                Review
-                                            </div>
-                                        )}
-                                        {participant.assetStats?.missing ? (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[9px] font-bold uppercase">
-                                                <Clock className="w-3 h-3 mr-1" />
-                                                {participant.assetStats.missing} Docs
-                                            </div>
-                                        ) : null}
-                                        {participant.isMinor && (!participant.guardianName || !participant.guardianPhone) && (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-rose-600/10 text-rose-700 text-[9px] font-bold uppercase">
-                                                <AlertTriangle className="w-3 h-3 mr-1" />
-                                                Minor Safety
-                                            </div>
-                                        )}
-                                        {!participant.guardianPhone && !participant.isMinor && (
-                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-slate-700/10 text-slate-600 text-[9px] font-bold uppercase">
-                                                <Phone className="w-3 h-3 mr-1" />
-                                                No Phone
-                                            </div>
-                                        )}
+                                    <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                        <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 px-2.5 py-2">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-700">Placement</p>
+                                            <p className="mt-1 text-xs font-bold text-foreground">
+                                                {participant.actCount ? `${participant.actCount} act${participant.actCount > 1 ? 's' : ''}` : 'Needs placement'}
+                                            </p>
+                                        </div>
+                                        <div className={`rounded-xl border px-2.5 py-2 ${(participant.assetStats?.missing || 0) > 0 ? 'border-amber-500/25 bg-amber-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
+                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${(participant.assetStats?.missing || 0) > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>Approvals</p>
+                                            <p className="mt-1 text-xs font-bold text-foreground">
+                                                {(participant.assetStats?.missing || 0) > 0
+                                                    ? `${participant.assetStats?.missing || 0} pending`
+                                                    : `${participant.assetStats?.approved || 0} approved`}
+                                            </p>
+                                        </div>
+                                        <div className={`rounded-xl border px-2.5 py-2 ${participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
+                                            ? 'border-rose-600/25 bg-rose-600/5'
+                                            : participant.hasSpecialRequests
+                                                ? 'border-rose-500/25 bg-rose-500/5'
+                                                : 'border-border bg-background/60'
+                                            }`}>
+                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
+                                                ? 'text-rose-700'
+                                                : participant.hasSpecialRequests
+                                                    ? 'text-rose-600'
+                                                    : 'text-muted-foreground'
+                                                }`}>Follow-Up</p>
+                                            <p className="mt-1 text-xs font-bold text-foreground">
+                                                {participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
+                                                    ? 'Minor safety'
+                                                    : participant.hasSpecialRequests
+                                                        ? 'Review requests'
+                                                        : !participant.guardianPhone && !participant.isMinor
+                                                            ? 'No phone'
+                                                            : 'Clear'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -462,6 +464,8 @@ export default function ParticipantsPage() {
                                         >
                                             Place
                                         </button>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
                                         {participant.guardianPhone && (
                                             <a
                                                 href={`tel:${participant.guardianPhone}`}
@@ -480,17 +484,17 @@ export default function ParticipantsPage() {
                                         >
                                             <MessageSquare className="w-3.5 h-3.5" />
                                         </button>
+                                        <button
+                                            className="flex items-center space-x-1.5 h-11 px-4 bg-background border border-border rounded-xl text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/participants/${participant.id}`);
+                                            }}
+                                        >
+                                            <span>Details</span>
+                                            <ArrowUpRight className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
-                                    <button
-                                        className="flex items-center space-x-1.5 h-11 px-4 bg-background border border-border rounded-xl text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/participants/${participant.id}`);
-                                        }}
-                                    >
-                                        <span>Details</span>
-                                        <ArrowUpRight className="w-3.5 h-3.5" />
-                                    </button>
                                 </div>
 
                                 {/* Inline Expanded Content */}
