@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useParticipantsQuery } from '@/hooks/useParticipants';
 import { useSelection } from '@/context/SelectionContext';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
@@ -31,6 +31,7 @@ import { useActsQuery } from '@/hooks/useActs';
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { eventId } = useSelection();
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +44,7 @@ export default function ParticipantsPage() {
     const [assigningParticipant, setAssigningParticipant] = useState<string | null>(null);
     const [notingParticipant, setNotingParticipant] = useState<string | null>(null);
     const [selectedActId, setSelectedActId] = useState('');
+    const [actSearchQuery, setActSearchQuery] = useState('');
     const [noteContent, setNoteContent] = useState('');
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
 
@@ -51,11 +53,36 @@ export default function ParticipantsPage() {
     const assignMutation = useAssignToAct(assigningParticipant || '');
     const noteMutation = useAddParticipantNote(notingParticipant || '');
 
+    useEffect(() => {
+        const filterParam = searchParams.get('filter');
+        const actionParam = searchParams.get('action');
+
+        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'identity_pending'].includes(filterParam)) {
+            setActiveFilter(filterParam as typeof activeFilter);
+        }
+
+        if (actionParam === 'import') {
+            setIsImportModalOpen(true);
+        }
+    }, [searchParams]);
+
+    const updateFilter = (nextFilter: typeof activeFilter) => {
+        setActiveFilter(nextFilter);
+        const nextParams = new URLSearchParams(searchParams);
+        if (nextFilter === 'all') {
+            nextParams.delete('filter');
+        } else {
+            nextParams.set('filter', nextFilter);
+        }
+        setSearchParams(nextParams, { replace: true });
+    };
+
     const handleAssign = async () => {
         if (!assigningParticipant || !selectedActId) return;
         await assignMutation.mutateAsync({ actId: selectedActId });
         setAssigningParticipant(null);
         setSelectedActId('');
+        setActSearchQuery('');
     };
 
     const handleAddNote = async () => {
@@ -99,6 +126,13 @@ export default function ParticipantsPage() {
         if (sortBy === 'recent') return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
         return 0;
     });
+
+    const visibleActs = useMemo(() => {
+        if (!allActs) return [];
+        const query = actSearchQuery.trim().toLowerCase();
+        if (!query) return allActs;
+        return allActs.filter((act) => act.name.toLowerCase().includes(query));
+    }, [actSearchQuery, allActs]);
 
     const { data: eventData } = useQuery({
         queryKey: ['event-metadata', eventId],
@@ -159,7 +193,12 @@ export default function ParticipantsPage() {
                     </div>
                 </div>
                 <button
-                    onClick={() => setIsImportModalOpen(true)}
+                    onClick={() => {
+                        const nextParams = new URLSearchParams(searchParams);
+                        nextParams.set('action', 'import');
+                        setSearchParams(nextParams, { replace: true });
+                        setIsImportModalOpen(true);
+                    }}
                     className="flex items-center space-x-2 bg-primary text-primary-foreground h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                     <RefreshCw className="w-3.5 h-3.5" />
@@ -169,23 +208,23 @@ export default function ParticipantsPage() {
 
             {/* Operational Summary */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div onClick={() => setActiveFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
+                    <div onClick={() => updateFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
                         <p className="text-xl font-bold mt-0.5">{stats.total}</p>
                     </div>
-                    <div onClick={() => setActiveFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
+                    <div onClick={() => updateFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-600">Needs Placement</p>
                         <p className="text-xl font-bold mt-0.5">{stats.unassigned}</p>
                     </div>
-                    <div onClick={() => setActiveFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
+                    <div onClick={() => updateFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-amber-600">Docs Pending</p>
                         <p className="text-xl font-bold mt-0.5">{stats.missing}</p>
                     </div>
-                    <div onClick={() => setActiveFilter('special')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'special' ? 'bg-rose-500/5 border-rose-500 shadow-sm' : 'bg-card border-border hover:border-rose-500/50'}`}>
+                    <div onClick={() => updateFilter('special')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'special' ? 'bg-rose-500/5 border-rose-500 shadow-sm' : 'bg-card border-border hover:border-rose-500/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-rose-600">Special</p>
                         <p className="text-xl font-bold mt-0.5">{stats.special}</p>
                     </div>
-                    <div onClick={() => setActiveFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
+                    <div onClick={() => updateFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Assigned</p>
                         <p className="text-xl font-bold mt-0.5">{stats.assigned}</p>
                     </div>
@@ -221,48 +260,48 @@ export default function ParticipantsPage() {
 
                 <div className="flex items-center space-x-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
                     <button
-                        onClick={() => setActiveFilter('all')}
+                        onClick={() => updateFilter('all')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         All
                     </button>
                     <button
-                        onClick={() => setActiveFilter('ready')}
+                        onClick={() => updateFilter('ready')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Ready</span>
                     </button>
                     <button
-                        onClick={() => setActiveFilter('missing')}
+                        onClick={() => updateFilter('missing')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'missing' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <Clock className="w-3.5 h-3.5" />
                         <span>Docs Pending</span>
                     </button>
                     <button
-                        onClick={() => setActiveFilter('unassigned')}
+                        onClick={() => updateFilter('unassigned')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'unassigned' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <User className="w-3.5 h-3.5" />
                         <span>Needs Placement</span>
                     </button>
                     <button
-                        onClick={() => setActiveFilter('special')}
+                        onClick={() => updateFilter('special')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'special' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <AlertCircle className="w-3.5 h-3.5" />
                         <span>Special Requests</span>
                     </button>
                     <button
-                        onClick={() => setActiveFilter('no_phone')}
+                        onClick={() => updateFilter('no_phone')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'no_phone' ? 'bg-slate-700 text-white shadow-md shadow-slate-700/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <Phone className="w-3.5 h-3.5" />
                         <span>No Phone</span>
                     </button>
                     <button
-                        onClick={() => setActiveFilter('identity_pending')}
+                        onClick={() => updateFilter('identity_pending')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'identity_pending' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <AlertTriangle className="w-3.5 h-3.5" />
@@ -279,14 +318,19 @@ export default function ParticipantsPage() {
                 />
             ) : !participants || participants.length === 0 ? (
                 <EmptyState
-                    title="No Participants Found"
-                    description="Sync your participant list from a Google Sheet or CSV to get started."
-                    icon={Users}
-                    action={{
-                        label: 'Import Participants',
-                        onClick: () => setIsImportModalOpen(true)
-                    }}
-                />
+                        title="No Participants Found"
+                        description="Sync your participant list from a Google Sheet or CSV to get started."
+                        icon={Users}
+                        action={{
+                            label: 'Import Participants',
+                            onClick: () => {
+                                const nextParams = new URLSearchParams(searchParams);
+                                nextParams.set('action', 'import');
+                                setSearchParams(nextParams, { replace: true });
+                                setIsImportModalOpen(true);
+                            }
+                        }}
+                    />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredParticipants?.map((participant) => {
@@ -465,7 +509,12 @@ export default function ParticipantsPage() {
             <ImportParticipantsModal
                 eventId={eventId}
                 isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
+                onClose={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    nextParams.delete('action');
+                    setSearchParams(nextParams, { replace: true });
+                    setIsImportModalOpen(false);
+                }}
             />
 
             {/* Quick Assign Modal */}
@@ -476,8 +525,15 @@ export default function ParticipantsPage() {
             >
                 <div className="space-y-4 py-4">
                     <p className="text-sm text-muted-foreground">Select a performance to assign this person to.</p>
+                    <input
+                        type="text"
+                        value={actSearchQuery}
+                        onChange={(e) => setActSearchQuery(e.target.value)}
+                        placeholder="Search performances..."
+                        className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
                     <div className="space-y-2">
-                        {allActs?.map(act => (
+                        {visibleActs.map(act => (
                             <button
                                 key={act.id}
                                 onClick={() => setSelectedActId(act.id)}
@@ -492,9 +548,18 @@ export default function ParticipantsPage() {
                                 {selectedActId === act.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
                             </button>
                         ))}
+                        {visibleActs.length === 0 && (
+                            <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm font-medium text-muted-foreground">
+                                No performances match "{actSearchQuery}".
+                            </div>
+                        )}
                     </div>
                     <div className="flex justify-end space-x-3 pt-4">
-                        <Button variant="outline" onClick={() => setAssigningParticipant(null)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => {
+                            setAssigningParticipant(null);
+                            setSelectedActId('');
+                            setActSearchQuery('');
+                        }}>Cancel</Button>
                         <Button onClick={handleAssign} disabled={!selectedActId || assignMutation.isPending}>
                             {assignMutation.isPending ? 'Assigning...' : 'Confirm Placement'}
                         </Button>
