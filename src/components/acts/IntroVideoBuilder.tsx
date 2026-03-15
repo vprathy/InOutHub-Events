@@ -43,6 +43,7 @@ function BrokenAssetTile({ label, compact = false }: { label: string; compact?: 
 
 export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) => {
   const [assets, setAssets] = useState<ParticipantAsset[]>([]);
+  const [participantCount, setParticipantCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
     if (partsError) return;
     const pIds = actParts.map(p => p.participant_id);
+    setParticipantCount(pIds.length);
 
     const { data: participantAssets, error: assetError } = await supabase
       .from('participant_assets')
@@ -406,7 +408,9 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           </div>
           {assets.length === 0 ? (
             <Card className="rounded-3xl border-dashed bg-muted/5 p-8 text-center text-gray-400">
-              No approved participant photos found for this act. Approve at least one participant photo before building an intro.
+              {participantCount === 0
+                ? 'No cast is assigned to this act yet. Add performers before building an intro.'
+                : 'No approved participant photos found for this act. Approve at least one participant photo before building an intro.'}
             </Card>
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
