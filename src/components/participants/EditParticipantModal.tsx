@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useUpdateParticipant } from '@/hooks/useParticipants';
@@ -30,23 +30,43 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
     const [guardianPhone, setGuardianPhone] = useState(participant.guardianPhone || '');
     const [guardianRelationship, setGuardianRelationship] = useState(participant.guardianRelationship || '');
     const [notes, setNotes] = useState(participant.notes || '');
+    const [error, setError] = useState('');
 
     const updateParticipant = useUpdateParticipant(participant.id);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        setFirstName(participant.firstName);
+        setLastName(participant.lastName);
+        setIsMinor(!!participant.isMinor);
+        setStatus(participant.status || 'active');
+        setIdentityVerified(!!participant.identityVerified);
+        setGuardianName(participant.guardianName || '');
+        setGuardianPhone(participant.guardianPhone || '');
+        setGuardianRelationship(participant.guardianRelationship || '');
+        setNotes(participant.notes || '');
+        setError('');
+    }, [isOpen, participant]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await updateParticipant.mutateAsync({
-            firstName,
-            lastName,
-            isMinor,
-            status: status as any,
-            identityVerified,
-            guardianName: guardianName || null,
-            guardianPhone: guardianPhone || null,
-            guardianRelationship: guardianRelationship || null,
-            notes: notes || null,
-        });
-        onClose();
+        setError('');
+        try {
+            await updateParticipant.mutateAsync({
+                firstName,
+                lastName,
+                isMinor,
+                status: status as any,
+                identityVerified,
+                guardianName: guardianName || null,
+                guardianPhone: guardianPhone || null,
+                guardianRelationship: guardianRelationship || null,
+                notes: notes || null,
+            });
+            onClose();
+        } catch (err: any) {
+            setError(err?.message || 'Failed to save participant');
+        }
     };
 
     const inputClass = "w-full px-4 py-2.5 text-sm font-medium bg-background border-2 border-border/60 rounded-xl outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/40";
@@ -169,6 +189,7 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
                 </div>
 
                 <div className="flex justify-end gap-3 pt-2">
+                    {error ? <p className="mr-auto self-center text-xs font-medium text-red-500">{error}</p> : null}
                     <Button type="button" variant="ghost" onClick={onClose} className="h-10 px-5 text-[10px] font-black uppercase tracking-widest">
                         Cancel
                     </Button>

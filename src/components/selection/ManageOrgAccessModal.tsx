@@ -17,14 +17,17 @@ export function ManageOrgAccessModal({ isOpen, onClose }: ManageOrgAccessModalPr
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('Member');
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
 
     if (!isOpen) return null;
 
     const handleAssign = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setNotice('');
         assignRole({ email, role }, {
             onSuccess: () => {
+                setNotice(`${role} access granted to ${email}.`);
                 setEmail('');
                 setRole('Member');
             },
@@ -72,7 +75,14 @@ export function ManageOrgAccessModal({ isOpen, onClose }: ManageOrgAccessModalPr
                                         </div>
                                         {member.role !== 'Owner' && (
                                             <button
-                                                onClick={() => removeMember(member.id)}
+                                                onClick={() => {
+                                                    setError('');
+                                                    setNotice('');
+                                                    removeMember(member.id, {
+                                                        onSuccess: () => setNotice(`Removed ${member.user_profiles?.email || 'member'} from this organization.`),
+                                                        onError: (err: any) => setError(err.message || 'Failed to remove member'),
+                                                    });
+                                                }}
                                                 disabled={isRemoving}
                                                 className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
                                             >
@@ -107,6 +117,7 @@ export function ManageOrgAccessModal({ isOpen, onClose }: ManageOrgAccessModalPr
                                 <option value="Admin">Admin</option>
                             </select>
                         </div>
+                        {notice && <p className="text-xs font-medium text-emerald-600">{notice}</p>}
                         {error && <p className="text-xs font-medium text-red-500">{error}</p>}
                         <button
                             type="submit"
