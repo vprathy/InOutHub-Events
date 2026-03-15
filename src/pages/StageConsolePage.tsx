@@ -10,6 +10,8 @@ import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
 import { useNavigate } from 'react-router-dom';
 
+const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
+
 export default function StageConsolePage() {
     const { eventId } = useSelection();
     const navigate = useNavigate();
@@ -32,12 +34,29 @@ export default function StageConsolePage() {
     const insights = lineup ? scanLineup(lineup) : [];
     const criticalRisks = insights.filter(i => i.level === 'high' || i.level === 'critical').length;
 
-    // Auto-select first stage if none selected
+    // Restore stage selection when returning to the console for the same event.
     useEffect(() => {
-        if (!selectedStageId && stages && stages.length > 0) {
-            setSelectedStageId(stages[0].id);
+        if (!stages || stages.length === 0) return;
+
+        const storageKey = getStageConsoleStorageKey(eventId);
+        const savedStageId = storageKey ? window.localStorage.getItem(storageKey) : null;
+        const hasSavedStage = Boolean(savedStageId && stages.some((stage) => stage.id === savedStageId));
+
+        if (!selectedStageId) {
+            setSelectedStageId(hasSavedStage ? savedStageId! : stages[0].id);
+            return;
         }
-    }, [stages, selectedStageId]);
+
+        if (!stages.some((stage) => stage.id === selectedStageId)) {
+            setSelectedStageId(hasSavedStage ? savedStageId! : stages[0].id);
+        }
+    }, [eventId, stages, selectedStageId]);
+
+    useEffect(() => {
+        const storageKey = getStageConsoleStorageKey(eventId);
+        if (!storageKey || !selectedStageId) return;
+        window.localStorage.setItem(storageKey, selectedStageId);
+    }, [eventId, selectedStageId]);
 
     if (!eventId) {
         return (

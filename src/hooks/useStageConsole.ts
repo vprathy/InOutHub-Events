@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase';
 import { type StageStatus } from '@/types/domain';
 import { useEffect } from 'react';
 
+const findRecoveryIndex = (lineup: any[] | undefined, currentLineupItemId: string | null | undefined) => {
+    if (!lineup || lineup.length === 0) return -1;
+    if (!currentLineupItemId) return 0;
+
+    const exactIndex = lineup.findIndex((item) => item.id === currentLineupItemId);
+    if (exactIndex !== -1) return exactIndex;
+
+    return 0;
+};
+
 export function useStageConsole(stageId: string | null) {
     const queryClient = useQueryClient();
 
@@ -138,8 +148,11 @@ export function useStageConsole(stageId: string | null) {
 
     const currentIndex = lineup?.findIndex(item => item.id === stageState?.current_lineup_item_id) ?? -1;
     const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
+    const recoveryIndex = findRecoveryIndex(lineup, stageState?.current_lineup_item_id);
     const anchorIndex = currentIndex !== -1
         ? currentIndex
+        : isLiveRun && recoveryIndex !== -1
+            ? recoveryIndex
         : !isLiveRun && (lineup?.length ?? 0) > 0
             ? 0
             : -1;
