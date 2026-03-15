@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Sparkles, Loader2, MonitorPlay } from 'lucide-react';
+import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
 import { UploadActAssetModal } from './UploadActAssetModal';
 import { useUpdateActStatus } from '@/hooks/useActs';
-import { supabase } from '@/lib/supabase';
 import { IntroVideoPlayer } from '@/components/console/IntroVideoPlayer';
 import { getPlayableIntro } from '@/lib/introCapabilities';
 import type { IntroComposition } from '@/types/domain';
@@ -20,7 +19,6 @@ export function ActCard({ act }: ActCardProps) {
     const navigate = useNavigate();
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
     const [playableIntro, setPlayableIntro] = useState<{
@@ -40,28 +38,6 @@ export function ActCard({ act }: ActCardProps) {
             actId: act.id,
             status: isReady ? 'Arrived' : 'Ready'
         });
-    };
-
-    const handleGenerateAI = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (isGenerating) return;
-
-        setIsGenerating(true);
-        try {
-            const { data, error } = await supabase.functions.invoke('generate-act-assets', {
-                body: { actId: act.id, mode: 'Manual' },
-                headers: {
-                    'x-inouthub-trust': 'inouthub-internal-2026-v16'
-                }
-            });
-
-            if (error) throw error;
-            console.log('[PWA] AI Generation initiated:', data);
-        } catch (err) {
-            console.error('[PWA] AI Generation failed:', err);
-        } finally {
-            setIsGenerating(false);
-        }
     };
 
     const handlePlayIntro = async (e: React.MouseEvent) => {
@@ -240,15 +216,13 @@ export function ActCard({ act }: ActCardProps) {
                     variant="outline"
                     size="sm"
                     className="min-h-[44px] rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5 col-span-2"
-                    onClick={handleGenerateAI}
-                    disabled={isGenerating}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/acts/${act.id}`);
+                    }}
                 >
-                    {isGenerating ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin text-primary" />
-                    ) : (
-                        <Sparkles className="w-3.5 h-3.5 mr-2" />
-                    )}
-                    Intro Studio
+                    <MonitorPlay className="w-3.5 h-3.5 mr-2" />
+                    Open Workspace
                 </Button>
             </div>
 
