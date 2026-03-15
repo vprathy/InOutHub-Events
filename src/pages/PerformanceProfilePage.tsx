@@ -292,6 +292,38 @@ function ReadinessTab({ act }: { act: any }) {
         dueAt: '',
         resolutionNote: '',
     });
+    const resetPracticeForm = () => setPracticeForm({
+        venueName: '',
+        address: '',
+        roomArea: '',
+        parkingNote: '',
+        specialInstructions: '',
+        contactName: '',
+        contactPhone: '',
+        startsAt: '',
+        endsAt: '',
+        status: 'planned',
+        notes: '',
+        expectedFor: '',
+    });
+    const resetItemForm = () => setItemForm({
+        category: 'prep_task',
+        title: '',
+        notes: '',
+        status: 'needed',
+        ownerLabel: '',
+        dueAt: '',
+    });
+    const resetIssueForm = () => setIssueForm({
+        issueType: 'other',
+        title: '',
+        details: '',
+        severity: 'medium',
+        status: 'open',
+        ownerLabel: '',
+        dueAt: '',
+        resolutionNote: '',
+    });
 
     const summaryTone = act.readinessSummary?.state === 'Blocked'
         ? 'border-rose-500/20 bg-rose-500/5 text-rose-700'
@@ -499,7 +531,7 @@ function ReadinessTab({ act }: { act: any }) {
                 </Card>
             </div>
 
-            <Modal isOpen={showPracticeModal} onClose={() => setShowPracticeModal(false)} title="Add Practice">
+            <Modal isOpen={showPracticeModal} onClose={() => { setShowPracticeModal(false); resetPracticeForm(); }} title="Add Practice">
                 <form
                     className="mt-4 space-y-4"
                     onSubmit={async (event) => {
@@ -518,6 +550,7 @@ function ReadinessTab({ act }: { act: any }) {
                             notes: practiceForm.notes || null,
                             expectedFor: practiceForm.expectedFor || null,
                         });
+                        resetPracticeForm();
                         setShowPracticeModal(false);
                     }}
                 >
@@ -545,13 +578,13 @@ function ReadinessTab({ act }: { act: any }) {
                     <textarea className="min-h-[88px] w-full rounded-xl border border-border px-4 py-3 text-sm" placeholder="Special instructions" value={practiceForm.specialInstructions} onChange={(e) => setPracticeForm((current) => ({ ...current, specialInstructions: e.target.value }))} />
                     <textarea className="min-h-[88px] w-full rounded-xl border border-border px-4 py-3 text-sm" placeholder="Practice notes" value={practiceForm.notes} onChange={(e) => setPracticeForm((current) => ({ ...current, notes: e.target.value }))} />
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowPracticeModal(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => { setShowPracticeModal(false); resetPracticeForm(); }}>Cancel</Button>
                         <Button type="submit" disabled={addPractice.isPending || !practiceForm.venueName || !practiceForm.startsAt}>{addPractice.isPending ? 'Saving...' : 'Save Practice'}</Button>
                     </div>
                 </form>
             </Modal>
 
-            <Modal isOpen={showItemModal} onClose={() => setShowItemModal(false)} title="Add Checklist Item">
+            <Modal isOpen={showItemModal} onClose={() => { setShowItemModal(false); resetItemForm(); }} title="Add Checklist Item">
                 <form
                     className="mt-4 space-y-4"
                     onSubmit={async (event) => {
@@ -564,6 +597,7 @@ function ReadinessTab({ act }: { act: any }) {
                             ownerLabel: itemForm.ownerLabel || null,
                             dueAt: itemForm.dueAt || null,
                         });
+                        resetItemForm();
                         setShowItemModal(false);
                     }}
                 >
@@ -591,13 +625,13 @@ function ReadinessTab({ act }: { act: any }) {
                     </div>
                     <textarea className="min-h-[88px] w-full rounded-xl border border-border px-4 py-3 text-sm" placeholder="Notes" value={itemForm.notes} onChange={(e) => setItemForm((current) => ({ ...current, notes: e.target.value }))} />
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowItemModal(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => { setShowItemModal(false); resetItemForm(); }}>Cancel</Button>
                         <Button type="submit" disabled={addItem.isPending || !itemForm.title}>{addItem.isPending ? 'Saving...' : 'Save Item'}</Button>
                     </div>
                 </form>
             </Modal>
 
-            <Modal isOpen={showIssueModal} onClose={() => setShowIssueModal(false)} title="Raise Issue">
+            <Modal isOpen={showIssueModal} onClose={() => { setShowIssueModal(false); resetIssueForm(); }} title="Raise Issue">
                 <form
                     className="mt-4 space-y-4"
                     onSubmit={async (event) => {
@@ -612,6 +646,7 @@ function ReadinessTab({ act }: { act: any }) {
                             dueAt: issueForm.dueAt || null,
                             resolutionNote: issueForm.resolutionNote || null,
                         });
+                        resetIssueForm();
                         setShowIssueModal(false);
                     }}
                 >
@@ -649,7 +684,7 @@ function ReadinessTab({ act }: { act: any }) {
                     <textarea className="min-h-[88px] w-full rounded-xl border border-border px-4 py-3 text-sm" placeholder="Details" value={issueForm.details} onChange={(e) => setIssueForm((current) => ({ ...current, details: e.target.value }))} />
                     <textarea className="min-h-[88px] w-full rounded-xl border border-border px-4 py-3 text-sm" placeholder="Resolution note" value={issueForm.resolutionNote} onChange={(e) => setIssueForm((current) => ({ ...current, resolutionNote: e.target.value }))} />
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowIssueModal(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => { setShowIssueModal(false); resetIssueForm(); }}>Cancel</Button>
                         <Button type="submit" disabled={addIssue.isPending || !issueForm.title}>{addIssue.isPending ? 'Saving...' : 'Save Issue'}</Button>
                     </div>
                 </form>

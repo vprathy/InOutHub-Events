@@ -47,7 +47,10 @@ export function deriveActReadinessSummary({
 
 export function formatReadinessDate(dateString?: string | null) {
     if (!dateString) return 'Not scheduled';
-    const date = new Date(dateString);
+    const normalized = dateString.includes('T') && dateString.length === 16
+        ? `${dateString}:00`
+        : dateString.replace(' ', 'T');
+    const date = new Date(normalized);
     if (Number.isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleString('en-US', {
         month: 'short',
