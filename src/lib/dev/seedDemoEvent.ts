@@ -1,6 +1,21 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { faker } from '@faker-js/faker';
 
+function createSvgPhotoDataUrl(label: string, accent: string) {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+        <rect width="800" height="1200" fill="#0f172a" />
+        <rect x="36" y="36" width="728" height="1128" rx="48" fill="#111827" stroke="${accent}" stroke-width="8" />
+        <circle cx="400" cy="410" r="150" fill="#1f2937" stroke="${accent}" stroke-width="10" />
+        <rect x="220" y="610" width="360" height="240" rx="120" fill="#1f2937" stroke="${accent}" stroke-width="10" />
+        <text x="400" y="960" text-anchor="middle" fill="#e5e7eb" font-family="Arial, sans-serif" font-size="48" font-weight="700">${label}</text>
+        <text x="400" y="1025" text-anchor="middle" fill="${accent}" font-family="Arial, sans-serif" font-size="28" letter-spacing="6">INTRO TEST ASSET</text>
+      </svg>
+    `;
+
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     // 4. Create Event
     console.log('📅 Creating Event...');
@@ -42,9 +57,43 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         notes: 'Lead performer for sound check coordination.'
     };
 
+    const introValidationParticipants = [
+        {
+            event_id: event.id,
+            first_name: 'Fatima',
+            last_name: 'Kulas',
+            notes: 'Deterministic intro validation participant.'
+        },
+        {
+            event_id: event.id,
+            first_name: 'Lester',
+            last_name: 'Wintheiser',
+            notes: 'Deterministic intro validation participant.'
+        },
+        {
+            event_id: event.id,
+            first_name: 'Buddy',
+            last_name: 'Ondricka',
+            notes: 'Deterministic intro validation participant.'
+        },
+        {
+            event_id: event.id,
+            first_name: 'Margarita',
+            last_name: 'Ankunding',
+            notes: 'Deterministic intro validation participant.'
+        },
+        {
+            event_id: event.id,
+            first_name: 'Penny',
+            last_name: 'Fisher',
+            notes: 'Deterministic intro validation participant.'
+        }
+    ];
+
     const participantsData = [
         victor,
-        ...Array.from({ length: 49 }).map(() => ({
+        ...introValidationParticipants,
+        ...Array.from({ length: 44 }).map(() => ({
             event_id: event.id,
             first_name: faker.person.firstName(),
             last_name: faker.person.lastName(),
@@ -62,21 +111,58 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     const statuses = ['Not Arrived', 'Arrived', 'Backstage', 'Ready'];
     const actTypes = ['Band', 'Solo Singer', 'Dance Troupe', 'Comedy Routine', 'Magic Show', 'Theater Monologue', 'Acapella Group'];
 
-    const actsData = Array.from({ length: 15 }).map(() => ({
-        event_id: event.id,
-        name: `The ${faker.word.adjective()} ${faker.helpers.arrayElement(actTypes)}`,
-        duration_minutes: faker.helpers.arrayElement([5, 10, 15, 20]),
-        setup_time_minutes: faker.helpers.arrayElement([2, 5, 10]),
-        arrival_status: faker.helpers.arrayElement(statuses),
-        notes: Math.random() > 0.5 ? faker.lorem.sentence() : null
-    }));
+    const actsData = [
+        {
+            event_id: event.id,
+            name: 'The strong Solo Singer',
+            duration_minutes: 10,
+            setup_time_minutes: 2,
+            arrival_status: 'Ready',
+            notes: 'Deterministic validation act for Intro Builder and Stage Console.'
+        },
+        ...Array.from({ length: 14 }).map(() => ({
+            event_id: event.id,
+            name: `The ${faker.word.adjective()} ${faker.helpers.arrayElement(actTypes)}`,
+            duration_minutes: faker.helpers.arrayElement([5, 10, 15, 20]),
+            setup_time_minutes: faker.helpers.arrayElement([2, 5, 10]),
+            arrival_status: faker.helpers.arrayElement(statuses),
+            notes: Math.random() > 0.5 ? faker.lorem.sentence() : null
+        }))
+    ];
 
     const { data: acts, error: actsError } = await supabase.from('acts').insert(actsData).select();
     if (actsError) throw actsError;
 
+    const deterministicParticipants = participants.slice(1, 6);
+
     // 8. Link Participants, Assets, and Requirements
     console.log('🔗 Wiring Act Participants and Assets...');
-    for (const act of acts) {
+    for (const [index, act] of acts.entries()) {
+        if (index === 0) {
+            const introActParts = deterministicParticipants.map((participant) => ({
+                act_id: act.id,
+                participant_id: participant.id,
+                role: 'Performer'
+            }));
+            await supabase.from('act_participants').insert(introActParts);
+
+            await supabase.from('act_assets').insert({
+                act_id: act.id,
+                asset_name: 'Intro Narration Track',
+                asset_type: 'Other',
+                notes: 'Deterministic seed record for intro validation'
+            });
+
+            await supabase.from('act_requirements').insert({
+                act_id: act.id,
+                requirement_type: 'Microphone',
+                description: '1 wireless mic needed',
+                fulfilled: true
+            });
+
+            continue;
+        }
+
         // Pick 1 to 5 random participants
         const actParts = faker.helpers.arrayElements(participants, faker.number.int({ min: 1, max: 5 })).map(p => ({
             act_id: act.id,
@@ -152,6 +238,33 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
 
     const { error: assetsError } = await supabase.from('participant_assets').insert(assetsData);
     if (assetsError) console.warn('⚠️ Assets seed warning:', assetsError.message);
+
+    const deterministicIntroAssets = [
+        {
+            participant_id: deterministicParticipants[0].id,
+            name: 'Fatima Stage Portrait',
+            type: 'photo',
+            status: 'approved',
+            file_url: createSvgPhotoDataUrl('Fatima Kulas', '#38bdf8'),
+        },
+        {
+            participant_id: deterministicParticipants[1].id,
+            name: 'Lester Stage Portrait',
+            type: 'photo',
+            status: 'approved',
+            file_url: createSvgPhotoDataUrl('Lester Wintheiser', '#f59e0b'),
+        },
+        {
+            participant_id: deterministicParticipants[2].id,
+            name: 'Buddy Practice Snapshot',
+            type: 'photo',
+            status: 'pending_review',
+            file_url: createSvgPhotoDataUrl('Buddy Ondricka', '#a855f7'),
+        }
+    ];
+
+    const { error: introAssetError } = await supabase.from('participant_assets').insert(deterministicIntroAssets);
+    if (introAssetError) console.warn('⚠️ Intro validation asset seed warning:', introAssetError.message);
 
     // 9. Generate Lineup Items
     console.log('📋 Building Schedule/Lineup...');
