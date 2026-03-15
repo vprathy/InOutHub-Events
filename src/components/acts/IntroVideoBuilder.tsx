@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -42,6 +42,8 @@ function BrokenAssetTile({ label, compact = false }: { label: string; compact?: 
 }
 
 export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) => {
+  const BACKGROUND_POLL_LIMIT = 12;
+  const BACKGROUND_POLL_INTERVAL_MS = 5000;
   const [assets, setAssets] = useState<ParticipantAsset[]>([]);
   const [participantCount, setParticipantCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -59,6 +61,10 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [brokenAssetIds, setBrokenAssetIds] = useState<string[]>([]);
   const [isBackgroundBroken, setIsBackgroundBroken] = useState(false);
+  const [backgroundStatus, setBackgroundStatus] = useState<'idle' | 'pending' | 'ready' | 'timed_out'>('idle');
+  const [backgroundPollCount, setBackgroundPollCount] = useState(0);
+  const [isRefreshingBackground, setIsRefreshingBackground] = useState(false);
+  const backgroundPollIntervalRef = useRef<number | null>(null);
   const hasSelectedAssets = selectedIds.length > 0;
   const hasCuration = curationSuggestions.length > 0;
   const hasBackground = Boolean(backgroundUrl);
@@ -71,6 +77,10 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   ].filter(Boolean) as string[];
 
   const resetCompositionState = () => {
+    if (backgroundPollIntervalRef.current) {
+      window.clearInterval(backgroundPollIntervalRef.current);
+      backgroundPollIntervalRef.current = null;
+    }
     setSelectedIds([]);
     setBackgroundUrl(null);
     setAudioUrl(null);
@@ -80,6 +90,9 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     setInfoMessage(null);
     setBrokenAssetIds([]);
     setIsBackgroundBroken(false);
+    setBackgroundStatus('idle');
+    setBackgroundPollCount(0);
+    setIsRefreshingBackground(false);
   };
 
   const orderSelectedIdsByCuration = (currentSelectedIds: string[], suggestions: IntroCurationItem[]) => {
@@ -95,6 +108,15 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   useEffect(() => {
     init();
   }, [actId]);
+
+  useEffect(() => {
+    return () => {
+      if (backgroundPollIntervalRef.current) {
+        window.clearInterval(backgroundPollIntervalRef.current);
+        backgroundPollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const init = async () => {
     setIsLoading(true);
@@ -138,6 +160,79 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     setSelectedIds(result.composition.selectedAssetIds || []);
     setCurationSuggestions(result.composition.curation || []);
     setIsBackgroundBroken(false);
+    setBackgroundStatus(result.composition.background.fileUrl ? 'ready' : 'idle');
+  };
+
+  const clearBackgroundPolling = () => {
+    if (backgroundPollIntervalRef.current) {
+      window.clearInterval(backgroundPollIntervalRef.current);
+      backgroundPollIntervalRef.current = null;
+    }
+  };
+
+  const refreshBackgroundStatus = async (manual = false) => {
+    if (manual) {
+      setIsRefreshingBackground(true);
+      setErrorMessage(null);
+    }
+
+    try {
+      const refreshed = await getIntroComposition(actId);
+      const refreshedBackgroundUrl = refreshed.composition.background.fileUrl;
+
+      setCompositionId(refreshed.compositionId);
+      setBackgroundUrl(refreshedBackgroundUrl);
+      setAudioUrl(refreshed.composition.audio.fileUrl);
+      setSelectedIds(refreshed.composition.selectedAssetIds || []);
+      setCurationSuggestions(refreshed.composition.curation || []);
+      setIsApproved(refreshed.composition.approved);
+      setIsBackgroundBroken(false);
+
+      if (refreshedBackgroundUrl) {
+        clearBackgroundPolling();
+        setBackgroundStatus('ready');
+        setInfoMessage('Background updated. Review the new preview before approval.');
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      if (manual) {
+        setErrorMessage(error instanceof Error ? error.message : 'Background status refresh failed');
+      }
+      return false;
+    } finally {
+      if (manual) {
+        setIsRefreshingBackground(false);
+      }
+    }
+  };
+
+  const startBackgroundPolling = () => {
+    clearBackgroundPolling();
+    setBackgroundStatus('pending');
+    setBackgroundPollCount(0);
+
+    backgroundPollIntervalRef.current = window.setInterval(async () => {
+      setBackgroundPollCount((currentCount) => {
+        const nextCount = currentCount + 1;
+        return nextCount;
+      });
+
+      const foundBackground = await refreshBackgroundStatus(false);
+      if (foundBackground) {
+        return;
+      }
+
+      setBackgroundPollCount((currentCount) => {
+        if (currentCount >= BACKGROUND_POLL_LIMIT) {
+          clearBackgroundPolling();
+          setBackgroundStatus('timed_out');
+          setInfoMessage('Background is still pending review. Use Check Background Status before trying approval again.');
+        }
+        return currentCount;
+      });
+    }, BACKGROUND_POLL_INTERVAL_MS);
   };
 
   const saveComposition = async ({
@@ -197,6 +292,8 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     setIsGeneratingBackground(true);
     setErrorMessage(null);
     setInfoMessage(null);
+    clearBackgroundPolling();
+    setBackgroundPollCount(0);
     try {
       const previousBackgroundUrl = backgroundUrl;
       const result = await generateIntroBackground(actId);
@@ -207,42 +304,18 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       setIsBackgroundBroken(false);
 
       if (result.isPending) {
+        setBackgroundStatus('pending');
         setInfoMessage(result.message || 'Background generation is still processing.');
-
-        let pollCount = 0;
-        const interval = window.setInterval(async () => {
-          pollCount += 1;
-          try {
-            const refreshed = await getIntroComposition(actId);
-            const refreshedBackgroundUrl = refreshed.composition.background.fileUrl;
-
-            if (refreshedBackgroundUrl && refreshedBackgroundUrl !== previousBackgroundUrl) {
-              setCompositionId(refreshed.compositionId);
-              setBackgroundUrl(refreshedBackgroundUrl);
-              setAudioUrl(refreshed.composition.audio.fileUrl);
-              setSelectedIds(refreshed.composition.selectedAssetIds || []);
-              setCurationSuggestions(refreshed.composition.curation || []);
-              setIsApproved(refreshed.composition.approved);
-              setIsBackgroundBroken(false);
-              setInfoMessage('Background updated. Review the new preview before approval.');
-              window.clearInterval(interval);
-              return;
-            }
-          } catch (_error) {
-            // Keep polling quietly; the info banner already explains the state.
-          }
-
-          if (pollCount >= 12) {
-            window.clearInterval(interval);
-            setInfoMessage(result.message || 'Background generation is still under review. Try again in a moment.');
-          }
-        }, 5000);
+        startBackgroundPolling();
       } else if (!result.composition.background.fileUrl || result.composition.background.fileUrl === previousBackgroundUrl) {
+        setBackgroundStatus('timed_out');
         setInfoMessage('Background request completed, but no new image was published yet.');
       } else {
+        setBackgroundStatus('ready');
         setInfoMessage('Background updated. Review the new preview before approval.');
       }
     } catch (err) {
+      setBackgroundStatus(backgroundUrl ? 'ready' : 'idle');
       setErrorMessage(err instanceof Error ? err.message : 'Background generation failed');
     } finally {
       setIsGeneratingBackground(false);
@@ -382,6 +455,41 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-500">Intro Update</p>
             <p className="text-sm font-medium">{infoMessage}</p>
+          </div>
+        </Card>
+      ) : null}
+
+      {(backgroundStatus === 'pending' || backgroundStatus === 'timed_out') && !hasBackground ? (
+        <Card className={`flex flex-col gap-3 rounded-2xl border p-4 ${backgroundStatus === 'pending' ? 'border-amber-500/20 bg-amber-500/5 text-amber-700' : 'border-rose-500/20 bg-rose-500/5 text-rose-700'}`}>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em]">
+                {backgroundStatus === 'pending' ? 'Background Pending' : 'Background Blocked'}
+              </p>
+              <p className="text-sm font-medium">
+                {backgroundStatus === 'pending'
+                  ? `Safe background review is still running. Wait for the preview before approval. Poll ${backgroundPollCount}/${BACKGROUND_POLL_LIMIT}.`
+                  : 'No safe background published inside the wait window. Check status once, then stop Gate 15 if the background is still missing.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshBackgroundStatus(true)}
+              disabled={isRefreshingBackground}
+              className="h-11 rounded-2xl border-border/80 px-4 font-bold"
+            >
+              {isRefreshingBackground ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
+              Check Background Status
+            </Button>
+            {backgroundStatus === 'timed_out' ? (
+              <p className="flex items-center text-xs font-medium">
+                If this still shows no preview, mark `BLOCKED: background pending`.
+              </p>
+            ) : null}
           </div>
         </Card>
       ) : null}
