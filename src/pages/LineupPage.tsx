@@ -226,7 +226,7 @@ export default function LineupPage() {
                                 className={`h-11 w-full gap-2 sm:w-auto ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
                             >
                                 <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
-                                {showReview ? 'Hide Analysis' : 'Review Flow'}
+                                {showReview ? 'Hide Flow Review' : 'Run Flow Review'}
                                 {criticalRisks > 0 && !showReview && (
                                     <Badge className="ml-1 bg-amber-600 px-1.5 py-0 min-w-[1.25rem] h-5">{criticalRisks}</Badge>
                                 )}

@@ -206,7 +206,7 @@ export default function ParticipantsPage() {
                                 className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
                             >
                                 <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Sync Now</span>
+                                <span>Open Sync Tools</span>
                             </button>
                         </div>
                     }
