@@ -46,13 +46,29 @@ export function Header() {
     });
 
     return (
-        <header className="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-border bg-background/95 px-3 shadow-sm backdrop-blur sm:h-16 sm:px-6">
-            <div className="flex min-w-0 items-center space-x-2 sm:space-x-4">
+        <header className="sticky top-0 z-50 flex h-14 w-full items-center justify-between overflow-hidden border-b border-border bg-background/95 px-3 shadow-sm backdrop-blur sm:h-16 sm:px-6">
+            <div className="flex min-w-0 flex-1 items-center space-x-2 sm:space-x-4">
                 <BrandMark size="sm" className="shrink-0 sm:hidden" />
                 <BrandMark size="sm" showLabel className="hidden shrink-0 sm:flex" />
 
                 {selectionNames?.orgName && (
-                    <div className="flex min-w-0 items-center space-x-1 text-[10px] font-bold uppercase tracking-wider sm:space-x-2 sm:text-sm">
+                    <div className="flex min-w-0 sm:hidden">
+                        <button
+                            onClick={() => navigate(eventId ? '/select-event' : '/select-org')}
+                            className="flex min-h-[40px] max-w-[160px] items-center gap-2 rounded-xl px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                            {selectionNames.eventName ? (
+                                <Calendar className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            ) : (
+                                <Landmark className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            )}
+                            <span className="truncate">{selectionNames.eventName || selectionNames.orgName}</span>
+                        </button>
+                    </div>
+                )}
+
+                {selectionNames?.orgName && (
+                    <div className="hidden min-w-0 items-center space-x-1 text-[10px] font-bold uppercase tracking-wider sm:flex sm:space-x-2 sm:text-sm">
                         <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                         <button
                             onClick={() => navigate('/select-org')}
@@ -78,7 +94,7 @@ export function Header() {
                 )}
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="ml-2 flex shrink-0 items-center space-x-1 sm:space-x-2">
                 <div className="hidden sm:block">
                     <ThemeToggle />
                 </div>
@@ -90,7 +106,7 @@ export function Header() {
                 </button>
                 <button
                     onClick={handleLogout}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 sm:h-11 sm:w-11"
                     title="Sign Out"
                 >
                     <LogOut className="w-5 h-5" />
