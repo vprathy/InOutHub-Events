@@ -1,11 +1,12 @@
 import {
     LayoutDashboard,
     Mic2,
-    Plus,
     ChevronRight,
     Play,
     ShieldAlert,
-    FileCheck
+    FileCheck,
+    Users,
+    ClipboardList
 } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useDashboardRadar } from '@/hooks/useDashboardRadar';
@@ -47,38 +48,40 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="space-y-8 pb-12">
+        <div className="space-y-6 pb-12">
             {/* Header section with operational status */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">
-                    <h1 className="text-4xl font-black tracking-tighter uppercase italic">Control Panel</h1>
-                    <p className="text-muted-foreground font-medium">Real-time event pulse & operation metrics.</p>
+                    <h1 className="text-3xl font-black tracking-tighter uppercase italic sm:text-4xl">Control Panel</h1>
+                    <p className="max-w-md text-sm font-medium text-muted-foreground">Phone-first event pulse for placement, docs, and day-to-day manager follow-up.</p>
                 </div>
-                <div className="flex items-center space-x-2 bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-2xl border border-emerald-500/20">
+                <div className="inline-flex items-center space-x-2 self-start rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-emerald-500">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                     <span className="text-xs font-black uppercase tracking-widest">Active Ops</span>
                 </div>
             </div>
 
-            {/* Readiness Radar (High Contrast) */}
+            {/* Readiness Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <RadarCard
-                    label="Show Flow"
-                    value={`${radar?.acts.ready}/${radar?.acts.total}`}
-                    subtext="Acts Ready"
-                    percent={radar?.acts.total ? (radar.acts.ready / radar.acts.total) * 100 : 0}
-                    icon={Mic2}
-                    color="blue"
-                    onClick={() => navigate('/lineup')}
+                    label="Needs Placement"
+                    value={radar?.participants.unassigned || 0}
+                    subtext={`${radar?.participants.assigned || 0} already assigned`}
+                    percent={radar?.participants.total ? ((radar.participants.total - radar.participants.unassigned) / radar.participants.total) * 100 : 0}
+                    icon={Users}
+                    color={radar?.participants.unassigned ? 'orange' : 'emerald'}
+                    onClick={() => navigate('/participants')}
+                    isAlert={!!radar?.participants.unassigned}
                 />
                 <RadarCard
-                    label="Compliance"
-                    value={`${radar?.assets.fulfilled}/${radar?.assets.totalRequired}`}
-                    subtext="Waivers approved"
+                    label="Docs & Waivers"
+                    value={(radar?.assets.pending || 0) + (radar?.assets.missing || 0)}
+                    subtext={`${radar?.assets.fulfilled || 0} cleared`}
                     percent={radar?.overallReadiness || 0}
                     icon={FileCheck}
-                    color="emerald"
+                    color={(radar?.assets.pending || radar?.assets.missing) ? 'orange' : 'emerald'}
                     onClick={() => navigate('/participants')}
+                    isAlert={!!((radar?.assets.pending || 0) + (radar?.assets.missing || 0))}
                 />
                 <RadarCard
                     label="Safety"
@@ -99,16 +102,16 @@ export default function DashboardPage() {
                     <p className="text-2xl font-black tracking-tighter">{radar?.acts.arrived}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-4 rounded-3xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pending Review</p>
-                    <p className="text-2xl font-black tracking-tighter">{radar?.assets.pending}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Performances Ready</p>
+                    <p className="text-2xl font-black tracking-tighter">{radar?.acts.ready}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-4 rounded-3xl">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Cast</p>
                     <p className="text-2xl font-black tracking-tighter">{radar?.participants.total}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-4 rounded-3xl text-orange-500">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Missing Assets</p>
-                    <p className="text-2xl font-black tracking-tighter">{radar?.assets.missing}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Docs Pending</p>
+                    <p className="text-2xl font-black tracking-tighter">{(radar?.assets.pending || 0) + (radar?.assets.missing || 0)}</p>
                 </div>
             </div>
 
@@ -117,17 +120,31 @@ export default function DashboardPage() {
                 <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Operational Links</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ActionCard
-                        title="Live Stage Console"
-                        description="Direct stage orchestration & timing"
-                        icon={Play}
-                        onClick={() => navigate('/stage-console')}
+                        title="Participants"
+                        description="Placement, docs, contacts, and safety follow-up"
+                        icon={Users}
+                        onClick={() => navigate('/participants')}
                         variant="primary"
                     />
                     <ActionCard
-                        title="Import Roster"
-                        description="Harden your data from sheets"
-                        icon={Plus}
-                        onClick={() => navigate('/participants?action=import')}
+                        title="Performances"
+                        description="Acts, notes, runtime, and intro readiness"
+                        icon={ClipboardList}
+                        onClick={() => navigate('/acts')}
+                        variant="ghost"
+                    />
+                    <ActionCard
+                        title="Show Flow"
+                        description="Order acts and adjust the run of show"
+                        icon={Mic2}
+                        onClick={() => navigate('/lineup')}
+                        variant="ghost"
+                    />
+                    <ActionCard
+                        title="Stage Console"
+                        description="Tablet-first live execution and timing"
+                        icon={Play}
+                        onClick={() => navigate('/stage-console')}
                         variant="ghost"
                     />
                 </div>

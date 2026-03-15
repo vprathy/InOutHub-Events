@@ -10,6 +10,8 @@ export interface DashboardRadarData {
     };
     participants: {
         total: number;
+        assigned: number;
+        unassigned: number;
         minors: number;
         minorsAtRisk: number; // missing guardian info
     };
@@ -46,11 +48,20 @@ export function useDashboardRadar(eventId: string) {
                 .eq('event_id', eventId);
 
             const pTotal = participants?.length || 0;
+            const participantIds = (participants as any[])?.map(p => p.id) || [];
             const pMinors = participants?.filter(p => p.is_minor).length || 0;
             const pMinorsAtRisk = participants?.filter(p => p.is_minor && (!p.guardian_name || !p.guardian_phone)).length || 0;
 
+            const { data: actAssignments } = await supabase
+                .from('act_participants')
+                .select('participant_id')
+                .in('participant_id', participantIds.length > 0 ? participantIds : ['00000000-0000-0000-0000-000000000000']);
+
+            const assignedParticipantIds = new Set((actAssignments || []).map((row: any) => row.participant_id));
+            const participantsAssigned = assignedParticipantIds.size;
+            const participantsUnassigned = Math.max(pTotal - participantsAssigned, 0);
+
             // 3. Asset Compliance
-            const participantIds = (participants as any[])?.map(p => p.id) || [];
             const { data: allAssets } = await supabase
                 .from('participant_assets')
                 .select('status, id, participant_id')
@@ -72,6 +83,8 @@ export function useDashboardRadar(eventId: string) {
                 },
                 participants: {
                     total: pTotal,
+                    assigned: participantsAssigned,
+                    unassigned: participantsUnassigned,
                     minors: pMinors,
                     minorsAtRisk: pMinorsAtRisk
                 },

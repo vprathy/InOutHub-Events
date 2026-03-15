@@ -74,7 +74,7 @@ export default function ParticipantsPage() {
 
     const stats = {
         total: participants?.length || 0,
-        ready: participants?.filter(p => (p.assetStats?.missing === 0 && p.assetStats?.total > 0) && (p.actCount || 0) > 0).length || 0,
+        assigned: participants?.filter(p => (p.actCount || 0) > 0).length || 0,
         missing: participants?.filter(p => (p.assetStats?.missing || 0) > 0).length || 0,
         unassigned: participants?.filter(p => !p.actCount).length || 0,
         special: participants?.filter(p => p.hasSpecialRequests).length || 0
@@ -168,24 +168,28 @@ export default function ParticipantsPage() {
             </div>
 
             {/* Operational Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div onClick={() => setActiveFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
-                    <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
-                    <p className="text-xl font-bold mt-0.5">{stats.total}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div onClick={() => setActiveFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.total}</p>
+                    </div>
+                    <div onClick={() => setActiveFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-600">Needs Placement</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.unassigned}</p>
+                    </div>
+                    <div onClick={() => setActiveFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-amber-600">Docs Pending</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.missing}</p>
+                    </div>
+                    <div onClick={() => setActiveFilter('special')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'special' ? 'bg-rose-500/5 border-rose-500 shadow-sm' : 'bg-card border-border hover:border-rose-500/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-rose-600">Special</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.special}</p>
+                    </div>
+                    <div onClick={() => setActiveFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Assigned</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.assigned}</p>
+                    </div>
                 </div>
-                <div onClick={() => setActiveFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
-                    <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Ready</p>
-                    <p className="text-xl font-bold mt-0.5">{stats.ready}</p>
-                </div>
-                <div onClick={() => setActiveFilter('missing')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'missing' ? 'bg-amber-500/5 border-amber-500 shadow-sm' : 'bg-card border-border hover:border-amber-500/50'}`}>
-                    <p className="text-[10px] font-medium uppercase tracking-widest text-amber-600">Missing Forms</p>
-                    <p className="text-xl font-bold mt-0.5">{stats.missing}</p>
-                </div>
-                <div onClick={() => setActiveFilter('unassigned')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'unassigned' ? 'bg-indigo-500/5 border-indigo-500 shadow-sm' : 'bg-card border-border hover:border-indigo-500/50'}`}>
-                    <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-600">Needs Placement</p>
-                    <p className="text-xl font-bold mt-0.5">{stats.unassigned}</p>
-                </div>
-            </div>
 
             {/* Search, Sort and Quick Filters */}
             <div className="space-y-4">
@@ -234,7 +238,7 @@ export default function ParticipantsPage() {
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'missing' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Forms Pending</span>
+                        <span>Docs Pending</span>
                     </button>
                     <button
                         onClick={() => setActiveFilter('unassigned')}
@@ -336,6 +340,17 @@ export default function ParticipantsPage() {
 
                                     {/* Quick Info Tags */}
                                     <div className="flex flex-wrap gap-1.5 mt-3">
+                                        {participant.actCount ? (
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 text-[9px] font-bold uppercase">
+                                                <User className="w-3 h-3 mr-1" />
+                                                {participant.actCount} Acts
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 text-[9px] font-bold uppercase">
+                                                <AlertCircle className="w-3 h-3 mr-1" />
+                                                Needs Placement
+                                            </div>
+                                        )}
                                         {participant.hasSpecialRequests && (
                                             <div className="flex items-center px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 text-[9px] font-bold uppercase">
                                                 <AlertTriangle className="w-3 h-3 mr-1" />
@@ -345,9 +360,15 @@ export default function ParticipantsPage() {
                                         {participant.assetStats?.missing ? (
                                             <div className="flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[9px] font-bold uppercase">
                                                 <Clock className="w-3 h-3 mr-1" />
-                                                {participant.assetStats.missing} Forms
+                                                {participant.assetStats.missing} Docs
                                             </div>
                                         ) : null}
+                                        {!participant.guardianPhone && (
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-slate-700/10 text-slate-600 text-[9px] font-bold uppercase">
+                                                <Phone className="w-3 h-3 mr-1" />
+                                                No Phone
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -357,14 +378,14 @@ export default function ParticipantsPage() {
                                         {participant.guardianPhone && (
                                             <a
                                                 href={`tel:${participant.guardianPhone}`}
-                                                className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                                className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <Phone className="w-3.5 h-3.5" />
                                             </a>
                                         )}
                                         <button
-                                            className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
+                                            className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setNotingParticipant(participant.id);
@@ -373,7 +394,7 @@ export default function ParticipantsPage() {
                                             <MessageSquare className="w-3.5 h-3.5" />
                                         </button>
                                         <button
-                                            className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-indigo-600 shadow-sm hover:border-indigo-500/50 transition-colors"
+                                            className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-indigo-600 shadow-sm hover:border-indigo-500/50 transition-colors"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setAssigningParticipant(participant.id);
@@ -383,7 +404,7 @@ export default function ParticipantsPage() {
                                         </button>
                                     </div>
                                     <button
-                                        className="flex items-center space-x-1.5 h-8 px-3 bg-background border border-border rounded-lg text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
+                                        className="flex items-center space-x-1.5 h-11 px-4 bg-background border border-border rounded-xl text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             navigate(`/participants/${participant.id}`);
