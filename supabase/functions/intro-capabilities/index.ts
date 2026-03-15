@@ -259,8 +259,9 @@ async function fetchActAssetMap(supabaseClient: ReturnType<typeof createClient>,
 
   const { data: assets, error: assetError } = await supabaseClient
     .from('participant_assets')
-    .select('id, participant_id, file_url, status')
+    .select('id, participant_id, file_url, status, type')
     .in('participant_id', participantIds)
+    .eq('type', 'photo')
     .eq('status', 'approved')
 
   if (assetError) throw assetError
@@ -347,7 +348,7 @@ async function fetchPlayableParticipants(supabaseClient: ReturnType<typeof creat
         participant:participants(
           first_name,
           last_name,
-          participant_assets(id, file_url, status)
+          participant_assets(id, file_url, status, type)
         )
       )
     `)
@@ -362,7 +363,7 @@ async function fetchPlayableParticipants(supabaseClient: ReturnType<typeof creat
       firstName: entry.participant.first_name,
       lastName: entry.participant.last_name,
       assets: (entry.participant.participant_assets || [])
-        .filter((asset: any) => asset.status === 'approved')
+        .filter((asset: any) => asset.status === 'approved' && asset.type === 'photo')
         .map((asset: any) => ({
           id: asset.id,
           fileUrl: asset.file_url,

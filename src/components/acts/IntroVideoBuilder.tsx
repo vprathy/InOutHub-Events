@@ -111,6 +111,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       .from('participant_assets')
       .select('*')
       .in('participant_id', pIds)
+      .eq('type', 'photo')
       .eq('status', 'approved');
 
     if (!assetError) setAssets(participantAssets || []);
@@ -405,7 +406,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           </div>
           {assets.length === 0 ? (
             <Card className="rounded-3xl border-dashed bg-muted/5 p-8 text-center text-gray-400">
-              No approved participant photos found for this act.
+              No approved participant photos found for this act. Approve at least one participant photo before building an intro.
             </Card>
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
