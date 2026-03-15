@@ -154,6 +154,12 @@ export function PerformanceProfilePage() {
 
 
 function OverviewTab({ act }: { act: any }) {
+    const introRequirement = (act.requirements || []).find((req: any) => req.requirementType === 'IntroComposition');
+    const participantsNeedingDocs = (act.participants || []).filter((participant: any) => {
+        const assets = participant.assets || [];
+        return assets.length === 0 || assets.some((asset: any) => asset.status !== 'approved');
+    }).length;
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
@@ -194,12 +200,12 @@ function OverviewTab({ act }: { act: any }) {
                             status={act.arrivalStatus === 'Ready' ? 'ready' : 'warning'}
                         />
                         <ReadinessItem
-                            label="Music & Media"
-                            status={act.assets.length > 0 ? 'ready' : 'missing'}
+                            label="Docs Follow-Up"
+                            status={participantsNeedingDocs === 0 ? 'ready' : participantsNeedingDocs === act.participants.length ? 'missing' : 'warning'}
                         />
                         <ReadinessItem
-                            label="Stage Requirements"
-                            status={act.requirements.length > 0 ? 'ready' : 'info'}
+                            label="Intro Approval"
+                            status={introRequirement?.fulfilled ? 'ready' : 'info'}
                         />
                     </div>
                 </Card>
@@ -274,6 +280,8 @@ function CastTab({ participants }: { participants: any[] }) {
 }
 
 function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
+    const hasApprovedAssets = Array.isArray(p.assets) && p.assets.length > 0 && p.assets.every((a: any) => a.status === 'approved');
+
     return (
         <div
             className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer group"
@@ -296,24 +304,24 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
                         </span>
                     </div>
                 </div>
-            </div>
-            <div className="flex items-center gap-6">
-                <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-0.5">Contact</p>
-                    <p className="text-xs font-bold">{p.guardianPhone || "No Phone"}</p>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-card">
-                    {p.assets?.every((a: any) => a.status === 'approved') ? (
-                        <CheckCircle size={12} className="text-emerald-500" />
-                    ) : (
-                        <AlertCircle size={12} className="text-amber-500" />
-                    )}
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {p.assets?.every((a: any) => a.status === 'approved') ? 'Ready' : 'Incomplete'}
-                    </span>
+                <div className="flex items-center gap-6">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-0.5">Contact</p>
+                        <p className="text-xs font-bold">{p.guardianPhone || "No Phone"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-card">
+                        {hasApprovedAssets ? (
+                            <CheckCircle size={12} className="text-emerald-500" />
+                        ) : (
+                            <AlertCircle size={12} className="text-amber-500" />
+                        )}
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        {hasApprovedAssets ? 'Ready' : 'Incomplete'}
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
     );
 }
 
@@ -343,7 +351,7 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                         </Button>
                     </div>
                     <p className="text-xs font-medium leading-5 text-muted-foreground">
-                        This workspace currently tracks production asset records only. Direct file upload is not wired into the current act asset schema yet.
+                        Keep the act record simple here. Track music and stage media, then use approved participant photos below when you are ready to build an intro.
                     </p>
                     <div className="space-y-3">
                         {(act.assets || []).length > 0 ? (act.assets || []).map((asset: any) => (

@@ -35,7 +35,7 @@ export default function ParticipantsPage() {
     const { eventId } = useSelection();
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'identity_pending'>('all');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'identity_pending' | 'at_risk'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const { data: participants, isLoading, error } = useParticipantsQuery(eventId || '');
@@ -57,7 +57,7 @@ export default function ParticipantsPage() {
         const filterParam = searchParams.get('filter');
         const actionParam = searchParams.get('action');
 
-        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'identity_pending'].includes(filterParam)) {
+        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'identity_pending', 'at_risk'].includes(filterParam)) {
             setActiveFilter(filterParam as typeof activeFilter);
         }
 
@@ -104,7 +104,8 @@ export default function ParticipantsPage() {
         assigned: participants?.filter(p => (p.actCount || 0) > 0).length || 0,
         missing: participants?.filter(p => (p.assetStats?.missing || 0) > 0).length || 0,
         unassigned: participants?.filter(p => !p.actCount).length || 0,
-        special: participants?.filter(p => p.hasSpecialRequests).length || 0
+        special: participants?.filter(p => p.hasSpecialRequests).length || 0,
+        atRisk: participants?.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
     };
 
     const filteredParticipants = participants?.filter(p => {
@@ -117,6 +118,7 @@ export default function ParticipantsPage() {
         if (activeFilter === 'ready') return (p.assetStats?.missing === 0 && p.assetStats?.total > 0) && (p.actCount || 0) > 0;
         if (activeFilter === 'no_phone') return !p.guardianPhone;
         if (activeFilter === 'identity_pending') return !p.identityVerified;
+        if (activeFilter === 'at_risk') return p.isMinor && (!p.guardianName || !p.guardianPhone);
 
         return true;
     }).sort((a, b) => {
@@ -207,7 +209,7 @@ export default function ParticipantsPage() {
             </div>
 
             {/* Operational Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
                     <div onClick={() => updateFilter('all')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'all' ? 'bg-primary/5 border-primary shadow-sm' : 'bg-card border-border hover:border-primary/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Total</p>
                         <p className="text-xl font-bold mt-0.5">{stats.total}</p>
@@ -227,6 +229,10 @@ export default function ParticipantsPage() {
                     <div onClick={() => updateFilter('ready')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'ready' ? 'bg-emerald-500/5 border-emerald-500 shadow-sm' : 'bg-card border-border hover:border-emerald-500/50'}`}>
                         <p className="text-[10px] font-medium uppercase tracking-widest text-emerald-600">Assigned</p>
                         <p className="text-xl font-bold mt-0.5">{stats.assigned}</p>
+                    </div>
+                    <div onClick={() => updateFilter('at_risk')} className={`p-3 rounded-lg border transition-all cursor-pointer antialiased ${activeFilter === 'at_risk' ? 'bg-rose-600/5 border-rose-600 shadow-sm' : 'bg-card border-border hover:border-rose-600/50'}`}>
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-rose-700">Minor Safety</p>
+                        <p className="text-xl font-bold mt-0.5">{stats.atRisk}</p>
                     </div>
                 </div>
 
@@ -307,6 +313,13 @@ export default function ParticipantsPage() {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Identity Verification Needed</span>
                     </button>
+                    <button
+                        onClick={() => updateFilter('at_risk')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'at_risk' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+                    >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Minor Info Missing</span>
+                    </button>
                 </div>
             </div>
 
@@ -354,14 +367,20 @@ export default function ParticipantsPage() {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-sm tracking-tight text-foreground">{participant.firstName} {participant.lastName}</h3>
-                                                <div className="flex items-center space-x-1.5 mt-0.5">
+                                                <div className="flex items-center space-x-1.5 mt-0.5 flex-wrap">
                                                     {participant.age && (
                                                         <span className="text-[10px] font-medium text-muted-foreground uppercase">{participant.age} yrs</span>
                                                     )}
-                                                    <span className="w-0.5 h-0.5 rounded-full bg-border" />
+                                                    {participant.age ? <span className="w-0.5 h-0.5 rounded-full bg-border" /> : null}
                                                     <span className="text-[10px] font-medium text-muted-foreground uppercase">
                                                         {participant.actCount ? `${participant.actCount} Acts` : 'Needs Placement'}
                                                     </span>
+                                                    {participant.isMinor ? (
+                                                        <>
+                                                            <span className="w-0.5 h-0.5 rounded-full bg-border" />
+                                                            <span className="text-[10px] font-medium text-muted-foreground uppercase">Minor</span>
+                                                        </>
+                                                    ) : null}
                                                 </div>
                                             </div>
                                         </div>
@@ -407,6 +426,12 @@ export default function ParticipantsPage() {
                                                 {participant.assetStats.missing} Docs
                                             </div>
                                         ) : null}
+                                        {participant.isMinor && (!participant.guardianName || !participant.guardianPhone) && (
+                                            <div className="flex items-center px-1.5 py-0.5 rounded-md bg-rose-600/10 text-rose-700 text-[9px] font-bold uppercase">
+                                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                                Minor Safety
+                                            </div>
+                                        )}
                                         {!participant.guardianPhone && (
                                             <div className="flex items-center px-1.5 py-0.5 rounded-md bg-slate-700/10 text-slate-600 text-[9px] font-bold uppercase">
                                                 <Phone className="w-3 h-3 mr-1" />
@@ -471,13 +496,28 @@ export default function ParticipantsPage() {
                                                 </div>
                                                 <div className="flex flex-col items-end">
                                                     <p className="text-[10px] font-bold text-muted-foreground uppercase text-right">Relationship</p>
-                                                    <p className="text-sm font-bold text-right">Parent/Guardian</p>
+                                                    <p className="text-sm font-bold text-right">{participant.guardianRelationship || 'Parent/Guardian'}</p>
                                                 </div>
                                             </div>
 
-                                            {/* Asset List Status */}
+                                            {/* Assignment and blocker status */}
                                             <div className="space-y-2 pt-2 border-t border-border/50">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Asset Readiness</p>
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Assignment & Follow-Up</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${(participant.actCount || 0) > 0 ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                                        <span className="text-xs font-bold">{participant.actCount ? `${participant.actCount} Act${participant.actCount > 1 ? 's' : ''}` : 'Needs Placement'}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${participant.hasSpecialRequests ? 'bg-rose-500' : 'bg-muted'}`} />
+                                                        <span className="text-xs font-bold">{participant.hasSpecialRequests ? 'Special Requests' : 'No Special Requests'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Document status */}
+                                            <div className="space-y-2 pt-2 border-t border-border/50">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Docs & Approvals</p>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="flex items-center space-x-2">
                                                         <div className={`w-1.5 h-1.5 rounded-full ${participant.assetStats?.approved && participant.assetStats.approved > 0 ? 'bg-emerald-500' : 'bg-muted'}`} />
@@ -485,10 +525,17 @@ export default function ParticipantsPage() {
                                                     </div>
                                                     <div className="flex items-center space-x-2">
                                                         <div className={`w-1.5 h-1.5 rounded-full ${participant.assetStats?.missing && participant.assetStats.missing > 0 ? 'bg-amber-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{participant.assetStats?.missing || 0} Forms Pending</span>
+                                                        <span className="text-xs font-bold">{participant.assetStats?.missing || 0} Docs Pending</span>
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {participant.isMinor && (!participant.guardianName || !participant.guardianPhone) && (
+                                                <div className="p-3 rounded-lg border border-rose-600/20 bg-rose-600/5">
+                                                    <p className="text-[10px] font-bold uppercase text-rose-700 tracking-widest mb-1">Minor Safety Follow-Up</p>
+                                                    <p className="text-xs text-rose-700/90">Guardian name and phone need to be completed before the participant is considered clear.</p>
+                                                </div>
+                                            )}
 
                                             {/* Internal Note Summary */}
                                             {participant.notes && (
