@@ -15,7 +15,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
     const { mutate: removeMember, isPending: isRemoving } = useRemoveEventMember(eventId);
 
     const [email, setEmail] = useState('');
-    const [role, setRole] = useState('SupportStaff');
+    const [role, setRole] = useState('StageManager');
     const [error, setError] = useState('');
 
     if (!isOpen) return null;
@@ -26,7 +26,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
         assignRole({ email, role }, {
             onSuccess: () => {
                 setEmail('');
-                setRole('SupportStaff');
+                setRole('StageManager');
             },
             onError: (err: any) => {
                 setError(err.message || 'Failed to assign role');
@@ -106,8 +106,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
                             >
                                 <option value="EventAdmin">Event Admin</option>
                                 <option value="StageManager">Stage Manager</option>
-                                <option value="ActAdmin">Act Admin</option>
-                                <option value="SupportStaff">Support Staff</option>
+                                <option value="Member">Member</option>
                             </select>
                         </div>
                         {error && <p className="text-xs font-medium text-red-500">{error}</p>}

@@ -336,15 +336,15 @@ CREATE POLICY "act_requirements_manage" ON act_requirements FOR ALL USING (auth_
 
 ALTER TABLE act_readiness_practices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "act_readiness_practices_select" ON act_readiness_practices FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
-CREATE POLICY "act_readiness_practices_manage" ON act_readiness_practices FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
+CREATE POLICY "act_readiness_practices_manage" ON act_readiness_practices FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE act_readiness_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "act_readiness_items_select" ON act_readiness_items FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
-CREATE POLICY "act_readiness_items_manage" ON act_readiness_items FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
+CREATE POLICY "act_readiness_items_manage" ON act_readiness_items FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE act_readiness_issues ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "act_readiness_issues_select" ON act_readiness_issues FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
-CREATE POLICY "act_readiness_issues_manage" ON act_readiness_issues FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
+CREATE POLICY "act_readiness_issues_manage" ON act_readiness_issues FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE stages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "stages_select" ON stages FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
