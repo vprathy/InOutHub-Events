@@ -15,6 +15,8 @@ const EMAIL = process.env.SMOKE_TEST_EMAIL || 'vinay.prathy@ziffyvolve.com'
 const PASSWORD = process.env.SMOKE_TEST_PASSWORD || 'password123!'
 const VALIDATION_ACT_NAME = process.env.GATE15_ACT_NAME || 'The strong Solo Singer'
 const FUNCTION_PATH = '/functions/v1/intro-capabilities'
+const BACKGROUND_POLL_RETRIES = 12
+const BACKGROUND_POLL_INTERVAL_MS = 5000
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -51,6 +53,103 @@ async function fetchCandidateActs() {
 
   if (error) throw error
   return acts || []
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function ensureBackgroundReady(accessToken, actId, existingComposition) {
+  const existingBackgroundUrl = existingComposition?.background?.fileUrl || null
+
+  if (existingBackgroundUrl) {
+    return {
+      ok: true,
+      status: 200,
+      detail: {
+        skipped: true,
+        reason: 'background_already_present',
+        composition: existingComposition,
+      },
+    }
+  }
+
+  const generationResult = await invokeIntroCapability(accessToken, {
+    action: 'generateIntroBackground',
+    actId,
+    stylePreset: 'theatrical-safe',
+  })
+
+  if (!generationResult.ok) {
+    return {
+      ok: false,
+      status: generationResult.status,
+      detail: generationResult.data,
+    }
+  }
+
+  let latestDetail = generationResult.data
+  let backgroundUrl = generationResult.data?.composition?.background?.fileUrl || null
+
+  if (!backgroundUrl) {
+    for (let attempt = 1; attempt <= BACKGROUND_POLL_RETRIES; attempt += 1) {
+      await sleep(BACKGROUND_POLL_INTERVAL_MS)
+
+      const pollResult = await invokeIntroCapability(accessToken, {
+        action: 'getIntroComposition',
+        actId,
+      })
+
+      latestDetail = pollResult.data
+      backgroundUrl = pollResult.data?.composition?.background?.fileUrl || null
+
+      if (!pollResult.ok) {
+        return {
+          ok: false,
+          status: pollResult.status,
+          detail: pollResult.data,
+        }
+      }
+
+      if (backgroundUrl) {
+        return {
+          ok: true,
+          status: pollResult.status,
+          detail: {
+            ...pollResult.data,
+            polling: {
+              attempts: attempt,
+              completed: true,
+            },
+          },
+        }
+      }
+    }
+  }
+
+  if (!backgroundUrl) {
+    return {
+      ok: false,
+      status: 202,
+      detail: {
+        ...latestDetail,
+        polling: {
+          attempts: BACKGROUND_POLL_RETRIES,
+          completed: false,
+        },
+        error: {
+          code: 'BACKGROUND_PENDING',
+          message: 'Background generation did not publish a safe image within the verification window',
+        },
+      },
+    }
+  }
+
+  return {
+    ok: true,
+    status: generationResult.status,
+    detail: generationResult.data,
+  }
 }
 
 async function enrichAct(act) {
@@ -218,6 +317,18 @@ async function main() {
     ok: curateResult.ok,
     status: curateResult.status,
     detail: curateResult.data,
+  })
+
+  const backgroundResult = await ensureBackgroundReady(
+    accessToken,
+    target.id,
+    curateResult.data?.composition ?? buildResult.data?.composition ?? null,
+  )
+  steps.push({
+    step: 'generateIntroBackground',
+    ok: backgroundResult.ok,
+    status: backgroundResult.status,
+    detail: backgroundResult.detail,
   })
 
   const approveResult = await invokeIntroCapability(accessToken, {

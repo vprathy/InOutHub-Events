@@ -59,6 +59,16 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [brokenAssetIds, setBrokenAssetIds] = useState<string[]>([]);
   const [isBackgroundBroken, setIsBackgroundBroken] = useState(false);
+  const hasSelectedAssets = selectedIds.length > 0;
+  const hasCuration = curationSuggestions.length > 0;
+  const hasBackground = Boolean(backgroundUrl);
+  const canSaveDraft = !isApproved && (hasSelectedAssets || hasBackground);
+  const canApprove = hasSelectedAssets && hasCuration && hasBackground && !isSaving && !isApproved;
+  const approvalBlockers = [
+    !hasSelectedAssets ? 'Select at least one approved participant photo.' : null,
+    hasSelectedAssets && !hasCuration ? 'Arrange photos to create the playback order.' : null,
+    hasCuration && !hasBackground ? 'Generate a safe intro background before approval.' : null,
+  ].filter(Boolean) as string[];
 
   const resetCompositionState = () => {
     setSelectedIds([]);
@@ -380,8 +390,9 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         {[
           { id: 'select', label: '1. Select', active: selectedIds.length === 0, done: selectedIds.length > 0 },
           { id: 'curate', label: '2. Curate', active: selectedIds.length > 0 && curationSuggestions.length === 0, done: curationSuggestions.length > 0 },
-          { id: 'approve', label: '3. Approve', active: curationSuggestions.length > 0 && !isApproved, done: isApproved },
-          { id: 'play', label: '4. Play', active: isApproved, done: false },
+          { id: 'background', label: '3. Background', active: hasCuration && !hasBackground, done: hasBackground },
+          { id: 'approve', label: '4. Approve', active: hasBackground && !isApproved, done: isApproved },
+          { id: 'play', label: '5. Play', active: isApproved, done: false },
         ].map((step, idx) => (
           <React.Fragment key={step.id}>
             <div className={`flex items-center gap-2 ${step.active ? 'opacity-100' : 'opacity-40'}`}>
@@ -392,9 +403,24 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                 {step.label}
               </span>
             </div>
-            {idx < 3 && <div className="h-px flex-1 mx-4 bg-gray-500/10" />}
+            {idx < 4 && <div className="h-px flex-1 mx-4 bg-gray-500/10" />}
           </React.Fragment>
         ))}
+      </div>
+
+      <div className="grid gap-3 rounded-3xl border border-border/60 bg-muted/10 p-4 sm:grid-cols-3">
+        <div className={`rounded-2xl border px-4 py-3 ${hasSelectedAssets ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/60 bg-background/70'}`}>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Photos</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{hasSelectedAssets ? `${selectedIds.length} selected` : 'Waiting for selection'}</p>
+        </div>
+        <div className={`rounded-2xl border px-4 py-3 ${hasCuration ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/60 bg-background/70'}`}>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Curation</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{hasCuration ? `${curationSuggestions.length} frames arranged` : 'Arrange photos first'}</p>
+        </div>
+        <div className={`rounded-2xl border px-4 py-3 ${hasBackground ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Background</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{hasBackground ? 'Ready for approval' : 'Required before approval'}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -540,21 +566,28 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       </div>
 
       <div className="flex flex-col gap-4 border-t border-border/60 pt-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
-            {compositionId ? `Last Saved: ${new Date().toLocaleTimeString()}` : 'Not Saved'}
+        <div className="space-y-2">
+          <div className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">
+              {compositionId ? `Last Saved: ${new Date().toLocaleTimeString()}` : 'Not Saved'}
+          </div>
+          {!isApproved && approvalBlockers.length > 0 ? (
+            <p className="max-w-xl text-xs font-medium leading-relaxed text-amber-700">
+              Approval is blocked until: {approvalBlockers.join(' ')}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
             <Button 
                 variant="outline" 
                 onClick={() => saveComposition({ approved: false })}
-                disabled={isSaving || isApproved || (selectedIds.length === 0 && !backgroundUrl)}
+                disabled={isSaving || !canSaveDraft}
                 className="h-11 rounded-2xl border-2 px-6 text-[10px] font-black uppercase tracking-[0.22em]"
             >
                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : null}
                 Save Draft
             </Button>
             <Button 
-                disabled={!backgroundUrl || selectedIds.length === 0 || curationSuggestions.length === 0 || isSaving || isApproved} 
+                disabled={!canApprove}
                 variant="default"
                 onClick={() => saveComposition({ approved: true })}
                 className="h-11 rounded-2xl bg-primary px-8 text-[10px] font-black uppercase tracking-[0.22em] shadow-lg shadow-primary/20 hover:bg-primary/90"
