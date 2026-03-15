@@ -117,6 +117,7 @@ export function ParticipantProfilePage() {
     const [uploadName, setUploadName] = useState('');
     const [uploadType, setUploadType] = useState<'waiver' | 'photo' | 'intro_media' | 'other'>('other');
     const [uploadNotes, setUploadNotes] = useState('');
+    const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
 
@@ -225,24 +226,36 @@ export function ParticipantProfilePage() {
         setUploadFile(null);
         setUploadName(suggestedName || '');
         setUploadNotes('');
+        setAssetNotice(null);
         setShowUploadModal(true);
     };
 
     const handleUploadAsset = async () => {
         if (!uploadFile || !uploadTarget) return;
-        await uploadAsset.mutateAsync({
-            file: uploadFile,
-            templateId: uploadTarget.templateId,
-            replaceAssetId: uploadTarget.replaceAssetId,
-            type: uploadType,
-            name: uploadName.trim() || uploadFile.name,
-            reviewNotes: uploadNotes.trim() || null,
-        });
-        setShowUploadModal(false);
-        setUploadTarget(null);
-        setUploadFile(null);
-        setUploadName('');
-        setUploadNotes('');
+        try {
+            await uploadAsset.mutateAsync({
+                file: uploadFile,
+                templateId: uploadTarget.templateId,
+                replaceAssetId: uploadTarget.replaceAssetId,
+                type: uploadType,
+                name: uploadName.trim() || uploadFile.name,
+                reviewNotes: uploadNotes.trim() || null,
+            });
+            setAssetNotice({
+                tone: 'success',
+                message: `${uploadTarget.type === 'photo' ? 'Photo' : 'Asset'} uploaded. Refreshing participant assets now.`,
+            });
+            setShowUploadModal(false);
+            setUploadTarget(null);
+            setUploadFile(null);
+            setUploadName('');
+            setUploadNotes('');
+        } catch (err: any) {
+            setAssetNotice({
+                tone: 'error',
+                message: err?.message || 'Upload failed. Check storage access and try again.',
+            });
+        }
     };
 
     const handleAiSuggest = async () => {
@@ -366,6 +379,22 @@ export function ParticipantProfilePage() {
                         <span className="text-sm font-bold tracking-tight">{aiSuggestResult}</span>
                         <button onClick={() => setAiSuggestResult(null)} className="ml-4 hover:opacity-70">
                             <Plus className="w-4 h-4 rotate-45" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {assetNotice && (
+                <div className="fixed top-36 left-1/2 z-[60] w-[min(92vw,36rem)] -translate-x-1/2 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md ${
+                        assetNotice.tone === 'error'
+                            ? 'border-destructive/20 bg-destructive/95 text-white'
+                            : 'border-emerald-500/20 bg-emerald-600/95 text-white'
+                    }`}>
+                        {assetNotice.tone === 'error' ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+                        <p className="flex-1 text-sm font-bold tracking-tight">{assetNotice.message}</p>
+                        <button onClick={() => setAssetNotice(null)} className="transition-opacity hover:opacity-70">
+                            <Plus className="h-4 w-4 rotate-45" />
                         </button>
                     </div>
                 </div>
@@ -1140,6 +1169,9 @@ export function ParticipantProfilePage() {
                                         onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                                         className="block w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-bold file:uppercase file:tracking-widest file:text-primary"
                                     />
+                                    <p className="text-[10px] font-medium text-muted-foreground">
+                                        Selected file uploads into participant assets and appears in this tab after save.
+                                    </p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -1159,6 +1191,9 @@ export function ParticipantProfilePage() {
                                         onClick={() => {
                                             setShowUploadModal(false);
                                             setUploadTarget(null);
+                                            setUploadFile(null);
+                                            setUploadNotes('');
+                                            setUploadName('');
                                         }}
                                     >
                                         Cancel

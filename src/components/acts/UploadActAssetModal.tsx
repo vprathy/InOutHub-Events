@@ -37,11 +37,11 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Asset Record: ${actName}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Add Asset Record: ${actName}`}>
             <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="space-y-4">
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                        This form creates an asset record only. File upload is not available in the current act asset data model yet.
+                        This creates an act asset record only. If you need performer photos or documents, use the participant workspace upload flow instead.
                     </div>
 
                     <div className="space-y-2">
@@ -103,7 +103,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                         disabled={addAsset.isPending || !name}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6"
                     >
-                        {addAsset.isPending ? 'Saving...' : 'Save Asset Record'}
+                        {addAsset.isPending ? 'Saving...' : 'Save Record'}
                     </Button>
                 </div>
             </form>

@@ -272,7 +272,7 @@ export function ActCard({ act }: ActCardProps) {
                     }}
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
-                    <span className="truncate">Update Music</span>
+                    <span className="truncate">Add Music Record</span>
                 </Button>
                 <Button
                     variant="ghost"

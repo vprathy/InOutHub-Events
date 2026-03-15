@@ -869,11 +869,11 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                             className="h-11 text-primary font-black text-xs"
                             onClick={onOpenAssetManager}
                         >
-                            Manage
+                            Add Record
                         </Button>
                     </div>
                     <p className="text-xs font-medium leading-5 text-muted-foreground">
-                        Keep the act record simple here. Track music and stage media, then use approved participant photos below when you are ready to build an intro.
+                        Track act-level music and stage media records here. This section manages asset records only; participant photo files are uploaded from the roster workspace.
                     </p>
                     <div className="space-y-3">
                         {(act.assets || []).length > 0 ? (act.assets || []).map((asset: any) => (
@@ -893,7 +893,7 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                             </div>
                         )) : (
                             <div className="text-center py-8 text-muted-foreground font-medium italic">
-                                No act media uploaded yet.
+                                No act media records yet.
                             </div>
                         )}
                     </div>
@@ -911,7 +911,7 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                             className="h-11 text-primary font-black text-xs"
                             onClick={scrollToIntroBuilder}
                         >
-                            Manage
+                            Review
                         </Button>
                     </div>
                     <div className="space-y-3">
