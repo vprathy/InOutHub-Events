@@ -40,8 +40,8 @@ export default function ActsPage() {
         docs: acts?.filter((act) => act.missingAssetCount > 0).length || 0,
         introReady: acts?.filter((act) => act.hasApprovedIntro).length || 0,
         stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
+        musicMissing: acts?.filter((act) => !act.hasMusicTrack).length || 0,
     };
-    const needsAttention = acts?.filter((act) => act.participantCount === 0 || act.missingAssetCount > 0 || !act.hasApprovedIntro).length || 0;
 
     const filteredActs = acts?.filter(act => {
         const matchesSearch = act.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -81,7 +81,7 @@ export default function ActsPage() {
                     <div className="space-y-1">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Performances</h1>
                     <p className="text-xs text-muted-foreground font-medium">
-                        {stats.total} scheduled, {needsAttention} still need attention
+                        {stats.total} scheduled, {stats.needsCast + stats.musicMissing} blocked before stage
                     </p>
                     </div>
                     <Button
@@ -94,21 +94,30 @@ export default function ActsPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl border border-border bg-card px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Live Count</p>
-                        <p className="mt-1 text-xl font-black tracking-tight text-foreground">{stats.total}</p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
-                        <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                    <button
+                        onClick={() => updateFilter('needs_cast')}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'needs_cast' ? 'border-indigo-500 bg-indigo-500/5' : 'border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40'}`}
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700">Needs Cast</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-indigo-700">{stats.needsCast}</p>
+                    </button>
+                    <button
+                        onClick={() => updateFilter('intro_ready')}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'intro_ready' ? 'border-primary bg-primary/5' : 'border-primary/20 bg-primary/5 hover:border-primary/40'}`}
+                    >
+                        <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
                             <AlertTriangle className="h-3 w-3" />
-                            Attention
+                            Intro Ready
                         </p>
-                        <p className="mt-1 text-xl font-black tracking-tight text-amber-700">{needsAttention}</p>
-                    </div>
-                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
+                        <p className="mt-1 text-xl font-black tracking-tight text-primary">{stats.introReady}</p>
+                    </button>
+                    <button
+                        onClick={() => updateFilter('stage_ready')}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'stage_ready' ? 'border-emerald-500 bg-emerald-500/5' : 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40'}`}
+                    >
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Stage Ready</p>
                         <p className="mt-1 text-xl font-black tracking-tight text-emerald-700">{stats.stageReady}</p>
-                    </div>
+                    </button>
                 </div>
             </div>
 

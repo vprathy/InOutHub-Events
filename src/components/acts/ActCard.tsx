@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay, FileText, AlertTriangle } from 'lucide-react';
+import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
@@ -45,10 +45,10 @@ export function ActCard({ act }: ActCardProps) {
             icon: MonitorPlay,
         },
         {
-            label: 'Assets',
-            value: act.missingAssetCount > 0 ? `${act.missingAssetCount} pending` : act.hasMusicTrack ? 'Ready' : 'Music missing',
-            tone: act.missingAssetCount > 0 || !act.hasMusicTrack ? 'warn' : 'ok',
-            icon: act.missingAssetCount > 0 ? AlertTriangle : FileText,
+            label: 'Music',
+            value: act.hasMusicTrack ? 'Uploaded' : 'Missing',
+            tone: act.hasMusicTrack ? 'ok' : 'warn',
+            icon: Music,
         },
     ] as const;
 
@@ -254,12 +254,12 @@ export function ActCard({ act }: ActCardProps) {
                     }}
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
-                    <span className="truncate">Music/Tech</span>
+                    <span className="truncate">Update Music</span>
                 </Button>
                 <Button
                     variant="ghost"
                     size="sm"
-                    className="min-h-[44px] rounded-2xl border border-dashed border-border/60 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    className="hidden min-h-[44px] rounded-2xl border border-dashed border-border/60 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground sm:flex"
                     onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/acts/${act.id}`);
