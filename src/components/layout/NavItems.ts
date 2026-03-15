@@ -15,10 +15,10 @@ export interface NavItem {
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Event Roster', href: '/participants', icon: Users },
+    { label: 'Roster', href: '/participants', icon: Users },
     { label: 'Performances', href: '/acts', icon: ListOrdered },
     { label: 'Show Flow', href: '/lineup', icon: Calendar },
-    { label: 'Live Console', href: '/stage-console', icon: MonitorPlay },
+    { label: 'Console', href: '/stage-console', icon: MonitorPlay },
 ];
 
 export const DEV_NAV_ITEMS: NavItem[] = [
