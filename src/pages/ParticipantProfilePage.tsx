@@ -234,11 +234,11 @@ export function ParticipantProfilePage() {
                 setAiSuggestResult(`Error: ${result.error}`);
             } else if (result.isPending) {
                 // Handle Silent Failure / Brand Safety Review gracefully for Demo
-                setAiSuggestResult(result.message || 'Reviewing for Brand Safety');
+                setAiSuggestResult(result.message || 'Poster generation is under review');
                 // Don't auto-dismiss immediately so the user can see it
                 setTimeout(() => setAiSuggestResult(null), 8000);
             } else {
-                setAiSuggestResult('AI Intro Assets Ready');
+                setAiSuggestResult('Poster updated');
                 // Refresh data to show the new asset in the Assets tab
                 queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
                 // Auto-dismiss success status after 5s
@@ -451,7 +451,7 @@ export function ParticipantProfilePage() {
                             disabled={aiSuggestLoading}
                         >
                             {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                            {aiSuggestLoading ? 'Generating...' : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate AI Assets' : 'AI Suggest Acts')}
+                            {aiSuggestLoading ? 'Generating...' : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate Poster' : 'Generate Poster')}
                         </Button>
                         <Button 
                             className="h-9 w-full sm:w-auto px-4 font-bold border border-border/50 hover:border-primary/50 transition-all rounded-lg shadow-sm text-[10px] uppercase tracking-wider antialiased" 
