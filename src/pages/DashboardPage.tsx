@@ -11,6 +11,7 @@ import {
 import { useSelection } from '@/context/SelectionContext';
 import { useDashboardRadar } from '@/hooks/useDashboardRadar';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function DashboardPage() {
     const { eventId } = useSelection();
@@ -49,17 +50,16 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-4 pb-12">
-            {/* Header section with operational status */}
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-black tracking-tighter uppercase italic sm:text-4xl">Control Panel</h1>
-                    <p className="max-w-md text-sm font-medium text-muted-foreground">Phone-first event pulse for placement, docs, and day-to-day manager follow-up.</p>
-                </div>
-                <div className="inline-flex items-center space-x-2 self-start rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-emerald-500">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-xs font-black uppercase tracking-widest">Active Ops</span>
-                </div>
-            </div>
+            <PageHeader
+                title="Control Panel"
+                subtitle="Phone-first event pulse for placement, docs, and day-to-day manager follow-up."
+                status={
+                    <div className="inline-flex items-center space-x-2 self-start rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-emerald-500">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                        <span className="text-xs font-black uppercase tracking-widest">Active Ops</span>
+                    </div>
+                }
+            />
 
             {/* Readiness Cards */}
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

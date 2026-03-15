@@ -8,6 +8,7 @@ import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
 import { ShieldAlert } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function EventSelectionPage() {
     const [events, setEvents] = useState<any[]>([]);
@@ -91,8 +92,11 @@ export default function EventSelectionPage() {
                     <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-2">
                         <Calendar className="w-7 h-7" />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Select Event</h1>
-                    <p className="text-sm text-muted-foreground">Select an active event to manage</p>
+                    <PageHeader
+                        title="Select Event"
+                        subtitle="Select an active event to manage"
+                        align="center"
+                    />
                 </div>
 
                 <div className="w-full">

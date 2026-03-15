@@ -8,6 +8,7 @@ import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
 import { ShieldAlert } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function OrgSelectionPage() {
     const [orgs, setOrgs] = useState<any[]>([]);
@@ -97,8 +98,11 @@ export default function OrgSelectionPage() {
                     <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-2">
                         <Landmark className="w-7 h-7" />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Select Organization</h1>
-                    <p className="text-sm text-muted-foreground">Choose an organization to manage events</p>
+                    <PageHeader
+                        title="Select Organization"
+                        subtitle="Choose an organization to manage events"
+                        align="center"
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

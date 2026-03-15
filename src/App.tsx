@@ -5,6 +5,7 @@ import { usePwaManifest } from '@/hooks/usePwaManifest';
 import { SplashScreen } from '@/components/ui/SplashScreen';
 import { AnimatePresence } from 'framer-motion';
 import { PwaUpdateBanner } from '@/components/pwa/PwaUpdateBanner';
+import { MobilePortraitGuard } from '@/components/layout/MobilePortraitGuard';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
       <AnimatePresence>
         {isLoading && <SplashScreen />}
       </AnimatePresence>
+      <MobilePortraitGuard />
       <RouterProvider router={router} />
       <PwaUpdateBanner />
     </>

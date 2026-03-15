@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
 
@@ -74,13 +75,10 @@ export default function StageConsolePage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Live Console</h1>
-                    <p className="text-muted-foreground">Real-time show execution and stage control.</p>
-                </div>
-
-                {criticalRisks > 0 && (
+            <PageHeader
+                title="Live Console"
+                subtitle="Real-time show execution and stage control."
+                status={criticalRisks > 0 ? (
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 animate-in fade-in slide-in-from-top-2">
                         <ShieldAlert size={16} className="text-rose-600" />
                         <span className="text-sm font-bold">{criticalRisks} Operational {criticalRisks === 1 ? 'Risk' : 'Risks'} Detected</span>
@@ -93,8 +91,8 @@ export default function StageConsolePage() {
                             Fix in Lineup
                         </Button>
                     </div>
-                )}
-            </div>
+                ) : null}
+            />
 
             {/* Stage Selector */}
             <div className="flex flex-wrap gap-2 pb-2">

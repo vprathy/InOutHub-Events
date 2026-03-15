@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { useSearchParams } from 'react-router-dom';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
@@ -77,21 +78,19 @@ export default function ActsPage() {
     return (
         <div className="flex flex-col space-y-5">
             <div className="space-y-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div className="space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Performances</h1>
-                    <p className="text-xs text-muted-foreground font-medium">
-                        {stats.total} scheduled, {stats.needsCast + stats.musicMissing} blocked before stage
-                    </p>
-                    </div>
-                    <Button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Performance
-                    </Button>
-                </div>
+                <PageHeader
+                    title="Performances"
+                    subtitle={`${stats.total} scheduled, ${stats.needsCast + stats.musicMissing} blocked before stage`}
+                    actions={
+                        <Button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Performance
+                        </Button>
+                    }
+                />
 
                 <div className="grid grid-cols-3 gap-2">
                     <button

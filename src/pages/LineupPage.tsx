@@ -20,6 +20,7 @@ import { Reorder, AnimatePresence, useDragControls } from 'framer-motion';
 import type { LineupSlot } from '@/types/domain';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function SortableLineupItem({
     slot,
@@ -212,33 +213,32 @@ export default function LineupPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Show Flow</h1>
-                    <p className="text-muted-foreground">Schedule and organize performances across stages.</p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row md:w-auto">
-                    {lineup && lineup.length > 0 && (
-                        <Button
-                            variant={showReview ? "default" : "outline"}
-                            onClick={() => setShowReview(!showReview)}
-                            className={`h-11 w-full gap-2 sm:w-auto ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
-                        >
-                            <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
-                            {showReview ? 'Hide Analysis' : 'Review Flow'}
-                            {criticalRisks > 0 && !showReview && (
-                                <Badge className="ml-1 bg-amber-600 px-1.5 py-0 min-w-[1.25rem] h-5">{criticalRisks}</Badge>
-                            )}
-                        </Button>
-                    )}
-                    {selectedStageId && (
-                        <Button onClick={() => setIsAddModalOpen(true)} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
-                            <Plus size={18} /> Add Performance
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <PageHeader
+                title="Show Flow"
+                subtitle="Schedule and organize performances across stages."
+                actions={
+                    <div className="flex flex-col gap-2 sm:flex-row md:w-auto">
+                        {lineup && lineup.length > 0 && (
+                            <Button
+                                variant={showReview ? "default" : "outline"}
+                                onClick={() => setShowReview(!showReview)}
+                                className={`h-11 w-full gap-2 sm:w-auto ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
+                            >
+                                <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
+                                {showReview ? 'Hide Analysis' : 'Review Flow'}
+                                {criticalRisks > 0 && !showReview && (
+                                    <Badge className="ml-1 bg-amber-600 px-1.5 py-0 min-w-[1.25rem] h-5">{criticalRisks}</Badge>
+                                )}
+                            </Button>
+                        )}
+                        {selectedStageId && (
+                            <Button onClick={() => setIsAddModalOpen(true)} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
+                                <Plus size={18} /> Add Performance
+                            </Button>
+                        )}
+                    </div>
+                }
+            />
 
             {/* Stage Selector */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">

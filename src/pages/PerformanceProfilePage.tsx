@@ -104,8 +104,8 @@ export function PerformanceProfilePage() {
 
             {/* Title Section */}
             <div className="space-y-1 px-1">
-                <h1 className="text-3xl font-black tracking-tighter text-foreground antialiased italic sm:text-4xl">{act.name}</h1>
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-[0.2em]">{act.participants.length} Active Cast Members Assigned</p>
+                <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">{act.name}</h1>
+                <p className="text-xs font-medium text-muted-foreground">{act.participants.length} active cast members assigned</p>
             </div>
 
             {/* Navigation Tabs - Swippable Cockpit */}

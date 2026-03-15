@@ -446,7 +446,7 @@ export function ParticipantProfilePage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-black tracking-tighter text-foreground antialiased italic">
+                            <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
                                 {participant.firstName} {participant.lastName}
                             </h1>
                         </div>
