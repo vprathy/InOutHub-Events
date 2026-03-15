@@ -48,7 +48,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="space-y-5 pb-12">
+        <div className="space-y-4 pb-12">
             {/* Header section with operational status */}
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">
@@ -62,7 +62,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Readiness Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                 <RadarCard
                     label="Needs Placement"
                     value={radar?.participants.unassigned || 0}
@@ -96,29 +96,29 @@ export default function DashboardPage() {
             </div>
 
             {/* Secondary Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-card/50 border border-border/50 p-3 rounded-2xl">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Arrived</p>
                     <p className="text-xl font-black tracking-tighter">{radar?.acts.arrived}</p>
                 </div>
-                <div className="bg-card/50 border border-border/50 p-3 rounded-2xl">
+                <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Stage Ready</p>
                     <p className="text-xl font-black tracking-tighter">{radar?.acts.ready}</p>
                 </div>
-                <div className="bg-card/50 border border-border/50 p-3 rounded-2xl">
+                <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Roster</p>
                     <p className="text-xl font-black tracking-tighter">{radar?.participants.total}</p>
                 </div>
-                <div className="bg-card/50 border border-border/50 p-3 rounded-2xl text-orange-500">
+                <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl text-orange-500">
                     <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Docs Pending</p>
                     <p className="text-xl font-black tracking-tighter">{(radar?.assets.pending || 0) + (radar?.assets.missing || 0)}</p>
                 </div>
             </div>
 
             {/* Quick Actions (Thumb Zone Optimized) */}
-            <div className="space-y-4 pt-4">
+            <div className="space-y-3 pt-2">
                 <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Operational Links</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                     <ActionCard
                         title="Participants"
                         description="Placement, docs, contacts, and safety follow-up"
@@ -166,23 +166,23 @@ function RadarCard({ label, value, subtext, percent, icon: Icon, color, onClick,
     return (
         <button
             onClick={onClick}
-            className={`relative overflow-hidden bg-card border p-4 rounded-[2rem] space-y-4 transition-all hover:border-primary/50 hover:shadow-xl active:scale-[0.98] text-left group
+            className={`relative overflow-hidden bg-card border p-3.5 rounded-[1.5rem] space-y-3 transition-all hover:border-primary/50 hover:shadow-xl active:scale-[0.98] text-left group
                 ${isAlert ? 'border-orange-500/50 shadow-lg shadow-orange-500/10' : 'border-border'}
             `}
         >
             <div className="flex items-start justify-between">
-                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${activeColor}`}>
-                    <Icon className="w-6 h-6" />
+                <div className={`p-2.5 rounded-2xl transition-transform group-hover:scale-110 ${activeColor}`}>
+                    <Icon className="w-5 h-5" />
                 </div>
                 <div className="text-right">
-                    <span className="text-3xl font-black tracking-tighter leading-none block">{value}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{subtext}</span>
+                    <span className="text-2xl font-black tracking-tighter leading-none block">{value}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-50">{subtext}</span>
                 </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
                 <h3 className="text-[11px] font-black uppercase tracking-widest">{label}</h3>
-                <div className="h-2.5 bg-muted rounded-full overflow-hidden border border-border/50">
+                <div className="h-2 bg-muted rounded-full overflow-hidden border border-border/50">
                     <div
                         className={`h-full rounded-full transition-all duration-1000 ${isAlert ? 'bg-orange-500' : 'bg-primary'}`}
                         style={{ width: `${percent}%` }}
@@ -205,18 +205,18 @@ function ActionCard({ title, description, icon: Icon, onClick, variant }: any) {
         <button
             onClick={onClick}
             className={`
-                w-full text-left p-4 rounded-[1.75rem] border transition-all active:scale-[0.98] flex items-center justify-between group
+                w-full text-left p-3.5 rounded-[1.5rem] border transition-all active:scale-[0.98] flex items-center justify-between group
                 ${isPrimary
                     ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 hover:brightness-110'
                     : 'bg-card border-border hover:border-primary/50 hover:bg-primary/5'}
             `}
         >
-            <div className="flex items-center space-x-4">
-                <div className={`p-3 rounded-2xl ${isPrimary ? 'bg-white/20' : 'bg-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors'}`}>
-                    <Icon className="w-5 h-5" />
+            <div className="flex items-center space-x-3">
+                <div className={`p-2.5 rounded-2xl ${isPrimary ? 'bg-white/20' : 'bg-muted group-hover:bg-primary/10 group-hover:text-primary transition-colors'}`}>
+                    <Icon className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                    <h3 className="font-black uppercase tracking-tight text-base leading-tight">{title}</h3>
+                    <h3 className="font-black uppercase tracking-tight text-sm leading-tight">{title}</h3>
                     <p className={`text-xs font-medium ${isPrimary ? 'text-white/70' : 'text-muted-foreground'}`}>{description}</p>
                 </div>
             </div>
