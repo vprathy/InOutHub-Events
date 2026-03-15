@@ -1126,87 +1126,6 @@ export function ParticipantProfilePage() {
                             </div>
                         </Modal>
 
-                        <Modal
-                            isOpen={showUploadModal}
-                            onClose={() => {
-                                setShowUploadModal(false);
-                                setUploadTarget(null);
-                            }}
-                            title={uploadTarget?.title || 'Upload Asset'}
-                        >
-                            <div className="space-y-4 pt-2">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Name</label>
-                                    <input
-                                        type="text"
-                                        value={uploadName}
-                                        onChange={(e) => setUploadName(e.target.value)}
-                                        placeholder="Waiver, photo, audio note..."
-                                        className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    />
-                                </div>
-
-                                {!uploadTarget?.templateId && (
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Type</label>
-                                        <select
-                                            value={uploadType}
-                                            onChange={(e) => setUploadType(e.target.value as typeof uploadType)}
-                                            className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                        >
-                                            <option value="other">Other</option>
-                                            <option value="waiver">Waiver / Doc</option>
-                                            <option value="photo">Photo</option>
-                                            <option value="intro_media">Intro Media</option>
-                                        </select>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Choose File</label>
-                                    <input
-                                        type="file"
-                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                                        className="block w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-bold file:uppercase file:tracking-widest file:text-primary"
-                                    />
-                                    <p className="text-[10px] font-medium text-muted-foreground">
-                                        Selected file uploads into participant assets and appears in this tab after save.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Notes</label>
-                                    <textarea
-                                        value={uploadNotes}
-                                        onChange={(e) => setUploadNotes(e.target.value)}
-                                        rows={3}
-                                        placeholder="Optional review notes or upload context"
-                                        className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    />
-                                </div>
-
-                                <div className="flex justify-end gap-2 pt-4 border-t border-border/50">
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => {
-                                            setShowUploadModal(false);
-                                            setUploadTarget(null);
-                                            setUploadFile(null);
-                                            setUploadNotes('');
-                                            setUploadName('');
-                                        }}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        onClick={handleUploadAsset}
-                                        disabled={!uploadFile || uploadAsset.isPending}
-                                    >
-                                        {uploadAsset.isPending ? 'Uploading...' : 'Upload Asset'}
-                                    </Button>
-                                </div>
-                            </div>
-                        </Modal>
                     </div>
                 )}
 
@@ -1357,6 +1276,88 @@ export function ParticipantProfilePage() {
                     participant={participant}
                 />
             )}
+
+            <Modal
+                isOpen={showUploadModal}
+                onClose={() => {
+                    setShowUploadModal(false);
+                    setUploadTarget(null);
+                }}
+                title={uploadTarget?.title || 'Upload Asset'}
+            >
+                <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Name</label>
+                        <input
+                            type="text"
+                            value={uploadName}
+                            onChange={(e) => setUploadName(e.target.value)}
+                            placeholder="Waiver, photo, audio note..."
+                            className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                    </div>
+
+                    {!uploadTarget?.templateId && (
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Asset Type</label>
+                            <select
+                                value={uploadType}
+                                onChange={(e) => setUploadType(e.target.value as typeof uploadType)}
+                                className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="other">Other</option>
+                                <option value="waiver">Waiver / Doc</option>
+                                <option value="photo">Photo</option>
+                                <option value="intro_media">Intro Media</option>
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Choose File</label>
+                        <input
+                            type="file"
+                            onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                            className="block w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-bold file:uppercase file:tracking-widest file:text-primary"
+                        />
+                        <p className="text-[10px] font-medium text-muted-foreground">
+                            Selected file uploads into participant assets and appears in this tab after save.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Notes</label>
+                        <textarea
+                            value={uploadNotes}
+                            onChange={(e) => setUploadNotes(e.target.value)}
+                            rows={3}
+                            placeholder="Optional review notes or upload context"
+                            className="w-full rounded-xl border border-border bg-card px-3 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4 border-t border-border/50">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setShowUploadModal(false);
+                                setUploadTarget(null);
+                                setUploadFile(null);
+                                setUploadNotes('');
+                                setUploadName('');
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleUploadAsset}
+                            disabled={!uploadFile || uploadAsset.isPending}
+                        >
+                            {uploadAsset.isPending ? 'Uploading...' : 'Upload Asset'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
 
         {/* Poster Lightbox/Full-screen View */}
             {selectedAssetUrl && (
