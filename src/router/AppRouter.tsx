@@ -7,7 +7,6 @@ import DevQuickLogin from '@/pages/dev/DevQuickLogin';
 
 import OrgSelectionPage from '@/pages/selection/OrgSelectionPage';
 import EventSelectionPage from '@/pages/selection/EventSelectionPage';
-import IntroVideoPrototype from '@/pages/IntroVideoPrototype';
 import { SelectionGuard } from '@/components/selection/SelectionGuard';
 import { Loader2 } from 'lucide-react';
 
@@ -16,6 +15,7 @@ const ParticipantProfilePage = lazy(() => import('@/pages/ParticipantProfilePage
 const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage').then((module) => ({ default: module.PerformanceProfilePage })));
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
 const StageConsolePage = lazy(() => import('@/pages/StageConsolePage'));
+const IntroVideoPrototype = lazy(() => import('@/pages/IntroVideoPrototype'));
 
 function RouteLoader() {
     return (
@@ -102,7 +102,11 @@ export const router = createBrowserRouter([
     },
     {
         path: '/prototype/intro',
-        element: <IntroVideoPrototype />,
+        element: (
+            <LazyRoute>
+                <IntroVideoPrototype />
+            </LazyRoute>
+        ),
     },
     {
         path: '/select-org',
