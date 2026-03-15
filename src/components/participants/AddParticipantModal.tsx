@@ -14,8 +14,6 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
     const createParticipant = useCreateParticipant(eventId);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [age, setAge] = useState('');
-    const [isMinor, setIsMinor] = useState(false);
     const [guardianName, setGuardianName] = useState('');
     const [guardianPhone, setGuardianPhone] = useState('');
     const [notes, setNotes] = useState('');
@@ -24,8 +22,6 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
         if (!isOpen) return;
         setFirstName('');
         setLastName('');
-        setAge('');
-        setIsMinor(false);
         setGuardianName('');
         setGuardianPhone('');
         setNotes('');
@@ -39,8 +35,6 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
         await createParticipant.mutateAsync({
             firstName,
             lastName,
-            age: age ? Number(age) : null,
-            isMinor,
             guardianName: guardianName || null,
             guardianPhone: guardianPhone || null,
             notes: notes || null,
@@ -74,55 +68,28 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
                     </div>
                 </div>
 
-                <div className="grid grid-cols-[120px_1fr] gap-3">
+                <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Contact</p>
                     <div>
-                        <label className={labelClass}>Age</label>
+                        <label className={labelClass}>Guardian Name</label>
                         <Input
-                            type="number"
-                            min="0"
-                            value={age}
-                            onChange={(e) => setAge(e.target.value)}
+                            value={guardianName}
+                            onChange={(e) => setGuardianName(e.target.value)}
                             className={inputClass}
-                            placeholder="Optional"
+                            placeholder="Parent or guardian"
                         />
                     </div>
-                    <div className="flex items-end">
-                        <label className="flex h-11 w-full items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                            <input
-                                type="checkbox"
-                                checked={isMinor}
-                                onChange={(e) => setIsMinor(e.target.checked)}
-                                className="h-4 w-4 rounded border-border"
-                            />
-                            Minor participant
-                        </label>
+                    <div>
+                        <label className={labelClass}>Guardian Phone</label>
+                        <Input
+                            type="tel"
+                            value={guardianPhone}
+                            onChange={(e) => setGuardianPhone(e.target.value)}
+                            className={inputClass}
+                            placeholder="+1 (555) 555-5555"
+                        />
                     </div>
                 </div>
-
-                {isMinor ? (
-                    <div className="space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Guardian Contact</p>
-                        <div>
-                            <label className={labelClass}>Guardian Name</label>
-                            <Input
-                                value={guardianName}
-                                onChange={(e) => setGuardianName(e.target.value)}
-                                className={inputClass}
-                                placeholder="Parent or guardian"
-                            />
-                        </div>
-                        <div>
-                            <label className={labelClass}>Guardian Phone</label>
-                            <Input
-                                type="tel"
-                                value={guardianPhone}
-                                onChange={(e) => setGuardianPhone(e.target.value)}
-                                className={inputClass}
-                                placeholder="+1 (555) 555-5555"
-                            />
-                        </div>
-                    </div>
-                ) : null}
 
                 <div>
                     <label className={labelClass}>Notes</label>

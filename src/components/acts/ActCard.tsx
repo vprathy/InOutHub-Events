@@ -10,6 +10,7 @@ import { useUpdateActStatus } from '@/hooks/useActs';
 import { IntroVideoPlayer } from '@/components/console/IntroVideoPlayer';
 import { getPlayableIntro } from '@/lib/introCapabilities';
 import type { IntroComposition } from '@/types/domain';
+import { formatReadinessDate } from '@/lib/actReadiness';
 
 interface ActCardProps {
     act: ActWithCounts;
@@ -195,6 +196,23 @@ export function ActCard({ act }: ActCardProps) {
                     <UserPlus className="w-3.5 h-3.5 mr-2 text-primary" />
                     <span className="truncate">Add Performer</span>
                 </Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2.5">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Practice</p>
+                    <p className="mt-1 text-xs font-bold text-foreground">
+                        {act.nextPracticeStartsAt ? formatReadinessDate(act.nextPracticeStartsAt) : 'Not scheduled'}
+                    </p>
+                </div>
+                <div className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2.5">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Open Issues</p>
+                    <p className="mt-1 text-xs font-bold text-foreground">{act.openIssueCount || 0}</p>
+                </div>
+                <div className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2.5">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Missing Items</p>
+                    <p className="mt-1 text-xs font-bold text-foreground">{act.missingChecklistCount || 0}</p>
+                </div>
             </div>
 
             {act.hasApprovedIntro ? (

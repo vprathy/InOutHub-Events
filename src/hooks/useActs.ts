@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
+import { deriveActReadinessSummary } from '@/lib/actReadiness';
 
 export function useActsQuery(eventId: string) {
     const queryClient = useQueryClient();
@@ -21,7 +22,10 @@ export function useActsQuery(eventId: string) {
                         )
                     ),
                     act_assets(id, asset_type, asset_name),
-                    act_requirements(id, requirement_type, file_url, fulfilled)
+                    act_requirements(id, requirement_type, file_url, fulfilled),
+                    act_readiness_practices(id, expected_for, venue_name, address, room_area, parking_note, special_instructions, contact_name, contact_phone, starts_at, ends_at, status, notes),
+                    act_readiness_items(id, practice_id, category, title, notes, status, owner_user_id, owner_label, due_at, sort_order),
+                    act_readiness_issues(id, practice_id, issue_type, title, details, severity, status, owner_user_id, owner_label, due_at, escalate_to_user_id, resolution_note)
                 `)
                 .eq('event_id', eventId)
                 .order('name');
@@ -47,6 +51,55 @@ export function useActsQuery(eventId: string) {
                 ).length;
 
                 const introRequirement = (row.act_requirements || []).find((r: any) => r.requirement_type === 'IntroComposition');
+                const practices = (row.act_readiness_practices || []).map((practice: any) => ({
+                    id: practice.id,
+                    actId: row.id,
+                    expectedFor: practice.expected_for,
+                    venueName: practice.venue_name,
+                    address: practice.address,
+                    roomArea: practice.room_area,
+                    parkingNote: practice.parking_note,
+                    specialInstructions: practice.special_instructions,
+                    contactName: practice.contact_name,
+                    contactPhone: practice.contact_phone,
+                    startsAt: practice.starts_at,
+                    endsAt: practice.ends_at,
+                    status: practice.status,
+                    notes: practice.notes,
+                }));
+                const readinessItems = (row.act_readiness_items || []).map((item: any) => ({
+                    id: item.id,
+                    actId: row.id,
+                    practiceId: item.practice_id,
+                    category: item.category,
+                    title: item.title,
+                    notes: item.notes,
+                    status: item.status,
+                    ownerUserId: item.owner_user_id,
+                    ownerLabel: item.owner_label,
+                    dueAt: item.due_at,
+                    sortOrder: item.sort_order || 0,
+                }));
+                const readinessIssues = (row.act_readiness_issues || []).map((issue: any) => ({
+                    id: issue.id,
+                    actId: row.id,
+                    practiceId: issue.practice_id,
+                    issueType: issue.issue_type,
+                    title: issue.title,
+                    details: issue.details,
+                    severity: issue.severity,
+                    status: issue.status,
+                    ownerUserId: issue.owner_user_id,
+                    ownerLabel: issue.owner_label,
+                    dueAt: issue.due_at,
+                    escalateToUserId: issue.escalate_to_user_id,
+                    resolutionNote: issue.resolution_note,
+                }));
+                const readinessSummary = deriveActReadinessSummary({
+                    practices,
+                    items: readinessItems,
+                    issues: readinessIssues,
+                });
 
                 return {
                     id: row.id,
@@ -69,6 +122,11 @@ export function useActsQuery(eventId: string) {
                     ),
                     hasApprovedIntro: Boolean(introRequirement?.fulfilled),
                     introBackgroundUrl: introRequirement?.file_url || (row.act_requirements || []).find((r: any) => r.requirement_type === 'Generative')?.file_url || null,
+                    readinessState: readinessSummary.state,
+                    nextPracticeStartsAt: readinessSummary.nextPractice?.startsAt || null,
+                    nextPracticeStatus: readinessSummary.nextPractice?.status || null,
+                    openIssueCount: readinessSummary.openIssueCount,
+                    missingChecklistCount: readinessSummary.missingChecklistCount,
                 };
             });
         },
@@ -212,7 +270,10 @@ export function useActDetail(actId: string | null) {
                         )
                     ),
                     act_assets(id, asset_type, asset_name, notes),
-                    act_requirements(id, requirement_type, description, file_url, fulfilled)
+                    act_requirements(id, requirement_type, description, file_url, fulfilled),
+                    act_readiness_practices(id, expected_for, venue_name, address, room_area, parking_note, special_instructions, contact_name, contact_phone, starts_at, ends_at, status, notes),
+                    act_readiness_items(id, practice_id, category, title, notes, status, owner_user_id, owner_label, due_at, sort_order),
+                    act_readiness_issues(id, practice_id, issue_type, title, details, severity, status, owner_user_id, owner_label, due_at, escalate_to_user_id, resolution_note)
                 `)
                 .eq('id', actId)
                 .single();
@@ -222,6 +283,50 @@ export function useActDetail(actId: string | null) {
             const row = data as any;
 
             // Map to domain model
+            const readinessPractices = (row.act_readiness_practices || []).map((practice: any) => ({
+                id: practice.id,
+                actId: row.id,
+                expectedFor: practice.expected_for,
+                venueName: practice.venue_name,
+                address: practice.address,
+                roomArea: practice.room_area,
+                parkingNote: practice.parking_note,
+                specialInstructions: practice.special_instructions,
+                contactName: practice.contact_name,
+                contactPhone: practice.contact_phone,
+                startsAt: practice.starts_at,
+                endsAt: practice.ends_at,
+                status: practice.status,
+                notes: practice.notes,
+            }));
+            const readinessItems = (row.act_readiness_items || []).map((item: any) => ({
+                id: item.id,
+                actId: row.id,
+                practiceId: item.practice_id,
+                category: item.category,
+                title: item.title,
+                notes: item.notes,
+                status: item.status,
+                ownerUserId: item.owner_user_id,
+                ownerLabel: item.owner_label,
+                dueAt: item.due_at,
+                sortOrder: item.sort_order || 0,
+            }));
+            const readinessIssues = (row.act_readiness_issues || []).map((issue: any) => ({
+                id: issue.id,
+                actId: row.id,
+                practiceId: issue.practice_id,
+                issueType: issue.issue_type,
+                title: issue.title,
+                details: issue.details,
+                severity: issue.severity,
+                status: issue.status,
+                ownerUserId: issue.owner_user_id,
+                ownerLabel: issue.owner_label,
+                dueAt: issue.due_at,
+                escalateToUserId: issue.escalate_to_user_id,
+                resolutionNote: issue.resolution_note,
+            }));
             const actDetails: any = {
                 id: row.id,
                 eventId: row.event_id,
@@ -253,7 +358,15 @@ export function useActDetail(actId: string | null) {
                     description: r.description,
                     fileUrl: r.file_url,
                     fulfilled: r.fulfilled
-                }))
+                })),
+                readinessPractices,
+                readinessItems,
+                readinessIssues,
+                readinessSummary: deriveActReadinessSummary({
+                    practices: readinessPractices,
+                    items: readinessItems,
+                    issues: readinessIssues,
+                }),
             };
 
             return actDetails;
@@ -287,6 +400,134 @@ export function useActDetail(actId: string | null) {
     }, [actId, queryClient]);
 
     return query;
+}
+
+export function useAddActReadinessPractice(actId: string, eventId?: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (practice: {
+            expectedFor?: string | null;
+            venueName: string;
+            address?: string | null;
+            roomArea?: string | null;
+            parkingNote?: string | null;
+            specialInstructions?: string | null;
+            contactName?: string | null;
+            contactPhone?: string | null;
+            startsAt: string;
+            endsAt?: string | null;
+            status: 'planned' | 'confirmed' | 'changed' | 'cancelled';
+            notes?: string | null;
+        }) => {
+            const { data, error } = await (supabase as any)
+                .from('act_readiness_practices')
+                .insert([{
+                    act_id: actId,
+                    expected_for: practice.expectedFor ?? null,
+                    venue_name: practice.venueName,
+                    address: practice.address ?? null,
+                    room_area: practice.roomArea ?? null,
+                    parking_note: practice.parkingNote ?? null,
+                    special_instructions: practice.specialInstructions ?? null,
+                    contact_name: practice.contactName ?? null,
+                    contact_phone: practice.contactPhone ?? null,
+                    starts_at: practice.startsAt,
+                    ends_at: practice.endsAt ?? null,
+                    status: practice.status,
+                    notes: practice.notes ?? null,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        },
+    });
+}
+
+export function useAddActReadinessItem(actId: string, eventId?: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (item: {
+            practiceId?: string | null;
+            category: 'costume' | 'prop' | 'music' | 'shoes' | 'printout' | 'prep_task' | 'other';
+            title: string;
+            notes?: string | null;
+            status: 'needed' | 'in_progress' | 'ready' | 'missing';
+            ownerLabel?: string | null;
+            dueAt?: string | null;
+        }) => {
+            const { data, error } = await (supabase as any)
+                .from('act_readiness_items')
+                .insert([{
+                    act_id: actId,
+                    practice_id: item.practiceId ?? null,
+                    category: item.category,
+                    title: item.title,
+                    notes: item.notes ?? null,
+                    status: item.status,
+                    owner_label: item.ownerLabel ?? null,
+                    due_at: item.dueAt ?? null,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        },
+    });
+}
+
+export function useAddActReadinessIssue(actId: string, eventId?: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (issue: {
+            practiceId?: string | null;
+            issueType: 'participant_unavailable' | 'missing_costume' | 'missing_prop' | 'music_not_final' | 'intro_media_pending' | 'parent_coordination' | 'timing' | 'rehearsal_conflict' | 'lineup' | 'organizer_support' | 'other';
+            title: string;
+            details?: string | null;
+            severity: 'low' | 'medium' | 'high';
+            status: 'open' | 'watching' | 'blocked' | 'resolved';
+            ownerLabel?: string | null;
+            dueAt?: string | null;
+            resolutionNote?: string | null;
+        }) => {
+            const { data, error } = await (supabase as any)
+                .from('act_readiness_issues')
+                .insert([{
+                    act_id: actId,
+                    practice_id: issue.practiceId ?? null,
+                    issue_type: issue.issueType,
+                    title: issue.title,
+                    details: issue.details ?? null,
+                    severity: issue.severity,
+                    status: issue.status,
+                    owner_label: issue.ownerLabel ?? null,
+                    due_at: issue.dueAt ?? null,
+                    resolution_note: issue.resolutionNote ?? null,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        },
+    });
 }
 export function useAddActAsset(eventId: string) {
     const queryClient = useQueryClient();

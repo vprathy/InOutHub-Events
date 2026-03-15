@@ -400,8 +400,6 @@ export function useCreateParticipant(eventId: string) {
         mutationFn: async (participant: {
             firstName: string;
             lastName: string;
-            age?: number | null;
-            isMinor?: boolean;
             guardianName?: string | null;
             guardianPhone?: string | null;
             notes?: string | null;
@@ -412,8 +410,6 @@ export function useCreateParticipant(eventId: string) {
                     event_id: eventId,
                     first_name: participant.firstName.trim(),
                     last_name: participant.lastName.trim(),
-                    age: participant.age ?? null,
-                    is_minor: participant.isMinor ?? false,
                     guardian_name: participant.guardianName ?? null,
                     guardian_phone: participant.guardianPhone ?? null,
                     notes: participant.notes ?? null,
@@ -421,7 +417,6 @@ export function useCreateParticipant(eventId: string) {
                     source_instance: 'mobile-ops',
                     source_anchor_type: 'manual_entry',
                     source_anchor_value: crypto.randomUUID(),
-                    status: 'active',
                 }])
                 .select()
                 .single();

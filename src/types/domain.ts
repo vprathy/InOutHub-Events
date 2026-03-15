@@ -121,6 +121,10 @@ export interface ActDetails extends Act {
     participants?: ActParticipantDetail[];
     assets?: ActAsset[];
     requirements?: ActRequirement[];
+    readinessPractices?: ActPracticeSession[];
+    readinessItems?: ActReadinessItem[];
+    readinessIssues?: ActReadinessIssue[];
+    readinessSummary?: ActReadinessSummary;
 }
 
 /**
@@ -139,6 +143,11 @@ export interface ActWithCounts extends Act {
     // Operational readiness
     missingAssetCount: number;
     specialRequestCount: number;
+    readinessState?: ActReadinessState;
+    nextPracticeStartsAt?: string | null;
+    nextPracticeStatus?: ActPracticeStatus | null;
+    openIssueCount?: number;
+    missingChecklistCount?: number;
 }
 
 /**
@@ -167,6 +176,66 @@ export interface ActRequirement {
     description: string;
     fileUrl: string | null;
     fulfilled: boolean | null;
+}
+
+export type ActReadinessState = 'On Track' | 'At Risk' | 'Blocked';
+export type ActPracticeStatus = 'planned' | 'confirmed' | 'changed' | 'cancelled';
+export type ActReadinessItemStatus = 'needed' | 'in_progress' | 'ready' | 'missing';
+export type ActReadinessIssueStatus = 'open' | 'watching' | 'blocked' | 'resolved';
+export type ActReadinessIssueSeverity = 'low' | 'medium' | 'high';
+
+export interface ActPracticeSession {
+    id: string;
+    actId: string;
+    expectedFor: string | null;
+    venueName: string;
+    address: string | null;
+    roomArea: string | null;
+    parkingNote: string | null;
+    specialInstructions: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+    startsAt: string;
+    endsAt: string | null;
+    status: ActPracticeStatus;
+    notes: string | null;
+}
+
+export interface ActReadinessItem {
+    id: string;
+    actId: string;
+    practiceId?: string | null;
+    category: 'costume' | 'prop' | 'music' | 'shoes' | 'printout' | 'prep_task' | 'other';
+    title: string;
+    notes: string | null;
+    status: ActReadinessItemStatus;
+    ownerUserId?: string | null;
+    ownerLabel?: string | null;
+    dueAt?: string | null;
+    sortOrder: number;
+}
+
+export interface ActReadinessIssue {
+    id: string;
+    actId: string;
+    practiceId?: string | null;
+    issueType: 'participant_unavailable' | 'missing_costume' | 'missing_prop' | 'music_not_final' | 'intro_media_pending' | 'parent_coordination' | 'timing' | 'rehearsal_conflict' | 'lineup' | 'organizer_support' | 'other';
+    title: string;
+    details: string | null;
+    severity: ActReadinessIssueSeverity;
+    status: ActReadinessIssueStatus;
+    ownerUserId?: string | null;
+    ownerLabel?: string | null;
+    dueAt?: string | null;
+    escalateToUserId?: string | null;
+    resolutionNote?: string | null;
+}
+
+export interface ActReadinessSummary {
+    state: ActReadinessState;
+    nextPractice: ActPracticeSession | null;
+    openIssueCount: number;
+    missingChecklistCount: number;
 }
 
 export interface IntroCurationItem {
