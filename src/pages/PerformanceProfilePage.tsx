@@ -105,7 +105,7 @@ export function PerformanceProfilePage() {
 
             {/* Title Section */}
             <div className="space-y-1 px-1">
-                <h1 className="text-4xl font-black tracking-tighter text-foreground antialiased italic">{act.name}</h1>
+                <h1 className="text-3xl font-black tracking-tighter text-foreground antialiased italic sm:text-4xl">{act.name}</h1>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-[0.2em]">{act.participants.length} Active Cast Members Assigned</p>
             </div>
 
@@ -123,14 +123,14 @@ export function PerformanceProfilePage() {
                     className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
                     <Users size={14} />
-                    Cast & Crew
+                    Team
                 </button>
                 <button
                     onClick={() => setActiveTab('assets')}
                     className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
                 >
                     <Music size={14} />
-                    Assets
+                    Media & Intro
                 </button>
             </div>
 
@@ -186,8 +186,12 @@ function OverviewTab({ act }: { act: any }) {
                     <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Readiness Signal</h3>
                     <div className="space-y-4">
                         <ReadinessItem
-                            label="Personnel Readiness"
-                            status={act.participants.every((p: any) => p.status === 'active') ? 'ready' : 'warning'}
+                            label="Cast Assigned"
+                            status={act.participants.length > 0 ? 'ready' : 'missing'}
+                        />
+                        <ReadinessItem
+                            label="Arrival State"
+                            status={act.arrivalStatus === 'Ready' ? 'ready' : 'warning'}
                         />
                         <ReadinessItem
                             label="Music & Media"
@@ -220,7 +224,7 @@ function CastTab({ participants }: { participants: any[] }) {
                         Performance Team
                     </h3>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="font-bold border-primary/20 hover:bg-primary/5">
+                        <Button size="sm" variant="outline" className="h-11 font-bold border-primary/20 hover:bg-primary/5">
                             <UserPlus size={16} className="mr-2" />
                             Add Team Member
                         </Button>
@@ -245,11 +249,11 @@ function CastTab({ participants }: { participants: any[] }) {
                         Cast / Performers
                     </h3>
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                        <Button size="sm" variant="ghost" className="font-black text-primary text-[10px] uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-all w-full sm:w-auto order-2 sm:order-1 h-9">
+                        <Button size="sm" variant="ghost" className="font-black text-primary text-[10px] uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-all w-full sm:w-auto order-2 sm:order-1 h-11">
                             <Info size={14} className="mr-1.5" />
                             AI Suggest Cast
                         </Button>
-                        <Button size="sm" className="font-black uppercase tracking-widest text-[10px] w-full sm:w-auto order-1 sm:order-2 h-9">
+                        <Button size="sm" className="font-black uppercase tracking-widest text-[10px] w-full sm:w-auto order-1 sm:order-2 h-11">
                             <UserPlus size={16} className="mr-2" />
                             Add Performer
                         </Button>
@@ -332,7 +336,7 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-primary font-black text-xs"
+                            className="h-11 text-primary font-black text-xs"
                             onClick={onOpenAssetManager}
                         >
                             Manage
@@ -374,7 +378,7 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-primary font-black text-xs"
+                            className="h-11 text-primary font-black text-xs"
                             onClick={scrollToIntroBuilder}
                         >
                             Manage
