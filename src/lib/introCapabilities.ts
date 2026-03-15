@@ -35,6 +35,9 @@ interface PlayableIntroResponse {
   participants: IntroPlayableParticipant[];
 }
 
+const playableIntroCache = new Map<string, PlayableIntroResponse>();
+const playableIntroInflight = new Map<string, Promise<PlayableIntroResponse>>();
+
 async function invokeIntroCapability<T>(action: string, payload: Record<string, unknown>): Promise<T> {
   const {
     data: { session },
@@ -115,5 +118,58 @@ export async function approveIntroComposition(actId: string) {
 }
 
 export async function getPlayableIntro(actId: string) {
-  return invokeIntroCapability<PlayableIntroResponse>('getPlayableIntro', { actId });
+  const cached = playableIntroCache.get(actId);
+  if (cached) {
+    return cached;
+  }
+
+  const inflight = playableIntroInflight.get(actId);
+  if (inflight) {
+    return inflight;
+  }
+
+  const request = invokeIntroCapability<PlayableIntroResponse>('getPlayableIntro', { actId })
+    .then((response) => {
+      playableIntroCache.set(actId, response);
+      playableIntroInflight.delete(actId);
+      return response;
+    })
+    .catch((error) => {
+      playableIntroInflight.delete(actId);
+      throw error;
+    });
+
+  playableIntroInflight.set(actId, request);
+  return request;
+}
+
+export function prefetchPlayableIntro(actId: string) {
+  if (!actId || playableIntroCache.has(actId) || playableIntroInflight.has(actId)) {
+    return;
+  }
+
+  const request: Promise<PlayableIntroResponse> = invokeIntroCapability<PlayableIntroResponse>('getPlayableIntro', { actId })
+    .then((response) => {
+      playableIntroCache.set(actId, response);
+      playableIntroInflight.delete(actId);
+      return response;
+    })
+    .catch(() => {
+      playableIntroInflight.delete(actId);
+      throw new Error('prefetch_failed');
+    });
+
+  playableIntroInflight.set(actId, request);
+  void request.catch(() => undefined);
+}
+
+export function clearPlayableIntroCache(actId?: string) {
+  if (actId) {
+    playableIntroCache.delete(actId);
+    playableIntroInflight.delete(actId);
+    return;
+  }
+
+  playableIntroCache.clear();
+  playableIntroInflight.clear();
 }

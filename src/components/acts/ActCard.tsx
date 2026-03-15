@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
 import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
 import { UploadActAssetModal } from './UploadActAssetModal';
 import { useUpdateActStatus } from '@/hooks/useActs';
-import { getPlayableIntro } from '@/lib/introCapabilities';
+import { getPlayableIntro, prefetchPlayableIntro } from '@/lib/introCapabilities';
 import type { IntroComposition } from '@/types/domain';
 import { formatReadinessDate } from '@/lib/actReadiness';
 
@@ -29,6 +29,12 @@ export function ActCard({ act }: ActCardProps) {
         participants: any[];
     } | null>(null);
     const updateStatus = useUpdateActStatus();
+
+    useEffect(() => {
+        if (act.hasApprovedIntro) {
+            prefetchPlayableIntro(act.id);
+        }
+    }, [act.hasApprovedIntro, act.id]);
 
     const isReady = act.arrivalStatus === 'Ready';
     const primaryMeta = [`${act.durationMinutes}m`, `${act.setupTimeMinutes}m setup`];

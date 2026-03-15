@@ -7,7 +7,7 @@ import { useUpdateActStatus } from '@/hooks/useActs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Suspense, lazy, useState, useEffect } from 'react';
 import type { IntroComposition } from '@/types/domain';
-import { getPlayableIntro } from '@/lib/introCapabilities';
+import { getPlayableIntro, prefetchPlayableIntro } from '@/lib/introCapabilities';
 import { formatEventTime, formatNowInEventTime } from '@/lib/eventTime';
 
 const IntroVideoPlayer = lazy(() => import('./IntroVideoPlayer').then((module) => ({ default: module.IntroVideoPlayer })));
@@ -94,6 +94,19 @@ export function LivePerformanceController({
     
     // Background priority: Composition background > Generative background
     const currentPoster = compositionReq?.fileUrl || requirements.find((r: any) => r.requirementType === 'Generative')?.fileUrl;
+
+    useEffect(() => {
+        if (isIntroReady && current?.act?.id) {
+            prefetchPlayableIntro(current.act.id);
+        }
+    }, [current?.act?.id, isIntroReady]);
+
+    useEffect(() => {
+        const nextIntroRequirement = next?.act?.requirements?.find((r: any) => r.requirementType === 'IntroComposition');
+        if (next?.act?.id && nextIntroRequirement?.fulfilled) {
+            prefetchPlayableIntro(next.act.id);
+        }
+    }, [next?.act?.id, next?.act?.requirements]);
     
     const handlePlayIntro = async () => {
         if (!current?.act?.id || isLoadingIntro) return;
