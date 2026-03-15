@@ -197,6 +197,7 @@ export function ParticipantProfilePage() {
     const updateStatus = useUpdateParticipantStatus(participantId || '');
     const resolveNote = useResolveNote(participantId || '');
     const deleteAsset = useDeleteAsset(participantId || '');
+    const hasAssignedActs = Boolean(participant?.acts && participant.acts.length > 0);
 
     const handleAiSuggest = async () => {
         if (!participant?.acts || participant.acts.length === 0) {
@@ -451,7 +452,11 @@ export function ParticipantProfilePage() {
                             disabled={aiSuggestLoading}
                         >
                             {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                            {aiSuggestLoading ? 'Generating...' : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate Poster' : 'Generate Poster')}
+                            {aiSuggestLoading
+                                ? 'Generating...'
+                                : !hasAssignedActs
+                                    ? 'Assign to Performance'
+                                    : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate Poster' : 'Generate Poster')}
                         </Button>
                         <Button 
                             className="h-9 w-full sm:w-auto px-4 font-bold border border-border/50 hover:border-primary/50 transition-all rounded-lg shadow-sm text-[10px] uppercase tracking-wider antialiased" 
