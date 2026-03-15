@@ -95,6 +95,30 @@ CREATE TABLE participants (
     UNIQUE(event_id, source_system, source_instance, source_anchor_type, source_anchor_value)
 );
 
+CREATE TABLE participant_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+    template_id UUID REFERENCES asset_templates(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    file_url TEXT NOT NULL,
+    status TEXT DEFAULT 'uploaded',
+    review_notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE participant_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    category TEXT NOT NULL DEFAULT 'operational',
+    content TEXT NOT NULL,
+    is_resolved BOOLEAN DEFAULT false,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ==========================================
 -- 3. THE SHOW (Stages & Acts)
 -- ==========================================
@@ -293,6 +317,11 @@ RETURNS UUID AS $$
     SELECT event_id FROM stages WHERE id = p_stage_id;
 $$ LANGUAGE sql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION get_participant_event_id(p_participant_id UUID)
+RETURNS UUID AS $$
+    SELECT event_id FROM participants WHERE id = p_participant_id;
+$$ LANGUAGE sql SECURITY DEFINER;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ==========================================
@@ -318,6 +347,14 @@ CREATE POLICY "events_manage" ON events FOR ALL USING (auth_is_super_admin() OR 
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "participants_select" ON participants FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
 CREATE POLICY "participants_manage" ON participants FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
+
+ALTER TABLE participant_assets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "participant_assets_select" ON participant_assets FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL);
+CREATE POLICY "participant_assets_manage" ON participant_assets FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IN ('EventAdmin', 'StageManager'));
+
+ALTER TABLE participant_notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "participant_notes_select" ON participant_notes FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL);
+CREATE POLICY "participant_notes_manage" ON participant_notes FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE acts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "acts_select" ON acts FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
