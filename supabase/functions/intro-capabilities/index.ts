@@ -141,6 +141,40 @@ function buildFallbackCuration(assetIds: string[]): IntroCurationItem[] {
   }))
 }
 
+function buildFallbackBackgroundDataUrl(actName: string, stylePreset: string) {
+  const safeActName = actName.replace(/[<>&"]/g, '').slice(0, 48) || 'Live Performance'
+  const safeStyle = stylePreset.replace(/[<>&"]/g, '').slice(0, 32) || 'theatrical-safe'
+  const accent = safeStyle === 'theatrical-safe' ? '#f59e0b' : '#38bdf8'
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f172a" />
+          <stop offset="50%" stop-color="#111827" />
+          <stop offset="100%" stop-color="#1e293b" />
+        </linearGradient>
+        <radialGradient id="glow" cx="50%" cy="45%" r="55%">
+          <stop offset="0%" stop-color="${accent}" stop-opacity="0.38" />
+          <stop offset="100%" stop-color="${accent}" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="1280" height="720" fill="url(#bg)" />
+      <rect width="1280" height="720" fill="url(#glow)" />
+      <circle cx="260" cy="168" r="148" fill="${accent}" opacity="0.12" />
+      <circle cx="1050" cy="132" r="104" fill="#f97316" opacity="0.10" />
+      <circle cx="1090" cy="566" r="182" fill="#22c55e" opacity="0.08" />
+      <path d="M140 600 C 320 440, 530 420, 690 560 S 1000 700, 1160 530" fill="none" stroke="${accent}" stroke-opacity="0.34" stroke-width="14" stroke-linecap="round" />
+      <path d="M180 650 C 390 500, 620 488, 810 618 S 1030 742, 1180 590" fill="none" stroke="#f97316" stroke-opacity="0.18" stroke-width="8" stroke-linecap="round" />
+      <rect x="122" y="92" width="1036" height="536" rx="36" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+      <text x="640" y="308" text-anchor="middle" fill="#e5e7eb" font-family="Arial, sans-serif" font-size="72" font-weight="700">${safeActName}</text>
+      <text x="640" y="374" text-anchor="middle" fill="${accent}" font-family="Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="6">INTRO BACKDROP</text>
+      <text x="640" y="420" text-anchor="middle" fill="#94a3b8" font-family="Arial, sans-serif" font-size="18" letter-spacing="3">Launch-safe fallback generated locally while AI background review is pending</text>
+    </svg>
+  `
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
 function normalizeCurationSuggestions(rawSuggestions: unknown, assetIds: string[]): IntroCurationItem[] {
   const fallbackById = new Map(buildFallbackCuration(assetIds).map((item) => [item.id, item]))
   const suggestionSource =
@@ -223,6 +257,17 @@ async function fetchIntroRequirement(supabaseClient: ReturnType<typeof createCli
 
   if (error) throw error
   return data
+}
+
+async function fetchActName(supabaseClient: ReturnType<typeof createClient>, actId: string) {
+  const { data, error } = await supabaseClient
+    .from('acts')
+    .select('name')
+    .eq('id', actId)
+    .single()
+
+  if (error) throw error
+  return data?.name || 'Live Performance'
 }
 
 async function fetchLatestRequirement(
@@ -480,12 +525,24 @@ serve(async (req: Request) => {
       })
 
       const { introRequirement, composition } = await fetchCurrentComposition(supabaseClient, actId)
+      const shouldUseFallbackBackground = !generationResult.publicUrl && !composition.background.fileUrl
+      const fallbackBackgroundUrl = shouldUseFallbackBackground
+        ? buildFallbackBackgroundDataUrl(await fetchActName(supabaseClient, actId), stylePreset)
+        : null
+      const resolvedBackgroundUrl = generationResult.publicUrl ?? composition.background.fileUrl ?? fallbackBackgroundUrl
+      const resolvedBackgroundSource = generationResult.publicUrl
+        ? 'generated_background'
+        : composition.background.fileUrl
+          ? composition.background.source
+          : fallbackBackgroundUrl
+            ? 'fallback_background'
+            : composition.background.source
       const updatedComposition = normalizeComposition(
         {
           ...composition,
           background: {
-            fileUrl: generationResult.publicUrl ?? composition.background.fileUrl,
-            source: generationResult.publicUrl ? 'generated_background' : composition.background.source,
+            fileUrl: resolvedBackgroundUrl,
+            source: resolvedBackgroundSource,
             stylePreset,
           },
           approved: false,
@@ -503,8 +560,10 @@ serve(async (req: Request) => {
         JSON.stringify({
           composition: updatedComposition,
           compositionId: saved.id,
-          isPending: Boolean(generationResult.isPending),
-          message: generationResult.message ?? null,
+          isPending: Boolean(generationResult.isPending && !fallbackBackgroundUrl),
+          message: fallbackBackgroundUrl
+            ? 'AI background is still pending review. A launch-safe fallback backdrop was prepared for rehearsal.'
+            : generationResult.message ?? null,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
       )
