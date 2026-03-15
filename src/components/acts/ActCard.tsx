@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
 import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
 import { UploadActAssetModal } from './UploadActAssetModal';
 import { useUpdateActStatus } from '@/hooks/useActs';
-import { IntroVideoPlayer } from '@/components/console/IntroVideoPlayer';
 import { getPlayableIntro } from '@/lib/introCapabilities';
 import type { IntroComposition } from '@/types/domain';
 import { formatReadinessDate } from '@/lib/actReadiness';
+
+const IntroVideoPlayer = lazy(() => import('@/components/console/IntroVideoPlayer').then((module) => ({ default: module.IntroVideoPlayer })));
 
 interface ActCardProps {
     act: ActWithCounts;
@@ -304,13 +305,21 @@ export function ActCard({ act }: ActCardProps) {
                 eventId={act.eventId}
             />
             {playableIntro ? (
-                <IntroVideoPlayer
-                    composition={playableIntro.composition}
-                    actName={playableIntro.actName}
-                    participants={playableIntro.participants}
-                    defaultFullscreen={false}
-                    onClose={() => setPlayableIntro(null)}
-                />
+                <Suspense
+                    fallback={
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md">
+                            <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        </div>
+                    }
+                >
+                    <IntroVideoPlayer
+                        composition={playableIntro.composition}
+                        actName={playableIntro.actName}
+                        participants={playableIntro.participants}
+                        defaultFullscreen={false}
+                        onClose={() => setPlayableIntro(null)}
+                    />
+                </Suspense>
             ) : null}
         </div>
     );

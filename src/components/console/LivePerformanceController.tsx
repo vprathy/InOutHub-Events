@@ -5,11 +5,12 @@ import { Badge } from '@/components/ui/Badge';
 import { StatusPicker } from '@/components/acts/StatusPicker';
 import { useUpdateActStatus } from '@/hooks/useActs';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import { IntroVideoPlayer } from './IntroVideoPlayer';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import type { IntroComposition } from '@/types/domain';
 import { getPlayableIntro } from '@/lib/introCapabilities';
 import { formatEventTime, formatNowInEventTime } from '@/lib/eventTime';
+
+const IntroVideoPlayer = lazy(() => import('./IntroVideoPlayer').then((module) => ({ default: module.IntroVideoPlayer })));
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -374,15 +375,23 @@ export function LivePerformanceController({
 
                 <AnimatePresence>
                     {showIntro && playableIntro && (
-                        <IntroVideoPlayer 
-                            composition={playableIntro.composition}
-                            actName={playableIntro.actName}
-                            participants={playableIntro.participants}
-                            onClose={() => {
-                                setShowIntro(false);
-                                setPlayableIntro(null);
-                            }}
-                        />
+                        <Suspense
+                            fallback={
+                                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md">
+                                    <MonitorPlay className="h-8 w-8 animate-pulse text-white" />
+                                </div>
+                            }
+                        >
+                            <IntroVideoPlayer 
+                                composition={playableIntro.composition}
+                                actName={playableIntro.actName}
+                                participants={playableIntro.participants}
+                                onClose={() => {
+                                    setShowIntro(false);
+                                    setPlayableIntro(null);
+                                }}
+                            />
+                        </Suspense>
                     )}
                 </AnimatePresence>
             </div>
