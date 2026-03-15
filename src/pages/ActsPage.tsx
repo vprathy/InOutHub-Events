@@ -3,16 +3,36 @@ import { useActsQuery } from '@/hooks/useActs';
 import { ActCard } from '@/components/acts/ActCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
+import { useSearchParams } from 'react-router-dom';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'needs_cast' | 'docs' | 'intro_ready' | 'stage_ready'>('all');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
+
+    useEffect(() => {
+        const filterParam = searchParams.get('filter');
+        if (filterParam && ['all', 'needs_cast', 'docs', 'intro_ready', 'stage_ready'].includes(filterParam)) {
+            setActiveFilter(filterParam as typeof activeFilter);
+        }
+    }, [searchParams]);
+
+    const updateFilter = (nextFilter: typeof activeFilter) => {
+        setActiveFilter(nextFilter);
+        const nextParams = new URLSearchParams(searchParams);
+        if (nextFilter === 'all') {
+            nextParams.delete('filter');
+        } else {
+            nextParams.set('filter', nextFilter);
+        }
+        setSearchParams(nextParams, { replace: true });
+    };
 
     const stats = {
         total: acts?.length || 0,
@@ -73,35 +93,35 @@ export default function ActsPage() {
 
             <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
                 <button
-                    onClick={() => setActiveFilter('all')}
+                    onClick={() => updateFilter('all')}
                     className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'all' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
                 >
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All</p>
                     <p className="mt-1 text-2xl font-black tracking-tight">{stats.total}</p>
                 </button>
                 <button
-                    onClick={() => setActiveFilter('needs_cast')}
+                    onClick={() => updateFilter('needs_cast')}
                     className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'needs_cast' ? 'border-indigo-500 bg-indigo-500/5 shadow-sm' : 'border-border bg-card hover:border-indigo-500/40'}`}
                 >
                     <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Needs Cast</p>
                     <p className="mt-1 text-2xl font-black tracking-tight">{stats.needsCast}</p>
                 </button>
                 <button
-                    onClick={() => setActiveFilter('docs')}
+                    onClick={() => updateFilter('docs')}
                     className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'docs' ? 'border-amber-500 bg-amber-500/5 shadow-sm' : 'border-border bg-card hover:border-amber-500/40'}`}
                 >
                     <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Docs</p>
                     <p className="mt-1 text-2xl font-black tracking-tight">{stats.docs}</p>
                 </button>
                 <button
-                    onClick={() => setActiveFilter('intro_ready')}
+                    onClick={() => updateFilter('intro_ready')}
                     className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'intro_ready' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
                 >
                     <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Intro Ready</p>
                     <p className="mt-1 text-2xl font-black tracking-tight">{stats.introReady}</p>
                 </button>
                 <button
-                    onClick={() => setActiveFilter('stage_ready')}
+                    onClick={() => updateFilter('stage_ready')}
                     className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'stage_ready' ? 'border-emerald-500 bg-emerald-500/5 shadow-sm' : 'border-border bg-card hover:border-emerald-500/40'}`}
                 >
                     <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Stage Ready</p>
@@ -125,35 +145,35 @@ export default function ActsPage() {
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                     <button
-                        onClick={() => setActiveFilter('all')}
+                        onClick={() => updateFilter('all')}
                         className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <Users className="w-3.5 h-3.5" />
                         All
                     </button>
                     <button
-                        onClick={() => setActiveFilter('needs_cast')}
+                        onClick={() => updateFilter('needs_cast')}
                         className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'needs_cast' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <Users className="w-3.5 h-3.5" />
                         Needs Cast
                     </button>
                     <button
-                        onClick={() => setActiveFilter('docs')}
+                        onClick={() => updateFilter('docs')}
                         className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'docs' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <Clock3 className="w-3.5 h-3.5" />
                         Docs
                     </button>
                     <button
-                        onClick={() => setActiveFilter('intro_ready')}
+                        onClick={() => updateFilter('intro_ready')}
                         className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'intro_ready' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <Music className="w-3.5 h-3.5" />
                         Intro Ready
                     </button>
                     <button
-                        onClick={() => setActiveFilter('stage_ready')}
+                        onClick={() => updateFilter('stage_ready')}
                         className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'stage_ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />

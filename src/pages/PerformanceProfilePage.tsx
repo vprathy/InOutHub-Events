@@ -12,7 +12,6 @@ import {
     AlertCircle,
     UserPlus,
     Music,
-    MoreVertical,
     MonitorPlay
 } from 'lucide-react';
 import { useState } from 'react';
@@ -68,9 +67,6 @@ export function PerformanceProfilePage() {
                     >
                         <ChevronLeft className="w-3.5 h-3.5 mr-1 group-hover:-translate-x-1 transition-transform" />
                         Back to Performances
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical size={18} />
                     </Button>
                 </div>
 
