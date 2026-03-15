@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
+import { useNavigate } from 'react-router-dom';
 
 export default function StageConsolePage() {
     const { eventId } = useSelection();
+    const navigate = useNavigate();
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
 
     const { data: stages, isLoading: isLoadingStages } = useStagesQuery(eventId || '');
@@ -59,8 +61,13 @@ export default function StageConsolePage() {
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 animate-in fade-in slide-in-from-top-2">
                         <ShieldAlert size={16} className="text-rose-600" />
                         <span className="text-sm font-bold">{criticalRisks} Operational {criticalRisks === 1 ? 'Risk' : 'Risks'} Detected</span>
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] uppercase font-black px-2 hover:bg-rose-100 text-rose-800" asChild>
-                            <a href="/lineup">Fix in Lineup</a>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 text-[10px] uppercase font-black px-3 hover:bg-rose-100 text-rose-800"
+                            onClick={() => navigate('/lineup')}
+                        >
+                            Fix in Lineup
                         </Button>
                     </div>
                 )}
@@ -76,7 +83,7 @@ export default function StageConsolePage() {
                             key={stage.id}
                             variant={selectedStageId === stage.id ? 'default' : 'outline'}
                             onClick={() => setSelectedStageId(stage.id)}
-                            className={selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}
+                            className={`h-11 rounded-xl px-4 text-sm font-bold ${selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}`}
                         >
                             <LayoutGrid size={16} className="mr-2" />
                             {stage.name}

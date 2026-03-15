@@ -243,6 +243,11 @@ export function LivePerformanceController({
                                             <span className="text-[8px] opacity-40 font-black uppercase tracking-widest mt-0.5">Step 4: Play</span>
                                         </Button>
                                     )}
+                                    {!isIntroReady && current?.act?.id ? (
+                                        <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">
+                                            Intro Pending Approval
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
 
