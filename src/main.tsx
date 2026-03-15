@@ -4,10 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import './index.css';
 import App from '@/App.tsx';
-import { registerSW } from 'virtual:pwa-register';
-
-// Register PWA service worker for automatic updates
-registerSW({ immediate: true });
 
 // Create a client
 const queryClient = new QueryClient({

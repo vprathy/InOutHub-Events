@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,12 @@ export function PwaUpdateBanner() {
         needRefresh: [needRefresh],
         updateServiceWorker,
     } = useRegisterSW();
+
+    useEffect(() => {
+        if (needRefresh) {
+            setDismissed(false);
+        }
+    }, [needRefresh, version]);
 
     if (!needRefresh || dismissed) return null;
 
