@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useParticipantsQuery } from '@/hooks/useParticipants';
 import { useSelection } from '@/context/SelectionContext';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
+import { AddParticipantModal } from '@/components/participants/AddParticipantModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -20,7 +21,8 @@ import {
     AlertTriangle,
     ArrowUpRight,
     Database,
-    ChevronDown
+    ChevronDown,
+    Plus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -34,6 +36,7 @@ export default function ParticipantsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { eventId } = useSelection();
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'identity_pending' | 'at_risk'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
@@ -185,18 +188,27 @@ export default function ParticipantsPage() {
                     title="Event Roster"
                     subtitle={`${stats.total} people, ${stats.unassigned} still need placement`}
                     actions={
-                        <button
-                            onClick={() => {
-                                const nextParams = new URLSearchParams(searchParams);
-                                nextParams.set('action', 'import');
-                                setSearchParams(nextParams, { replace: true });
-                                setIsImportModalOpen(true);
-                            }}
-                            className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
-                        >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            <span>Sync Now</span>
-                        </button>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <button
+                                onClick={() => setIsAddParticipantOpen(true)}
+                                className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl border border-primary/20 bg-primary/5 px-4 text-[11px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/10 sm:w-auto"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Participant</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const nextParams = new URLSearchParams(searchParams);
+                                    nextParams.set('action', 'import');
+                                    setSearchParams(nextParams, { replace: true });
+                                    setIsImportModalOpen(true);
+                                }}
+                                className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Sync Now</span>
+                            </button>
+                        </div>
                     }
                     status={eventId ? (
                         <div className={`inline-flex items-center text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(eventData?.last_synced_at || null) ? 'text-amber-500 animate-pulse' : 'text-emerald-500/80'}`}>
@@ -572,6 +584,11 @@ export default function ParticipantsPage() {
                     setSearchParams(nextParams, { replace: true });
                     setIsImportModalOpen(false);
                 }}
+            />
+            <AddParticipantModal
+                eventId={eventId}
+                isOpen={isAddParticipantOpen}
+                onClose={() => setIsAddParticipantOpen(false)}
             />
 
             {/* Quick Assign Modal */}

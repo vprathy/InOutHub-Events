@@ -12,7 +12,8 @@ import {
     AlertCircle,
     UserPlus,
     Music,
-    MonitorPlay
+    MonitorPlay,
+    ChevronRight
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -54,8 +55,35 @@ export function PerformanceProfilePage() {
         );
     }
 
+    const introRequirement = (act.requirements || []).find((req: any) => req.requirementType === 'IntroComposition');
+    const hasMusicTrack = (act.assets || []).some((asset: any) =>
+        asset.assetType === 'Audio' || asset.assetName?.toLowerCase().includes('music')
+    );
+    const introState = introRequirement?.fulfilled
+        ? { label: 'Approved', tone: 'ready' as const }
+        : introRequirement
+            ? { label: 'Pending', tone: 'warning' as const }
+            : { label: 'Needs Intro', tone: 'missing' as const };
+    const readinessItems = [
+        {
+            label: 'Music',
+            value: hasMusicTrack ? 'Uploaded' : 'Missing',
+            tone: hasMusicTrack ? 'ready' as const : 'missing' as const,
+        },
+        {
+            label: 'Cast',
+            value: act.participants.length > 0 ? `${act.participants.length} assigned` : 'Needs cast',
+            tone: act.participants.length > 0 ? 'ready' as const : 'missing' as const,
+        },
+        {
+            label: 'Intro',
+            value: introState.label,
+            tone: introState.tone,
+        },
+    ];
+
     return (
-        <div className="flex flex-col space-y-6 max-w-5xl mx-auto pb-20">
+        <div className="flex flex-col space-y-5 max-w-5xl mx-auto pb-20">
             {/* Operational Header - Unified Strip */}
             <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
@@ -108,29 +136,70 @@ export function PerformanceProfilePage() {
                 <p className="text-xs font-medium text-muted-foreground">{act.participants.length} active cast members assigned</p>
             </div>
 
+            <Card className="border-border/50 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
+                        {readinessItems.map((item) => (
+                            <div
+                                key={item.label}
+                                className={`rounded-xl border px-3 py-2 ${item.tone === 'ready'
+                                    ? 'border-emerald-500/20 bg-emerald-500/5'
+                                    : item.tone === 'warning'
+                                        ? 'border-amber-500/20 bg-amber-500/5'
+                                        : 'border-rose-500/20 bg-rose-500/5'
+                                    }`}
+                            >
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">{item.label}</p>
+                                <p className="mt-1 text-sm font-bold text-foreground">{item.value}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <Button
+                        variant="outline"
+                        className="h-11 rounded-xl border-primary/20 bg-primary/5 px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary hover:bg-primary/10"
+                        onClick={() => setActiveTab('assets')}
+                    >
+                        Review Media & Intro
+                        <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+            </Card>
+
             {/* Navigation Tabs - Swippable Cockpit */}
-            <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    <Info size={14} />
-                    Overview
-                </button>
-                <button
-                    onClick={() => setActiveTab('cast')}
-                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    <Users size={14} />
-                    Team
-                </button>
-                <button
-                    onClick={() => setActiveTab('assets')}
-                    className={`whitespace-nowrap px-6 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
-                >
-                    <Music size={14} />
-                    Media & Intro
-                </button>
+            <div className="relative">
+                <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'overview' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                    >
+                        <Info size={14} />
+                        Overview
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('cast')}
+                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                    >
+                        <Users size={14} />
+                        Team
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('assets')}
+                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                    >
+                        <Music size={14} />
+                        Media & Intro
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${introState.tone === 'ready'
+                            ? 'bg-emerald-500/10 text-emerald-600'
+                            : introState.tone === 'warning'
+                                ? 'bg-amber-500/10 text-amber-600'
+                                : 'bg-rose-500/10 text-rose-600'
+                            }`}>
+                            {introState.label}
+                        </span>
+                    </button>
+                </div>
+                <div className="pointer-events-none absolute inset-y-1 left-1 w-6 rounded-l-2xl bg-gradient-to-r from-background/75 to-transparent sm:hidden" />
+                <div className="pointer-events-none absolute inset-y-1 right-1 w-8 rounded-r-2xl bg-gradient-to-l from-background via-background/70 to-transparent sm:hidden" />
             </div>
 
             {/* Tab Content */}
@@ -165,60 +234,36 @@ export function PerformanceProfilePage() {
 
 
 function OverviewTab({ act }: { act: any }) {
-    const introRequirement = (act.requirements || []).find((req: any) => req.requirementType === 'IntroComposition');
-    const participantsNeedingDocs = (act.participants || []).filter((participant: any) => {
-        const assets = participant.assets || [];
-        return assets.length === 0 || assets.some((asset: any) => asset.status !== 'approved');
-    }).length;
-
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-6">
-                <Card className="p-6 space-y-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <FileText size={20} className="text-primary" />
+        <div className="space-y-4">
+            <Card className={`space-y-3 ${act.notes ? 'p-5' : 'p-4'}`}>
+                <div className="flex items-center gap-2">
+                    <FileText size={18} className="text-primary" />
+                    <h3 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
                         Director's Notes
                     </h3>
-                    <div className="p-4 bg-muted/30 rounded-xl text-foreground/80 leading-relaxed font-medium">
-                        {act.notes || "No technical notes provided for this performance."}
-                    </div>
-                </Card>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <Card className="p-6 flex flex-col items-center justify-center text-center space-y-2 border-primary/10 bg-primary/[0.02]">
-                        <Clock size={24} className="text-primary mb-1" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Setup Time</p>
-                        <h4 className="text-2xl font-black">{act.setupTimeMinutes} <span className="text-sm font-medium">mins</span></h4>
-                    </Card>
-                    <Card className="p-6 flex flex-col items-center justify-center text-center space-y-2 border-primary/10 bg-primary/[0.02]">
-                        <Timer size={24} className="text-primary mb-1" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Show Time</p>
-                        <h4 className="text-2xl font-black">{act.durationMinutes} <span className="text-sm font-medium">mins</span></h4>
-                    </Card>
                 </div>
-            </div>
-
-            <div className="space-y-6">
-                <Card className="p-6 space-y-4">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Readiness Signal</h3>
-                    <div className="space-y-4">
-                        <ReadinessItem
-                            label="Cast Assigned"
-                            status={act.participants.length > 0 ? 'ready' : 'missing'}
-                        />
-                        <ReadinessItem
-                            label="Arrival State"
-                            status={act.arrivalStatus === 'Ready' ? 'ready' : 'warning'}
-                        />
-                        <ReadinessItem
-                            label="Docs Follow-Up"
-                            status={participantsNeedingDocs === 0 ? 'ready' : participantsNeedingDocs === act.participants.length ? 'missing' : 'warning'}
-                        />
-                        <ReadinessItem
-                            label="Intro Approval"
-                            status={introRequirement?.fulfilled ? 'ready' : 'info'}
-                        />
+                {act.notes ? (
+                    <div className="rounded-xl bg-muted/30 p-4 text-sm font-medium leading-relaxed text-foreground/80">
+                        {act.notes}
                     </div>
+                ) : (
+                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm font-medium text-muted-foreground">
+                        No technical notes recorded for this performance.
+                    </div>
+                )}
+            </Card>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Card className="p-5 flex flex-col items-center justify-center text-center space-y-1.5 border-primary/10 bg-primary/[0.02]">
+                    <Clock size={22} className="text-primary mb-1" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Setup Time</p>
+                    <h4 className="text-2xl font-black">{act.setupTimeMinutes} <span className="text-sm font-medium">mins</span></h4>
+                </Card>
+                <Card className="p-5 flex flex-col items-center justify-center text-center space-y-1.5 border-primary/10 bg-primary/[0.02]">
+                    <Timer size={22} className="text-primary mb-1" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Show Time</p>
+                    <h4 className="text-2xl font-black">{act.durationMinutes} <span className="text-sm font-medium">mins</span></h4>
                 </Card>
             </div>
         </div>
@@ -458,25 +503,6 @@ function AssetsTab({ act, onOpenAssetManager }: { act: any, onOpenAssetManager: 
             <Card id="intro-builder" className="p-1 border shadow-xl bg-card/50 scroll-mt-28">
                 <IntroVideoBuilder actId={act.id} />
             </Card>
-        </div>
-    );
-}
-
-function ReadinessItem({ label, status }: { label: string, status: 'ready' | 'warning' | 'missing' | 'info' }) {
-    const colors = {
-        ready: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-        warning: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-        missing: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-        info: 'text-blue-500 bg-blue-500/10 border-blue-500/20'
-    };
-
-    return (
-        <div className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-muted/10">
-            <span className="text-xs font-bold text-foreground/70">{label}</span>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${colors[status]}`}>
-                {status === 'ready' ? <CheckCircle size={10} /> : status === 'missing' ? <AlertCircle size={10} /> : <Info size={10} />}
-                {status}
-            </div>
         </div>
     );
 }

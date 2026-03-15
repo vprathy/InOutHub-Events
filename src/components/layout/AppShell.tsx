@@ -8,7 +8,7 @@ export const AppShell: React.FC = () => {
         <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 transition-colors">
             <Header />
 
-            <main className="flex-1 w-full max-w-screen-xl mx-auto px-6 pt-2 pb-8 pb-24 font-sans">
+            <main className="flex-1 w-full max-w-screen-xl mx-auto px-4 pt-1 pb-6 pb-24 font-sans sm:px-6 sm:pt-2 sm:pb-8">
                 <Outlet />
             </main>
 

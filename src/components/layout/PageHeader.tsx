@@ -18,14 +18,14 @@ export function PageHeader({
     const isCentered = align === 'center';
 
     return (
-        <div className={`space-y-3 ${isCentered ? 'text-center' : ''}`}>
-            <div className={`flex flex-col gap-3 ${isCentered ? 'items-center' : 'sm:flex-row sm:items-end sm:justify-between'}`}>
+        <div className={`space-y-2 ${isCentered ? 'text-center' : ''}`}>
+            <div className={`flex flex-col gap-2 ${isCentered ? 'items-center' : 'sm:flex-row sm:items-end sm:justify-between'}`}>
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
                         {title}
                     </h1>
                     {subtitle ? (
-                        <p className="text-sm font-medium text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground sm:text-sm">
                             {subtitle}
                         </p>
                     ) : null}
