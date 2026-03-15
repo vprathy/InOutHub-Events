@@ -70,7 +70,7 @@ export default function DashboardPage() {
                     percent={radar?.participants.total ? ((radar.participants.total - radar.participants.unassigned) / radar.participants.total) * 100 : 0}
                     icon={Users}
                     color={radar?.participants.unassigned ? 'orange' : 'emerald'}
-                    onClick={() => navigate('/participants')}
+                    onClick={() => navigate('/participants?filter=unassigned')}
                     isAlert={!!radar?.participants.unassigned}
                 />
                 <RadarCard
@@ -80,7 +80,7 @@ export default function DashboardPage() {
                     percent={radar?.overallReadiness || 0}
                     icon={FileCheck}
                     color={(radar?.assets.pending || radar?.assets.missing) ? 'orange' : 'emerald'}
-                    onClick={() => navigate('/participants')}
+                    onClick={() => navigate('/participants?filter=missing')}
                     isAlert={!!((radar?.assets.pending || 0) + (radar?.assets.missing || 0))}
                 />
                 <RadarCard
