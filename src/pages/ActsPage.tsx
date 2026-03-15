@@ -2,7 +2,7 @@ import { useSelection } from '@/context/SelectionContext';
 import { useActsQuery } from '@/hooks/useActs';
 import { ActCard } from '@/components/acts/ActCard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Music, Search, Filter, Loader2, Plus } from 'lucide-react';
+import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
@@ -10,12 +10,28 @@ import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 export default function ActsPage() {
     const { eventId } = useSelection();
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'needs_cast' | 'docs' | 'intro_ready' | 'stage_ready'>('all');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
 
-    const filteredActs = acts?.filter(act =>
-        act.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const stats = {
+        total: acts?.length || 0,
+        needsCast: acts?.filter((act) => act.participantCount === 0).length || 0,
+        docs: acts?.filter((act) => act.missingAssetCount > 0).length || 0,
+        introReady: acts?.filter((act) => act.hasApprovedIntro).length || 0,
+        stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
+    };
+
+    const filteredActs = acts?.filter(act => {
+        const matchesSearch = act.name.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+
+        if (activeFilter === 'needs_cast') return act.participantCount === 0;
+        if (activeFilter === 'docs') return act.missingAssetCount > 0;
+        if (activeFilter === 'intro_ready') return act.hasApprovedIntro;
+        if (activeFilter === 'stage_ready') return act.arrivalStatus === 'Ready';
+        return true;
+    });
 
     if (isLoading || !eventId) {
         return (
@@ -48,28 +64,102 @@ export default function ActsPage() {
                 </div>
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                    className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                 >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Performance
                 </Button>
             </div>
 
-            {/* Search and Filters */}
-            <div className="flex items-center space-x-2">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                        type="text"
-                        placeholder="Search performances..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium"
-                    />
-                </div>
-                <button className="p-3 bg-secondary rounded-xl text-muted-foreground hover:text-foreground transition-colors">
-                    <Filter className="w-5 h-5" />
+            <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <button
+                    onClick={() => setActiveFilter('all')}
+                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'all' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
+                >
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.total}</p>
                 </button>
+                <button
+                    onClick={() => setActiveFilter('needs_cast')}
+                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'needs_cast' ? 'border-indigo-500 bg-indigo-500/5 shadow-sm' : 'border-border bg-card hover:border-indigo-500/40'}`}
+                >
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Needs Cast</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.needsCast}</p>
+                </button>
+                <button
+                    onClick={() => setActiveFilter('docs')}
+                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'docs' ? 'border-amber-500 bg-amber-500/5 shadow-sm' : 'border-border bg-card hover:border-amber-500/40'}`}
+                >
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Docs</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.docs}</p>
+                </button>
+                <button
+                    onClick={() => setActiveFilter('intro_ready')}
+                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'intro_ready' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
+                >
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Intro Ready</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.introReady}</p>
+                </button>
+                <button
+                    onClick={() => setActiveFilter('stage_ready')}
+                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'stage_ready' ? 'border-emerald-500 bg-emerald-500/5 shadow-sm' : 'border-border bg-card hover:border-emerald-500/40'}`}
+                >
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Stage Ready</p>
+                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.stageReady}</p>
+                </button>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Search performances..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <button
+                        onClick={() => setActiveFilter('all')}
+                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
+                    >
+                        <Users className="w-3.5 h-3.5" />
+                        All
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('needs_cast')}
+                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'needs_cast' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'bg-card border border-border text-muted-foreground'}`}
+                    >
+                        <Users className="w-3.5 h-3.5" />
+                        Needs Cast
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('docs')}
+                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'docs' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-card border border-border text-muted-foreground'}`}
+                    >
+                        <Clock3 className="w-3.5 h-3.5" />
+                        Docs
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('intro_ready')}
+                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'intro_ready' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
+                    >
+                        <Music className="w-3.5 h-3.5" />
+                        Intro Ready
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('stage_ready')}
+                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'stage_ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-card border border-border text-muted-foreground'}`}
+                    >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Stage Ready
+                    </button>
+                </div>
             </div>
 
             {!acts || acts.length === 0 ? (

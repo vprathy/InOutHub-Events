@@ -28,14 +28,14 @@ export function ActIndicators({
                 </div>
             )}
 
-            {/* Missing Forms Alert */}
+            {/* Missing Docs Alert */}
             {missingAssetCount > 0 && (
                 <div
                     className="flex min-h-[28px] items-center space-x-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-tighter text-rose-600"
-                    title={`${missingAssetCount} participants have pending forms`}
+                    title={`${missingAssetCount} participants have docs or approvals still pending`}
                 >
                     <AlertCircle className="w-2.5 h-2.5" />
-                    <span>Forms</span>
+                    <span>Docs</span>
                 </div>
             )}
 
