@@ -12,9 +12,19 @@ interface AddParticipantToActModalProps {
     actId: string;
     actName: string;
     eventId: string;
+    role?: string;
+    title?: string;
 }
 
-export function AddParticipantToActModal({ isOpen, onClose, actId, actName, eventId }: AddParticipantToActModalProps) {
+export function AddParticipantToActModal({
+    isOpen,
+    onClose,
+    actId,
+    actName,
+    eventId,
+    role = 'Performer',
+    title,
+}: AddParticipantToActModalProps) {
     const { data: participants, isLoading } = useParticipantsQuery(eventId);
     const addParticipant = useAddParticipantToAct(actId, eventId);
     const [searchQuery, setSearchQuery] = useState('');
@@ -26,7 +36,7 @@ export function AddParticipantToActModal({ isOpen, onClose, actId, actName, even
 
     const handleAdd = async (participantId: string) => {
         try {
-            await addParticipant.mutateAsync({ participantId });
+            await addParticipant.mutateAsync({ participantId, role });
             // We don't close immediately so they can add multiple
         } catch (error) {
             console.error('Failed to add participant:', error);
@@ -34,7 +44,7 @@ export function AddParticipantToActModal({ isOpen, onClose, actId, actName, even
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Add to: ${actName}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={title || `Add to: ${actName}`}>
             <div className="space-y-4 pt-4">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

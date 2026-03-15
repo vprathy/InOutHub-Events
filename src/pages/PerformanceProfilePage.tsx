@@ -22,6 +22,7 @@ import { Card } from '@/components/ui/Card';
 import { StatusPicker } from '@/components/acts/StatusPicker';
 import { IntroVideoBuilder } from '@/components/acts/IntroVideoBuilder';
 import { UploadActAssetModal } from '@/components/acts/UploadActAssetModal';
+import { AddParticipantToActModal } from '@/components/acts/AddParticipantToActModal';
 
 type TabType = 'overview' | 'cast' | 'assets';
 
@@ -30,6 +31,8 @@ export function PerformanceProfilePage() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+    const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
     const { data: act, isLoading } = useActDetail(actId || null);
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
 
@@ -137,7 +140,10 @@ export function PerformanceProfilePage() {
             {/* Tab Content */}
             <div className="mt-2">
                 {activeTab === 'overview' && <OverviewTab act={act} />}
-                {activeTab === 'cast' && <CastTab participants={act.participants} />}
+                {activeTab === 'cast' && <CastTab participants={act.participants} onAddParticipant={(role) => {
+                    setAddRole(role);
+                    setIsAddParticipantOpen(true);
+                }} />}
                 {activeTab === 'assets' && <AssetsTab act={act} onOpenAssetManager={() => setIsUploadOpen(true)} />}
             </div>
 
@@ -147,6 +153,15 @@ export function PerformanceProfilePage() {
                 actId={act.id}
                 actName={act.name}
                 eventId={act.eventId}
+            />
+            <AddParticipantToActModal
+                isOpen={isAddParticipantOpen}
+                onClose={() => setIsAddParticipantOpen(false)}
+                actId={act.id}
+                actName={act.name}
+                eventId={act.eventId}
+                role={addRole}
+                title={addRole === 'Manager' ? `Add Team Member to: ${act.name}` : `Add Performer to: ${act.name}`}
             />
         </div>
     );
@@ -214,7 +229,7 @@ function OverviewTab({ act }: { act: any }) {
     );
 }
 
-function CastTab({ participants }: { participants: any[] }) {
+function CastTab({ participants, onAddParticipant }: { participants: any[]; onAddParticipant: (role: 'Performer' | 'Manager') => void }) {
     const navigate = useNavigate();
 
     const team = participants.filter(p => ['Manager', 'Choreographer', 'Support'].includes(p.role));
@@ -230,7 +245,7 @@ function CastTab({ participants }: { participants: any[] }) {
                         Performance Team
                     </h3>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="h-11 font-bold border-primary/20 hover:bg-primary/5">
+                        <Button size="sm" variant="outline" className="h-11 font-bold border-primary/20 hover:bg-primary/5" onClick={() => onAddParticipant('Manager')}>
                             <UserPlus size={16} className="mr-2" />
                             Add Team Member
                         </Button>
@@ -255,11 +270,16 @@ function CastTab({ participants }: { participants: any[] }) {
                         Cast / Performers
                     </h3>
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                        <Button size="sm" variant="ghost" className="font-black text-primary text-[10px] uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-all w-full sm:w-auto order-2 sm:order-1 h-11">
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="font-black text-primary text-[10px] uppercase tracking-widest bg-primary/5 hover:bg-primary/10 transition-all w-full sm:w-auto order-2 sm:order-1 h-11"
+                            onClick={() => navigate('/participants?filter=unassigned')}
+                        >
                             <Info size={14} className="mr-1.5" />
-                            AI Suggest Cast
+                            Review Unassigned
                         </Button>
-                        <Button size="sm" className="font-black uppercase tracking-widest text-[10px] w-full sm:w-auto order-1 sm:order-2 h-11">
+                        <Button size="sm" className="font-black uppercase tracking-widest text-[10px] w-full sm:w-auto order-1 sm:order-2 h-11" onClick={() => onAddParticipant('Performer')}>
                             <UserPlus size={16} className="mr-2" />
                             Add Performer
                         </Button>
