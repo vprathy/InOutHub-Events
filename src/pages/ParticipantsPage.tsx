@@ -19,7 +19,6 @@ import {
     Clock,
     AlertTriangle,
     ArrowUpRight,
-    Plus,
     Database,
     ChevronDown
 } from 'lucide-react';
@@ -178,7 +177,7 @@ export default function ParticipantsPage() {
     };
 
     return (
-        <div className="flex flex-col space-y-6">
+            <div className="flex flex-col space-y-5">
             <div className="flex items-start justify-between">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Event Roster</h1>
@@ -237,7 +236,7 @@ export default function ParticipantsPage() {
                 </div>
 
             {/* Search, Sort and Quick Filters */}
-            <div className="space-y-4">
+            <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -345,7 +344,7 @@ export default function ParticipantsPage() {
                         }}
                     />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredParticipants?.map((participant) => {
                         const isExpanded = expandedId === participant.id;
                         const isReady = (participant.assetStats?.missing === 0 && participant.assetStats?.total > 0) && (participant.actCount || 0) > 0;
@@ -353,14 +352,14 @@ export default function ParticipantsPage() {
                         return (
                             <div
                                 key={participant.id}
-                                className={`group bg-card rounded-lg border transition-all overflow-hidden ${isExpanded ? 'ring-2 ring-primary/20 border-primary/50 shadow-md' : 'border-border hover:border-primary/40 shadow-sm antialiased'}`}
+                                className={`group bg-card rounded-2xl border transition-all overflow-hidden ${isExpanded ? 'ring-2 ring-primary/20 border-primary/50 shadow-md' : 'border-border hover:border-primary/40 shadow-sm antialiased'}`}
                             >
                                 {/* Compact Card Top */}
                                 <div
                                     className="p-3 cursor-pointer"
                                     onClick={() => setExpandedId(isExpanded ? null : participant.id)}
                                 >
-                                    <div className="flex items-start justify-between">
+                                    <div className="flex items-start justify-between gap-3">
                                         <div className="flex items-center space-x-3">
                                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isReady ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
                                                 <User className="w-5 h-5" />
@@ -384,7 +383,7 @@ export default function ParticipantsPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end">
+                                        <div className="flex flex-col items-end gap-1.5">
                                             {isReady ? (
                                                 <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
                                                     Ready
@@ -398,11 +397,21 @@ export default function ParticipantsPage() {
                                                     Pending
                                                 </Badge>
                                             )}
+                                            <button
+                                                className="flex items-center space-x-1 text-[10px] font-bold uppercase tracking-wide text-primary"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/participants/${participant.id}`);
+                                                }}
+                                            >
+                                                <span>Open</span>
+                                                <ArrowUpRight className="w-3 h-3" />
+                                            </button>
                                         </div>
                                     </div>
 
                                     {/* Quick Info Tags */}
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
+                                    <div className="flex flex-wrap gap-1.5 mt-2.5">
                                         {participant.actCount ? (
                                             <div className="flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 text-[9px] font-bold uppercase">
                                                 <User className="w-3 h-3 mr-1" />
@@ -432,7 +441,7 @@ export default function ParticipantsPage() {
                                                 Minor Safety
                                             </div>
                                         )}
-                                        {!participant.guardianPhone && (
+                                        {!participant.guardianPhone && !participant.isMinor && (
                                             <div className="flex items-center px-1.5 py-0.5 rounded-md bg-slate-700/10 text-slate-600 text-[9px] font-bold uppercase">
                                                 <Phone className="w-3 h-3 mr-1" />
                                                 No Phone
@@ -444,6 +453,15 @@ export default function ParticipantsPage() {
                                 {/* Thumb-Friendly Action Bar */}
                                 <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50 bg-accent/10">
                                     <div className="flex items-center space-x-2">
+                                        <button
+                                            className="h-11 rounded-xl bg-indigo-600 px-3 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAssigningParticipant(participant.id);
+                                            }}
+                                        >
+                                            Place
+                                        </button>
                                         {participant.guardianPhone && (
                                             <a
                                                 href={`tel:${participant.guardianPhone}`}
@@ -461,15 +479,6 @@ export default function ParticipantsPage() {
                                             }}
                                         >
                                             <MessageSquare className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                            className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-indigo-600 shadow-sm hover:border-indigo-500/50 transition-colors"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setAssigningParticipant(participant.id);
-                                            }}
-                                        >
-                                            <Plus className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                     <button

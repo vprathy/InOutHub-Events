@@ -62,7 +62,7 @@ export function ActCard({ act }: ActCardProps) {
 
     return (
         <div
-            className={`bg-card border rounded-[2rem] p-5 md:p-6 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-4 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
+            className={`bg-card border rounded-[1.75rem] p-4 md:p-5 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
                 }`}
             onClick={() => navigate(`/acts/${act.id}`)}
         >
@@ -79,22 +79,22 @@ export function ActCard({ act }: ActCardProps) {
             )}
 
             {/* Top Section: Name and Indicators */}
-            <div className="space-y-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2.5">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-start gap-2">
-                            <h3 className="text-xl font-black leading-tight tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1">
+                            <h3 className="text-lg font-black leading-tight tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1">
                                 {act.name}
                             </h3>
                             <ExternalLink size={14} className="mt-1 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground font-black uppercase tracking-widest">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted-foreground font-black uppercase tracking-widest">
                             <div className="flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-primary" />
+                                <Clock className="w-3.5 h-3.5 text-primary" />
                                 <span>{primaryMeta[0]}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <Info className="w-4 h-4 text-primary" />
+                                <Info className="w-3.5 h-3.5 text-primary" />
                                 <span>{primaryMeta[1]}</span>
                             </div>
                             <span className="text-[11px] font-bold normal-case tracking-normal text-muted-foreground/80">
@@ -129,8 +129,35 @@ export function ActCard({ act }: ActCardProps) {
                 </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-2.5">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px] rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/acts/${act.id}`);
+                    }}
+                >
+                    <MonitorPlay className="w-3.5 h-3.5 mr-2" />
+                    Open Workspace
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAddParticipantOpen(true);
+                    }}
+                >
+                    <UserPlus className="w-3.5 h-3.5 mr-2 text-primary" />
+                    <span className="truncate">Add Performer</span>
+                </Button>
+            </div>
+
             {act.hasApprovedIntro ? (
-                <div className="relative z-10 overflow-hidden rounded-[1.75rem] border border-primary/20 bg-slate-950">
+                <div className="relative z-10 overflow-hidden rounded-[1.5rem] border border-primary/20 bg-slate-950">
                     {act.introBackgroundUrl ? (
                         <img src={act.introBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
                     ) : null}
@@ -138,7 +165,7 @@ export function ActCard({ act }: ActCardProps) {
                     <button
                         onClick={handlePlayIntro}
                         disabled={isPreviewLoading}
-                        className="group/intro relative flex min-h-[176px] w-full items-end overflow-hidden p-4 sm:p-5 text-left transition hover:border-primary/60 disabled:cursor-wait disabled:opacity-80"
+                        className="group/intro relative flex min-h-[148px] w-full items-end overflow-hidden p-4 text-left transition hover:border-primary/60 disabled:cursor-wait disabled:opacity-80"
                     >
                         <div className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/75 backdrop-blur-sm">
                             Intro Ready
@@ -154,7 +181,7 @@ export function ActCard({ act }: ActCardProps) {
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">
                                     {isPreviewLoading ? 'Loading Preview' : 'Preview Intro'}
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-white/85">
+                                <p className="mt-1 text-xs font-semibold text-white/85">
                                     Open the approved intro from this card.
                                 </p>
                             </div>
@@ -174,7 +201,7 @@ export function ActCard({ act }: ActCardProps) {
             ) : null}
 
             {/* Tactical Action Bar */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <Button
                     variant="outline"
                     size="sm"
@@ -190,18 +217,6 @@ export function ActCard({ act }: ActCardProps) {
                 <Button
                     variant="outline"
                     size="sm"
-                    className="min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setIsAddParticipantOpen(true);
-                    }}
-                >
-                    <UserPlus className="w-3.5 h-3.5 mr-2 text-primary" />
-                    <span className="truncate">Add Performer</span>
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
                     className={`min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm ${!act.hasMusicTrack ? 'border-rose-500/30 text-rose-600 bg-rose-500/5' : ''
                         }`}
                     onClick={(e) => {
@@ -211,18 +226,6 @@ export function ActCard({ act }: ActCardProps) {
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
                     <span className="truncate">Music/Tech</span>
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-h-[44px] rounded-2xl border-primary/20 hover:border-primary bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm shadow-primary/5 col-span-2"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/acts/${act.id}`);
-                    }}
-                >
-                    <MonitorPlay className="w-3.5 h-3.5 mr-2" />
-                    Open Workspace
                 </Button>
             </div>
 
