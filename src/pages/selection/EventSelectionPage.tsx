@@ -65,15 +65,16 @@ export default function EventSelectionPage() {
         }
     };
 
-    const handleSelect = (id: string) => {
-        setEventId(id);
+    const handleSelect = (id: string, timeZone?: string | null) => {
+        setEventId(id, timeZone);
         navigate('/dashboard');
     };
 
-    const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>, id: string) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleSelect(id);
+    const handleCardKeyDown = (keyboardEvent: React.KeyboardEvent<HTMLElement>, id: string) => {
+        if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+            keyboardEvent.preventDefault();
+            const selectedEvent = events.find((entry) => entry.id === id);
+            handleSelect(id, selectedEvent?.timezone);
         }
     };
 
@@ -124,7 +125,7 @@ export default function EventSelectionPage() {
                                         key={event.id}
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => handleSelect(event.id)}
+                                        onClick={() => handleSelect(event.id, event.timezone)}
                                         onKeyDown={(keyboardEvent) => handleCardKeyDown(keyboardEvent, event.id)}
                                         className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                     >
@@ -136,6 +137,7 @@ export default function EventSelectionPage() {
                                                 <p className="font-black text-lg text-foreground leading-tight">{event.name}</p>
                                                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mt-1">
                                                     {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'No Date Set'}
+                                                    {event.timezone ? ` • ${event.timezone.split('/').pop()?.replace('_', ' ')}` : ''}
                                                 </p>
                                             </div>
                                         </div>
@@ -165,7 +167,7 @@ export default function EventSelectionPage() {
                                                             label: 'Manage Access',
                                                             icon: <ShieldAlert className="w-4 h-4" />,
                                                             onClick: () => {
-                                                                setEventId(event.id);
+                                                                setEventId(event.id, event.timezone);
                                                                 setIsManageAccessOpen(true);
                                                             }
                                                         }
@@ -210,13 +212,13 @@ export default function EventSelectionPage() {
                             setIsCreateModalOpen(false);
                             setEditingEvent(null);
                         }}
-                        onSuccess={(id) => {
+                        onSuccess={({ id, timezone }) => {
                             if (editingEvent) {
                                 fetchEvents();
                                 setIsCreateModalOpen(false);
                                 setEditingEvent(null);
                             } else {
-                                handleSelect(id);
+                                handleSelect(id, timezone);
                             }
                         }}
                     />

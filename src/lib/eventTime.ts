@@ -1,4 +1,21 @@
 export const DEFAULT_EVENT_TIMEZONE = 'America/New_York';
+const EVENT_TIMEZONE_STORAGE_KEY = 'inouthub_event_timezone';
+
+const SUPPORTED_EVENT_TIMEZONES = [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+] as const;
+
+export function getSupportedEventTimezones() {
+    return [...SUPPORTED_EVENT_TIMEZONES];
+}
+
+export function getSelectedEventTimezone() {
+    if (typeof window === 'undefined') return DEFAULT_EVENT_TIMEZONE;
+    return localStorage.getItem(EVENT_TIMEZONE_STORAGE_KEY) || DEFAULT_EVENT_TIMEZONE;
+}
 
 function getFormatter(
     timeZone: string,
@@ -34,7 +51,7 @@ function getTimeZoneOffsetMinutes(date: Date, timeZone: string) {
     return (asUtc - date.getTime()) / 60000;
 }
 
-export function localInputToEventIso(localValue?: string | null, timeZone = DEFAULT_EVENT_TIMEZONE) {
+export function localInputToEventIso(localValue?: string | null, timeZone = getSelectedEventTimezone()) {
     if (!localValue) return null;
     const match = localValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
     if (!match) return localValue;
@@ -54,7 +71,7 @@ export function localInputToEventIso(localValue?: string | null, timeZone = DEFA
 
 export function formatEventDateTime(
     dateString?: string | null,
-    timeZone = DEFAULT_EVENT_TIMEZONE,
+    timeZone = getSelectedEventTimezone(),
     includeZone = true,
 ) {
     if (!dateString) return 'Not scheduled';
@@ -74,7 +91,7 @@ export function formatEventDateTime(
 
 export function formatEventTime(
     dateString?: string | null,
-    timeZone = DEFAULT_EVENT_TIMEZONE,
+    timeZone = getSelectedEventTimezone(),
     includeZone = false,
 ) {
     if (!dateString) return '--:--';
@@ -87,6 +104,6 @@ export function formatEventTime(
     }).format(date);
 }
 
-export function formatNowInEventTime(timeZone = DEFAULT_EVENT_TIMEZONE) {
+export function formatNowInEventTime(timeZone = getSelectedEventTimezone()) {
     return formatEventTime(new Date().toISOString(), timeZone, true);
 }

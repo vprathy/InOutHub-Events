@@ -57,6 +57,7 @@ CREATE TABLE events (
     name TEXT NOT NULL,
     start_date DATE,
     end_date DATE,
+    timezone TEXT NOT NULL DEFAULT 'America/New_York',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

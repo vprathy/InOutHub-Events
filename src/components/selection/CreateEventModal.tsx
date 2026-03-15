@@ -1,31 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Calendar, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_EVENT_TIMEZONE, getSupportedEventTimezones } from '@/lib/eventTime';
 
 interface CreateEventModalProps {
     organizationId: string;
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: (eventId: string) => void;
-    initialData?: { id: string; name: string; start_date: string | null } | null;
+    onSuccess: (event: { id: string; timezone: string }) => void;
+    initialData?: { id: string; name: string; start_date: string | null; timezone?: string | null } | null;
 }
 
 export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, initialData }: CreateEventModalProps) {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
     const [venue, setVenue] = useState('');
+    const [timeZone, setTimeZone] = useState(DEFAULT_EVENT_TIMEZONE);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const timezoneOptions = getSupportedEventTimezones();
 
     useEffect(() => {
         if (isOpen && initialData) {
             setName(initialData.name);
             setDate(initialData.start_date || '');
             setVenue('');
+            setTimeZone(initialData.timezone || DEFAULT_EVENT_TIMEZONE);
         } else if (isOpen && !initialData) {
             setName('');
             setDate('');
             setVenue('');
+            setTimeZone(DEFAULT_EVENT_TIMEZONE);
         }
     }, [isOpen, initialData]);
 
@@ -44,26 +49,28 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                     .from('events')
                     .update({
                         name,
-                        start_date: date || null
+                        start_date: date || null,
+                        timezone: timeZone,
                     })
                     .eq('id', initialData.id);
 
                 if (updateError) throw updateError;
-                onSuccess(initialData.id);
+                onSuccess({ id: initialData.id, timezone: timeZone });
             } else {
                 const { data: event, error: eventError } = await supabase
                     .from('events')
                     .insert({
                         name,
                         organization_id: organizationId,
-                        start_date: date || null
+                        start_date: date || null,
+                        timezone: timeZone,
                     })
                     .select()
                     .single();
 
                 if (eventError) throw eventError;
 
-                onSuccess(event.id);
+                onSuccess({ id: event.id, timezone: event.timezone || timeZone });
             }
             onClose();
         } catch (err: any) {
@@ -111,6 +118,21 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                                     className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Event Timezone</label>
+                            <select
+                                value={timeZone}
+                                onChange={(e) => setTimeZone(e.target.value)}
+                                className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-medium"
+                            >
+                                {timezoneOptions.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="space-y-2">

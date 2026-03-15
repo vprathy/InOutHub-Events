@@ -373,6 +373,7 @@ export type Database = {
                     source_url: string | null
                     start_date: string | null
                     status: string | null
+                    timezone: string
                 }
                 Insert: {
                     created_at?: string | null
@@ -385,6 +386,7 @@ export type Database = {
                     source_url?: string | null
                     start_date?: string | null
                     status?: string | null
+                    timezone?: string
                 }
                 Update: {
                     created_at?: string | null
@@ -397,6 +399,7 @@ export type Database = {
                     source_url?: string | null
                     start_date?: string | null
                     status?: string | null
+                    timezone?: string
                 }
                 Relationships: [
                     {
