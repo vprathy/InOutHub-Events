@@ -15,6 +15,7 @@ interface LivePerformanceControllerProps {
     next: any;
     upcoming: any;
     status: string;
+    isStageActionPending: boolean;
     driftMinutes: number;
     isOvertime: boolean;
     overtimeMinutes: number;
@@ -59,6 +60,7 @@ const getBackgroundSourceLabel = (description: string | null | undefined) => {
 
 export function LivePerformanceController({
     current, next, upcoming, status,
+    isStageActionPending,
     driftMinutes, isOvertime, overtimeMinutes,
     actions
 }: LivePerformanceControllerProps) {
@@ -127,9 +129,10 @@ export function LivePerformanceController({
                 <Button
                     size="lg"
                     onClick={actions.startShow}
+                    disabled={isStageActionPending}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-12 py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                 >
-                    START SHOW
+                    {isStageActionPending ? 'STARTING...' : 'START SHOW'}
                 </Button>
             </div>
         );
@@ -283,23 +286,24 @@ export function LivePerformanceController({
                             <div className="bg-neutral-800/50 border-t border-neutral-800 p-4 lg:p-6 flex flex-col sm:flex-row items-center gap-4 justify-between">
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     {status === 'Active' ? (
-                                        <Button onClick={actions.pauseShow} variant="outline" className="flex-1 sm:flex-none h-11 border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2">
-                                            <Pause size={18} fill="currentColor" /> PAUSE
+                                        <Button onClick={actions.pauseShow} disabled={isStageActionPending} variant="outline" className="flex-1 sm:flex-none h-11 border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2">
+                                            <Pause size={18} fill="currentColor" /> {isStageActionPending ? 'PAUSING...' : 'PAUSE'}
                                         </Button>
                                     ) : (
-                                        <Button onClick={actions.resumeShow} className="flex-1 sm:flex-none h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2">
-                                            <Play size={18} fill="currentColor" /> RESUME
+                                        <Button onClick={actions.resumeShow} disabled={isStageActionPending} className="flex-1 sm:flex-none h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2">
+                                            <Play size={18} fill="currentColor" /> {isStageActionPending ? 'RESUMING...' : 'RESUME'}
                                         </Button>
                                     )}
-                                    <Button onClick={actions.resetShow} variant="outline" className="h-11 border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold">
+                                    <Button onClick={actions.resetShow} disabled={isStageActionPending} variant="outline" className="h-11 border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold">
                                         <Square size={18} fill="currentColor" />
                                     </Button>
                                 </div>
                                 <Button
                                     onClick={actions.nextPerformance}
+                                    disabled={isStageActionPending}
                                     className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-black gap-2 px-8 py-6 text-lg rounded-xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]"
                                 >
-                                    <SkipForward size={24} fill="currentColor" /> NEXT PERFORMANCE
+                                    <SkipForward size={24} fill="currentColor" /> {isStageActionPending ? 'ADVANCING...' : 'NEXT PERFORMANCE'}
                                 </Button>
                             </div>
                         </Card>

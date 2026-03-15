@@ -30,6 +30,7 @@ export default function StageConsolePage() {
         isOvertime,
         overtimeMinutes,
         isLoading,
+        isStageActionPending,
         actions
     } = useStageConsole(selectedStageId);
 
@@ -157,6 +158,7 @@ export default function StageConsolePage() {
                     next={next}
                     upcoming={upcoming}
                     status={stageState?.status || 'Idle'}
+                    isStageActionPending={isStageActionPending}
                     driftMinutes={driftMinutes}
                     isOvertime={isOvertime}
                     overtimeMinutes={overtimeMinutes}

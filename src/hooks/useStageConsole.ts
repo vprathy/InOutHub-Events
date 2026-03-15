@@ -194,6 +194,8 @@ export function useStageConsole(stageId: string | null) {
         }
     });
 
+    const isStageActionPending = updateState.isPending;
+
     const startShow = () => {
         if (!lineup || lineup.length === 0) return;
         updateState.mutate({
@@ -244,6 +246,7 @@ export function useStageConsole(stageId: string | null) {
         isOvertime,
         overtimeMinutes,
         isLoading: isLoadingState || isLoadingLineup,
+        isStageActionPending,
         actions: {
             startShow,
             nextPerformance,
