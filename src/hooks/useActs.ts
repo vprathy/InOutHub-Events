@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
+import { localInputToEventIso } from '@/lib/eventTime';
 
 export function useActsQuery(eventId: string) {
     const queryClient = useQueryClient();
@@ -432,8 +433,8 @@ export function useAddActReadinessPractice(actId: string, eventId?: string) {
                     special_instructions: practice.specialInstructions ?? null,
                     contact_name: practice.contactName ?? null,
                     contact_phone: practice.contactPhone ?? null,
-                    starts_at: practice.startsAt,
-                    ends_at: practice.endsAt ?? null,
+                    starts_at: localInputToEventIso(practice.startsAt),
+                    ends_at: localInputToEventIso(practice.endsAt) ?? null,
                     status: practice.status,
                     notes: practice.notes ?? null,
                 }])
@@ -473,7 +474,7 @@ export function useAddActReadinessItem(actId: string, eventId?: string) {
                     notes: item.notes ?? null,
                     status: item.status,
                     owner_label: item.ownerLabel ?? null,
-                    due_at: item.dueAt ?? null,
+                    due_at: localInputToEventIso(item.dueAt) ?? null,
                 }])
                 .select()
                 .single();
@@ -514,7 +515,7 @@ export function useAddActReadinessIssue(actId: string, eventId?: string) {
                     severity: issue.severity,
                     status: issue.status,
                     owner_label: issue.ownerLabel ?? null,
-                    due_at: issue.dueAt ?? null,
+                    due_at: localInputToEventIso(issue.dueAt) ?? null,
                     resolution_note: issue.resolutionNote ?? null,
                 }])
                 .select()

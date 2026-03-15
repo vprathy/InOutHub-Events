@@ -21,6 +21,7 @@ import type { LineupSlot } from '@/types/domain';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { formatEventTime } from '@/lib/eventTime';
 
 function SortableLineupItem({
     slot,
@@ -298,7 +299,7 @@ export default function LineupPage() {
                                 {criticalRisks > 0 ? 'Critical Conflicts' : 'Estimated End Time'}
                             </p>
                             <h2 className={`text-xl sm:text-2xl font-black ${criticalRisks > 0 ? 'text-rose-600' : 'text-foreground'}`}>
-                                {criticalRisks > 0 ? criticalRisks : estimatedEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
                                 {criticalRisks > 0 ? <span className="ml-2 text-sm font-medium">High Alert</span> : null}
                             </h2>
                         </div>

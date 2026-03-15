@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatEventTime } from '@/lib/eventTime';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
@@ -18,7 +19,6 @@ interface LineupItemCardProps {
 }
 
 export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, onDragStart, lockedReason }: LineupItemCardProps) {
-    const startTime = new Date(slot.scheduledStartTime);
     const duration = slot.act.durationMinutes;
     const setupTime = slot.act.setupTimeMinutes || 0;
 
@@ -63,7 +63,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                             <div className="flex flex-wrap items-center gap-2">
                                 <div className="flex items-center bg-primary/10 text-primary px-2.5 py-1 rounded-lg text-sm font-black">
                                     <Clock size={14} className="mr-1.5" />
-                                    {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {formatEventTime(slot.scheduledStartTime, undefined, true)}
                                 </div>
                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 border-border shadow-none">
                                     {duration}m Performance

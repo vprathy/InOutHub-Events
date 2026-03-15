@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { IntroVideoPlayer } from './IntroVideoPlayer';
 import type { IntroComposition } from '@/types/domain';
 import { getPlayableIntro } from '@/lib/introCapabilities';
+import { formatEventTime, formatNowInEventTime } from '@/lib/eventTime';
 
 interface LivePerformanceControllerProps {
     current: any;
@@ -30,9 +31,7 @@ interface LivePerformanceControllerProps {
 
 const formatSafeTime = (dateString: string | null | undefined) => {
     if (!dateString) return "--:--";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "--:--";
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatEventTime(dateString, undefined, true);
 };
 
 const getBackgroundSourceLabel = (description: string | null | undefined) => {
@@ -177,7 +176,7 @@ export function LivePerformanceController({
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Current Time</p>
-                        <p className="text-lg font-black">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-lg font-black">{formatNowInEventTime()}</p>
                     </div>
                 </div>
             </div>

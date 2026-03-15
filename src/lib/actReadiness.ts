@@ -5,6 +5,7 @@ import type {
     ActReadinessState,
     ActReadinessSummary,
 } from '@/types/domain';
+import { formatEventDateTime } from '@/lib/eventTime';
 
 export function getNextPractice(practices: ActPracticeSession[] = []): ActPracticeSession | null {
     const now = Date.now();
@@ -46,16 +47,5 @@ export function deriveActReadinessSummary({
 }
 
 export function formatReadinessDate(dateString?: string | null) {
-    if (!dateString) return 'Not scheduled';
-    const normalized = dateString.includes('T') && dateString.length === 16
-        ? `${dateString}:00`
-        : dateString.replace(' ', 'T');
-    const date = new Date(normalized);
-    if (Number.isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    });
+    return formatEventDateTime(dateString);
 }
