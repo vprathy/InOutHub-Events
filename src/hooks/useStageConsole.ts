@@ -149,6 +149,7 @@ export function useStageConsole(stageId: string | null) {
     const currentIndex = lineup?.findIndex(item => item.id === stageState?.current_lineup_item_id) ?? -1;
     const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
     const recoveryIndex = findRecoveryIndex(lineup, stageState?.current_lineup_item_id);
+    const isRecoveredCurrent = isLiveRun && currentIndex === -1 && recoveryIndex !== -1;
     const anchorIndex = currentIndex !== -1
         ? currentIndex
         : isLiveRun && recoveryIndex !== -1
@@ -236,6 +237,9 @@ export function useStageConsole(stageId: string | null) {
         current,
         next,
         upcoming,
+        hasLineup: Boolean(lineup && lineup.length > 0),
+        hasRecoveredCurrent: isRecoveredCurrent,
+        currentLineupPointerMissing: Boolean(isLiveRun && stageState?.current_lineup_item_id && currentIndex === -1),
         driftMinutes,
         isOvertime,
         overtimeMinutes,

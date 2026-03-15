@@ -1,4 +1,4 @@
-import { MonitorPlay, LayoutGrid, Loader2, ShieldAlert } from 'lucide-react';
+import { MonitorPlay, LayoutGrid, Loader2, ShieldAlert, RefreshCw, WifiOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
@@ -23,6 +23,9 @@ export default function StageConsolePage() {
         current,
         next,
         upcoming,
+        hasLineup,
+        hasRecoveredCurrent,
+        currentLineupPointerMissing,
         driftMinutes,
         isOvertime,
         overtimeMinutes,
@@ -111,12 +114,44 @@ export default function StageConsolePage() {
                 )}
             </div>
 
+            {selectedStageId && !isLoading && !hasLineup ? (
+                <EmptyState
+                    title="No Lineup Loaded"
+                    description="This stage has no scheduled performances yet. Add acts in Show Flow before using the console."
+                    icon={MonitorPlay}
+                    action={{
+                        label: 'Open Show Flow',
+                        onClick: () => navigate('/lineup'),
+                    }}
+                />
+            ) : null}
+
+            {selectedStageId && !isLoading && hasRecoveredCurrent ? (
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-amber-800">
+                    <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Recovered Live Position</p>
+                        <p className="text-sm font-medium">The console restored the live run from the current lineup after a refresh or reconnect.</p>
+                    </div>
+                </div>
+            ) : null}
+
+            {selectedStageId && !isLoading && currentLineupPointerMissing ? (
+                <div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-rose-800">
+                    <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Stage State Drift</p>
+                        <p className="text-sm font-medium">The saved live pointer no longer matched the lineup. The console recovered to keep rehearsal moving.</p>
+                    </div>
+                </div>
+            ) : null}
+
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                     <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
                     <p className="font-medium">Initializing console...</p>
                 </div>
-            ) : selectedStageId ? (
+            ) : selectedStageId && hasLineup ? (
                 <LivePerformanceController
                     current={current}
                     next={next}
