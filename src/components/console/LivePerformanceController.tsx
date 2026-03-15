@@ -34,6 +34,29 @@ const formatSafeTime = (dateString: string | null | undefined) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const getBackgroundSourceLabel = (description: string | null | undefined) => {
+    if (!description?.startsWith('{')) return null;
+    try {
+        const parsed = JSON.parse(description);
+        const source = parsed?.background?.source;
+        if (source === 'fallback_background') {
+            return {
+                label: 'Fallback Backdrop',
+                className: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+            };
+        }
+        if (source === 'generated_background' || source === 'generative_background' || source === 'intro_requirement') {
+            return {
+                label: 'Backdrop Ready',
+                className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+            };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+};
+
 export function LivePerformanceController({
     current, next, upcoming, status,
     driftMinutes, isOvertime, overtimeMinutes,
@@ -65,6 +88,7 @@ export function LivePerformanceController({
     const requirements = current?.act?.requirements || [];
     const compositionReq = requirements.find((r: any) => r.requirementType === 'IntroComposition');
     const isIntroReady = compositionReq?.fulfilled && compositionReq?.description;
+    const backgroundSourceBadge = getBackgroundSourceLabel(compositionReq?.description);
     
     // Background priority: Composition background > Generative background
     const currentPoster = compositionReq?.fileUrl || requirements.find((r: any) => r.requirementType === 'Generative')?.fileUrl;
@@ -229,6 +253,11 @@ export function LivePerformanceController({
                                             </Badge>
                                         ))}
                                     </div>
+                                    {backgroundSourceBadge ? (
+                                        <div className={`rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] ${backgroundSourceBadge.className}`}>
+                                            {backgroundSourceBadge.label}
+                                        </div>
+                                    ) : null}
                                     {isIntroReady && (
                                         <Button 
                                             size="sm" 

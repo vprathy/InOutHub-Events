@@ -48,6 +48,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [participantCount, setParticipantCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  const [backgroundSource, setBackgroundSource] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -70,6 +71,15 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const hasBackground = Boolean(backgroundUrl);
   const canSaveDraft = !isApproved && (hasSelectedAssets || hasBackground);
   const canApprove = hasSelectedAssets && hasCuration && hasBackground && !isSaving && !isApproved;
+  const backgroundSourceLabel = backgroundSource === 'fallback_background'
+    ? 'Fallback Backdrop'
+    : backgroundSource === 'generated_background' || backgroundSource === 'generative_background'
+      ? 'AI Backdrop'
+      : backgroundSource === 'intro_requirement'
+        ? 'Saved Backdrop'
+        : hasBackground
+          ? 'Backdrop Ready'
+          : 'Required before approval';
   const approvalBlockers = [
     !hasSelectedAssets ? 'Select at least one approved participant photo.' : null,
     hasSelectedAssets && !hasCuration ? 'Arrange photos to create the playback order.' : null,
@@ -83,6 +93,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     }
     setSelectedIds([]);
     setBackgroundUrl(null);
+    setBackgroundSource(null);
     setAudioUrl(null);
     setCurationSuggestions([]);
     setCompositionId(null);
@@ -155,6 +166,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     const result = await getIntroComposition(actId);
     setCompositionId(result.compositionId);
     setBackgroundUrl(result.composition.background.fileUrl);
+    setBackgroundSource(result.composition.background.source ?? null);
     setAudioUrl(result.composition.audio.fileUrl);
     setIsApproved(result.composition.approved);
     setSelectedIds(result.composition.selectedAssetIds || []);
@@ -182,6 +194,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
       setCompositionId(refreshed.compositionId);
       setBackgroundUrl(refreshedBackgroundUrl);
+      setBackgroundSource(refreshed.composition.background.source ?? null);
       setAudioUrl(refreshed.composition.audio.fileUrl);
       setSelectedIds(refreshed.composition.selectedAssetIds || []);
       setCurationSuggestions(refreshed.composition.curation || []);
@@ -254,7 +267,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       curation,
       background: {
         fileUrl,
-        source: backgroundUrl ? 'generated_background' : null,
+        source: fileUrl ? backgroundSource ?? 'generated_background' : null,
         stylePreset: null,
       },
       audio: {
@@ -276,6 +289,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
       setCompositionId(result.compositionId);
       setBackgroundUrl(result.composition.background.fileUrl);
+      setBackgroundSource(result.composition.background.source ?? null);
       setAudioUrl(result.composition.audio.fileUrl);
       setSelectedIds(result.composition.selectedAssetIds);
       setCurationSuggestions(result.composition.curation);
@@ -299,6 +313,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       const result = await generateIntroBackground(actId);
       setCompositionId(result.compositionId);
       setBackgroundUrl(result.composition.background.fileUrl);
+      setBackgroundSource(result.composition.background.source ?? null);
       setAudioUrl(result.composition.audio.fileUrl);
       setIsApproved(result.composition.approved);
       setIsBackgroundBroken(false);
@@ -329,6 +344,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       const result = await generateIntroAudio(actId);
       setCompositionId(result.compositionId);
       setBackgroundUrl(result.composition.background.fileUrl);
+      setBackgroundSource(result.composition.background.source ?? null);
       setAudioUrl(result.composition.audio.fileUrl);
       setSelectedIds(result.composition.selectedAssetIds);
       setCurationSuggestions(result.composition.curation as IntroCurationItem[]);
@@ -351,6 +367,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       setSelectedIds(result.composition.selectedAssetIds);
       setCurationSuggestions(result.composition.curation as IntroCurationItem[]);
       setBackgroundUrl(result.composition.background.fileUrl);
+      setBackgroundSource(result.composition.background.source ?? null);
       setAudioUrl(result.composition.audio.fileUrl);
       setIsApproved(result.composition.approved);
       setIsBackgroundBroken(false);
@@ -527,7 +544,10 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         </div>
         <div className={`rounded-2xl border px-4 py-3 ${hasBackground ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Background</p>
-          <p className="mt-1 text-sm font-bold text-slate-900">{hasBackground ? 'Ready for approval' : 'Required before approval'}</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{backgroundSourceLabel}</p>
+          {hasBackground && backgroundSource === 'fallback_background' ? (
+            <p className="mt-1 text-xs font-medium text-amber-700">Launch-safe fallback prepared for rehearsal approval.</p>
+          ) : null}
         </div>
       </div>
 
@@ -632,6 +652,13 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                     <div className="text-white/20 text-[10px] font-black uppercase tracking-[0.24em]">Assembly Simulation</div>
                 )}
             </div>
+            {hasBackground ? (
+              <div className="absolute left-4 top-4 z-20">
+                <div className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${backgroundSource === 'fallback_background' ? 'bg-amber-500/90 text-slate-950' : 'bg-emerald-500/90 text-slate-950'}`}>
+                  {backgroundSource === 'fallback_background' ? 'Fallback Backdrop' : 'AI Background Ready'}
+                </div>
+              </div>
+            ) : null}
           </Card>
           
           <div className={`rounded-3xl border p-5 transition-all ${curationSuggestions.length > 0 ? 'border-primary/20 bg-primary/5' : 'border-border/60 bg-muted/5'}`}>
