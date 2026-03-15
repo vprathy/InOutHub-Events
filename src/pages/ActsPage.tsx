@@ -2,7 +2,7 @@ import { useSelection } from '@/context/SelectionContext';
 import { useActsQuery } from '@/hooks/useActs';
 import { ActCard } from '@/components/acts/ActCard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users } from 'lucide-react';
+import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users, AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
@@ -41,6 +41,7 @@ export default function ActsPage() {
         introReady: acts?.filter((act) => act.hasApprovedIntro).length || 0,
         stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
     };
+    const needsAttention = acts?.filter((act) => act.participantCount === 0 || act.missingAssetCount > 0 || !act.hasApprovedIntro).length || 0;
 
     const filteredActs = acts?.filter(act => {
         const matchesSearch = act.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -74,62 +75,43 @@ export default function ActsPage() {
     }
 
     return (
-        <div className="flex flex-col space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
+        <div className="flex flex-col space-y-5">
+            <div className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="space-y-1">
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Performances</h1>
                     <p className="text-xs text-muted-foreground font-medium">
-                        {acts?.length || 0} Performances Scheduled
+                        {stats.total} scheduled, {needsAttention} still need attention
                     </p>
+                    </div>
+                    <Button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                    >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Performance
+                    </Button>
                 </div>
-                <Button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
-                >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Performance
-                </Button>
+
+                <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-border bg-card px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Live Count</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-foreground">{stats.total}</p>
+                    </div>
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+                        <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                            <AlertTriangle className="h-3 w-3" />
+                            Attention
+                        </p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-amber-700">{needsAttention}</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Stage Ready</p>
+                        <p className="mt-1 text-xl font-black tracking-tight text-emerald-700">{stats.stageReady}</p>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <button
-                    onClick={() => updateFilter('all')}
-                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'all' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
-                >
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.total}</p>
-                </button>
-                <button
-                    onClick={() => updateFilter('needs_cast')}
-                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'needs_cast' ? 'border-indigo-500 bg-indigo-500/5 shadow-sm' : 'border-border bg-card hover:border-indigo-500/40'}`}
-                >
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Needs Cast</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.needsCast}</p>
-                </button>
-                <button
-                    onClick={() => updateFilter('docs')}
-                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'docs' ? 'border-amber-500 bg-amber-500/5 shadow-sm' : 'border-border bg-card hover:border-amber-500/40'}`}
-                >
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Docs</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.docs}</p>
-                </button>
-                <button
-                    onClick={() => updateFilter('intro_ready')}
-                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'intro_ready' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-primary/40'}`}
-                >
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Intro Ready</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.introReady}</p>
-                </button>
-                <button
-                    onClick={() => updateFilter('stage_ready')}
-                    className={`rounded-2xl border p-3 text-left transition-all ${activeFilter === 'stage_ready' ? 'border-emerald-500 bg-emerald-500/5 shadow-sm' : 'border-border bg-card hover:border-emerald-500/40'}`}
-                >
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Stage Ready</p>
-                    <p className="mt-1 text-2xl font-black tracking-tight">{stats.stageReady}</p>
-                </button>
-            </div>
-
-            {/* Search and Filters */}
             <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
@@ -150,6 +132,9 @@ export default function ActsPage() {
                     >
                         <Users className="w-3.5 h-3.5" />
                         All
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'all' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                            {stats.total}
+                        </span>
                     </button>
                     <button
                         onClick={() => updateFilter('needs_cast')}
@@ -157,6 +142,9 @@ export default function ActsPage() {
                     >
                         <Users className="w-3.5 h-3.5" />
                         Needs Cast
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'needs_cast' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                            {stats.needsCast}
+                        </span>
                     </button>
                     <button
                         onClick={() => updateFilter('docs')}
@@ -164,6 +152,9 @@ export default function ActsPage() {
                     >
                         <Clock3 className="w-3.5 h-3.5" />
                         Docs
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'docs' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                            {stats.docs}
+                        </span>
                     </button>
                     <button
                         onClick={() => updateFilter('intro_ready')}
@@ -171,6 +162,9 @@ export default function ActsPage() {
                     >
                         <Music className="w-3.5 h-3.5" />
                         Intro Ready
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'intro_ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                            {stats.introReady}
+                        </span>
                     </button>
                     <button
                         onClick={() => updateFilter('stage_ready')}
@@ -178,6 +172,9 @@ export default function ActsPage() {
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Stage Ready
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'stage_ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                            {stats.stageReady}
+                        </span>
                     </button>
                 </div>
             </div>

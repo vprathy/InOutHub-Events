@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
-import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
+import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay, FileText, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AddParticipantToActModal } from './AddParticipantToActModal';
@@ -31,6 +31,26 @@ export function ActCard({ act }: ActCardProps) {
     const isReady = act.arrivalStatus === 'Ready';
     const primaryMeta = [`${act.durationMinutes}m`, `${act.setupTimeMinutes}m setup`];
     const secondaryMeta = `${act.participantCount} performers`;
+    const readinessItems = [
+        {
+            label: 'Cast',
+            value: act.participantCount > 0 ? `${act.participantCount} assigned` : 'Needs cast',
+            tone: act.participantCount > 0 ? 'ok' : 'warn',
+            icon: UserPlus,
+        },
+        {
+            label: 'Intro',
+            value: act.hasApprovedIntro ? 'Approved' : 'Pending',
+            tone: act.hasApprovedIntro ? 'ok' : 'warn',
+            icon: MonitorPlay,
+        },
+        {
+            label: 'Assets',
+            value: act.missingAssetCount > 0 ? `${act.missingAssetCount} pending` : act.hasMusicTrack ? 'Ready' : 'Music missing',
+            tone: act.missingAssetCount > 0 || !act.hasMusicTrack ? 'warn' : 'ok',
+            icon: act.missingAssetCount > 0 ? AlertTriangle : FileText,
+        },
+    ] as const;
 
     const handleToggleReady = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -62,7 +82,7 @@ export function ActCard({ act }: ActCardProps) {
 
     return (
         <div
-            className={`bg-card border rounded-[1.75rem] p-4 md:p-5 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
+            className={`bg-card border rounded-[1.5rem] p-4 shadow-sm transition-all hover:border-primary/40 flex flex-col space-y-3 cursor-pointer group relative overflow-hidden ${isReady ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-border'
                 }`}
             onClick={() => navigate(`/acts/${act.id}`)}
         >
@@ -118,6 +138,27 @@ export function ActCard({ act }: ActCardProps) {
                     </button>
                 </div>
 
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {readinessItems.map((item) => {
+                        const Icon = item.icon;
+                        const toneClasses = item.tone === 'ok'
+                            ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700'
+                            : 'border-amber-500/25 bg-amber-500/5 text-amber-700';
+                        return (
+                            <div
+                                key={item.label}
+                                className={`rounded-2xl border px-3 py-2 ${toneClasses}`}
+                            >
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em]">
+                                    <Icon className="h-3.5 w-3.5" />
+                                    <span>{item.label}</span>
+                                </div>
+                                <p className="mt-1 text-sm font-bold tracking-tight text-foreground">{item.value}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+
                 <div className="overflow-x-auto pb-1">
                     <ActIndicators
                         participantCount={act.participantCount}
@@ -165,7 +206,7 @@ export function ActCard({ act }: ActCardProps) {
                     <button
                         onClick={handlePlayIntro}
                         disabled={isPreviewLoading}
-                        className="group/intro relative flex min-h-[148px] w-full items-end overflow-hidden p-4 text-left transition hover:border-primary/60 disabled:cursor-wait disabled:opacity-80"
+                        className="group/intro relative flex min-h-[128px] w-full items-end overflow-hidden p-4 text-left transition hover:border-primary/60 disabled:cursor-wait disabled:opacity-80"
                     >
                         <div className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/75 backdrop-blur-sm">
                             Intro Ready
@@ -201,19 +242,7 @@ export function ActCard({ act }: ActCardProps) {
             ) : null}
 
             {/* Tactical Action Bar */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-h-[44px] rounded-2xl border-border/50 hover:border-primary/50 bg-muted/20 text-[10px] font-black uppercase tracking-widest shadow-sm"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/acts/${act.id}`);
-                    }}
-                >
-                    <ExternalLink className="w-3.5 h-3.5 mr-2 text-primary" />
-                    <span className="truncate">Details</span>
-                </Button>
+            <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-2">
                 <Button
                     variant="outline"
                     size="sm"
@@ -226,6 +255,18 @@ export function ActCard({ act }: ActCardProps) {
                 >
                     <Music className="w-3.5 h-3.5 mr-2 text-primary" />
                     <span className="truncate">Music/Tech</span>
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-[44px] rounded-2xl border border-dashed border-border/60 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/acts/${act.id}`);
+                    }}
+                >
+                    <ExternalLink className="w-3.5 h-3.5 mr-2" />
+                    <span className="truncate">Open Details</span>
                 </Button>
             </div>
 
