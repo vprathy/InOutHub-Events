@@ -5,7 +5,7 @@ export function buildLoginRedirectTo(nextPath?: string | null) {
         return undefined;
     }
 
-    const url = new URL('/login', window.location.origin);
+    const url = new URL('/auth/complete', window.location.origin);
     if (nextPath) {
         url.searchParams.set('next', nextPath);
     }

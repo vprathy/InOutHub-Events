@@ -5,6 +5,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import ActsPage from '@/pages/ActsPage';
 import DevQuickLogin from '@/pages/dev/DevQuickLogin';
 import LoginPage from '@/pages/auth/LoginPage';
+import AuthCompletePage from '@/pages/auth/AuthCompletePage';
 import OrgSelectionPage from '@/pages/selection/OrgSelectionPage';
 import EventSelectionPage from '@/pages/selection/EventSelectionPage';
 import { SelectionGuard } from '@/components/selection/SelectionGuard';
@@ -103,6 +104,10 @@ export const router = createBrowserRouter([
     {
         path: '/login',
         element: <LoginPage />,
+    },
+    {
+        path: '/auth/complete',
+        element: <AuthCompletePage />,
     },
     {
         path: '/prototype/intro',
