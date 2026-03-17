@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/Button';
 import { useAssignToAct, useAddParticipantNote } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
@@ -50,6 +51,8 @@ export default function ParticipantsPage() {
     const [actSearchQuery, setActSearchQuery] = useState('');
     const [noteContent, setNoteContent] = useState('');
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
+    const { data: currentEventRole } = useCurrentEventRole(eventId || null);
+    const canManageSync = currentEventRole === 'EventAdmin';
 
     // Mutations/Hooks
     const { data: allActs } = useActsQuery(eventId || '');
@@ -95,8 +98,14 @@ export default function ParticipantsPage() {
         setNoteContent('');
     };
 
+    const isParticipantReady = (participant: any) => {
+        const totalAssets = participant.assetStats?.total || 0;
+        const approvedAssets = participant.assetStats?.approved || 0;
+        return totalAssets > 0 && approvedAssets === totalAssets && (participant.actCount || 0) > 0;
+    };
+
     const getReadinessScore = (p: any) => {
-        if (!p.assetStats?.total) return 0;
+        if (!p.assetStats?.total) return p.actCount ? 0.5 : 0;
         const assetScore = (p.assetStats.approved || 0) / p.assetStats.total;
         const actScore = p.actCount ? 1 : 0;
         return (assetScore + actScore) / 2;
@@ -105,7 +114,8 @@ export default function ParticipantsPage() {
     const stats = {
         total: participants?.length || 0,
         assigned: participants?.filter(p => (p.actCount || 0) > 0).length || 0,
-        missing: participants?.filter(p => (p.assetStats?.missing || 0) > 0).length || 0,
+        ready: participants?.filter((participant) => isParticipantReady(participant)).length || 0,
+        missing: participants?.filter(p => ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0)).length || 0,
         unassigned: participants?.filter(p => !p.actCount).length || 0,
         special: participants?.filter(p => p.hasSpecialRequests).length || 0,
         atRisk: participants?.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
@@ -116,10 +126,10 @@ export default function ParticipantsPage() {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
-        if (activeFilter === 'missing') return (p.assetStats?.missing || 0) > 0;
+        if (activeFilter === 'missing') return ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0);
         if (activeFilter === 'unassigned') return !p.actCount;
         if (activeFilter === 'special') return p.hasSpecialRequests;
-        if (activeFilter === 'ready') return (p.assetStats?.missing === 0 && p.assetStats?.total > 0) && (p.actCount || 0) > 0;
+        if (activeFilter === 'ready') return isParticipantReady(p);
         if (activeFilter === 'no_phone') return !p.guardianPhone;
         if (activeFilter === 'identity_pending') return !p.identityVerified;
         if (activeFilter === 'at_risk') return p.isMinor && (!p.guardianName || !p.guardianPhone);
@@ -198,12 +208,14 @@ export default function ParticipantsPage() {
                             </button>
                             <button
                                 onClick={() => {
+                                    if (!canManageSync) return;
                                     const nextParams = new URLSearchParams(searchParams);
                                     nextParams.set('action', 'import');
                                     setSearchParams(nextParams, { replace: true });
                                     setIsImportModalOpen(true);
                                 }}
-                                className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl bg-primary px-4 text-[11px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                                disabled={!canManageSync}
+                                className={`flex h-11 w-full items-center justify-center space-x-2 rounded-xl px-4 text-[11px] font-black uppercase tracking-widest transition-all sm:w-auto ${canManageSync ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
                             >
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 <span>Open Sync Tools</span>
@@ -217,6 +229,11 @@ export default function ParticipantsPage() {
                         </div>
                     ) : null}
                 />
+                {!canManageSync ? (
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Sync tools are limited to EventAdmin for this event. Current access: {currentEventRole || 'No event role'}.
+                    </p>
+                ) : null}
 
                 <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-2xl border border-border bg-card px-3 py-2.5">
@@ -261,7 +278,7 @@ export default function ParticipantsPage() {
                         >
                             <option value="name">Name</option>
                             <option value="age">Age</option>
-                            <option value="readiness">Ready</option>
+                            <option value="readiness">Clearance</option>
                             <option value="recent">Recent</option>
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -281,15 +298,15 @@ export default function ParticipantsPage() {
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Ready</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.assigned}</span>
+                        <span>Cleared</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.ready}</span>
                     </button>
                     <button
                         onClick={() => updateFilter('missing')}
                         className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'missing' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
                     >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Docs Pending</span>
+                        <span>Approvals Pending</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'missing' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.missing}</span>
                     </button>
                     <button
@@ -345,8 +362,9 @@ export default function ParticipantsPage() {
                         description="Sync your participant list from a Google Sheet or CSV to get started."
                         icon={Users}
                         action={{
-                            label: 'Import Participants',
+                            label: canManageSync ? 'Import Participants' : 'Sync Requires Event Admin',
                             onClick: () => {
+                                if (!canManageSync) return;
                                 const nextParams = new URLSearchParams(searchParams);
                                 nextParams.set('action', 'import');
                                 setSearchParams(nextParams, { replace: true });
@@ -358,7 +376,8 @@ export default function ParticipantsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredParticipants?.map((participant) => {
                         const isExpanded = expandedId === participant.id;
-                        const isReady = (participant.assetStats?.missing === 0 && participant.assetStats?.total > 0) && (participant.actCount || 0) > 0;
+                        const isReady = isParticipantReady(participant);
+                        const hasDocsPending = ((participant.assetStats?.missing || 0) > 0) || ((participant.assetStats?.pending || 0) > 0);
 
                         return (
                             <div
@@ -397,9 +416,9 @@ export default function ParticipantsPage() {
                                         <div className="flex flex-col items-end gap-1.5">
                                             {isReady ? (
                                                 <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    Ready
+                                                    Cleared
                                                 </Badge>
-                                            ) : (participant.assetStats?.missing || 0) > 0 ? (
+                                            ) : hasDocsPending ? (
                                                 <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
                                                     Requires Work
                                                 </Badge>
@@ -428,11 +447,11 @@ export default function ParticipantsPage() {
                                                 {participant.actCount ? `${participant.actCount} act${participant.actCount > 1 ? 's' : ''}` : 'Needs placement'}
                                             </p>
                                         </div>
-                                        <div className={`rounded-xl border px-2.5 py-2 ${(participant.assetStats?.missing || 0) > 0 ? 'border-amber-500/25 bg-amber-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
-                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${(participant.assetStats?.missing || 0) > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>Approvals</p>
+                                        <div className={`rounded-xl border px-2.5 py-2 ${hasDocsPending ? 'border-amber-500/25 bg-amber-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
+                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${hasDocsPending ? 'text-amber-700' : 'text-emerald-700'}`}>Approvals</p>
                                             <p className="mt-1 text-xs font-bold text-foreground">
-                                                {(participant.assetStats?.missing || 0) > 0
-                                                    ? `${participant.assetStats?.missing || 0} pending`
+                                                {hasDocsPending
+                                                    ? `${(participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)} pending`
                                                     : `${participant.assetStats?.approved || 0} approved`}
                                             </p>
                                         </div>
@@ -546,8 +565,8 @@ export default function ParticipantsPage() {
                                                         <span className="text-xs font-bold">{participant.assetStats?.approved || 0} Approved</span>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${participant.assetStats?.missing && participant.assetStats.missing > 0 ? 'bg-amber-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{participant.assetStats?.missing || 0} Docs Pending</span>
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${hasDocsPending ? 'bg-amber-500' : 'bg-muted'}`} />
+                                                        <span className="text-xs font-bold">{(participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)} Approvals Pending</span>
                                                     </div>
                                                 </div>
                                             </div>

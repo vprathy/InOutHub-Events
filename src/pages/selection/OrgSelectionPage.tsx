@@ -9,6 +9,8 @@ import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModa
 import { ShieldAlert } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useAppSignOut } from '@/hooks/useAppSignOut';
+import { isDevLoginEnabled } from '@/lib/authConfig';
 
 export default function OrgSelectionPage() {
     const [orgs, setOrgs] = useState<any[]>([]);
@@ -19,6 +21,7 @@ export default function OrgSelectionPage() {
     const [editingOrg, setEditingOrg] = useState<{ id: string; name: string } | null>(null);
     const { setOrganizationId } = useSelection();
     const navigate = useNavigate();
+    const signOut = useAppSignOut();
 
     useEffect(() => {
         fetchOrgs();
@@ -29,7 +32,7 @@ export default function OrgSelectionPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                navigate('/dev/login');
+                navigate('/login');
                 return;
             }
 
@@ -84,8 +87,7 @@ export default function OrgSelectionPage() {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/dev/login');
+        await signOut();
     };
 
     return (
@@ -119,16 +121,18 @@ export default function OrgSelectionPage() {
                             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
                                 {isSuperAdmin
                                     ? 'No organizations exist yet for this environment. Create one to continue.'
-                                    : 'This account is authenticated but is not assigned to any organization yet. Go back to the dev login flow or ask an admin to grant organization access.'}
+                                    : 'This account is signed in, but does not have organization access yet. Ask an administrator to grant access and then refresh this screen.'}
                             </p>
                             <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
-                                <button
-                                    onClick={() => navigate('/dev/login')}
-                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                                >
-                                    <ArrowLeft className="h-4 w-4" />
-                                    <span>Back to Dev Login</span>
-                                </button>
+                                {isDevLoginEnabled ? (
+                                    <button
+                                        onClick={() => navigate('/dev/login')}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        <span>Back to Dev Login</span>
+                                    </button>
+                                ) : null}
                                 <button
                                     onClick={() => void fetchOrgs()}
                                     className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary-foreground transition-opacity hover:opacity-90"

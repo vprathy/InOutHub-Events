@@ -6,6 +6,7 @@ interface SelectionContextType {
     eventTimezone: string | null;
     setOrganizationId: (id: string | null) => void;
     setEventId: (id: string | null, timeZone?: string | null) => void;
+    clearSelection: () => void;
     isLoading: boolean;
 }
 
@@ -98,8 +99,17 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const clearSelection = () => {
+        setOrgId(null);
+        setEvId(null);
+        setEventTimezone(null);
+        localStorage.removeItem('inouthub_org_id');
+        localStorage.removeItem('inouthub_event_id');
+        localStorage.removeItem('inouthub_event_timezone');
+    };
+
     return (
-        <SelectionContext.Provider value={{ organizationId, eventId, eventTimezone, setOrganizationId, setEventId, isLoading }}>
+        <SelectionContext.Provider value={{ organizationId, eventId, eventTimezone, setOrganizationId, setEventId, clearSelection, isLoading }}>
             {children}
         </SelectionContext.Provider>
     );

@@ -2,20 +2,19 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Landmark, Calendar, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
-import { supabase } from '@/lib/supabase';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { BrandMark } from '@/components/branding/BrandMark';
+import { useAppSignOut } from '@/hooks/useAppSignOut';
+import { isDevLoginEnabled } from '@/lib/authConfig';
+import { supabase } from '@/lib/supabase';
 
 export function Header() {
-    const { organizationId, eventId, setOrganizationId } = useSelection();
+    const { organizationId, eventId } = useSelection();
     const navigate = useNavigate();
-    const queryClient = useQueryClient();
+    const signOut = useAppSignOut();
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        setOrganizationId(null);
-        queryClient.clear();
-        navigate('/dev/login');
+        await signOut();
     };
 
     // Fetch names for breadcrumb
@@ -98,12 +97,14 @@ export function Header() {
                 <div className="hidden sm:block">
                     <ThemeToggle />
                 </div>
-                <button
-                    onClick={() => navigate('/dev/login')}
-                    className="hidden h-11 rounded-xl bg-muted px-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground sm:block"
-                >
-                    DEV
-                </button>
+                {isDevLoginEnabled ? (
+                    <button
+                        onClick={() => navigate('/dev/login')}
+                        className="hidden h-11 rounded-xl bg-muted px-4 text-[11px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground sm:block"
+                    >
+                        DEV
+                    </button>
+                ) : null}
                 <button
                     onClick={handleLogout}
                     className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 sm:h-11 sm:w-11"

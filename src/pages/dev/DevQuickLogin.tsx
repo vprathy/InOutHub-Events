@@ -14,6 +14,7 @@ import { getDevUserByRole } from '@/lib/dev/config';
 import { resetDemoEvent } from '@/lib/dev/resetDemoEvent';
 import { useSelection } from '@/context/SelectionContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { isDevLoginEnabled } from '@/lib/authConfig';
 
 const DEV_ROLES = [
     {
@@ -54,6 +55,10 @@ const DEV_ROLES = [
 ];
 
 export default function DevQuickLogin() {
+    if (!isDevLoginEnabled) {
+        return null;
+    }
+
     const navigate = useNavigate();
     const { setOrganizationId } = useSelection();
     const queryClient = useQueryClient();
@@ -216,7 +221,7 @@ export default function DevQuickLogin() {
                                 <h3 className="font-semibold text-lg">
                                     {isResetting ? 'Resetting...' : 'Reset Demo Event'}
                                 </h3>
-                                <p className="text-sm opacity-80">Wipes and recreates the ZiffyVolve MVP 2026 event.</p>
+                                <p className="text-sm opacity-80">Wipes and recreates the demo event, role fixtures, lineup, and readiness data.</p>
                             </div>
                         </button>
                     </div>

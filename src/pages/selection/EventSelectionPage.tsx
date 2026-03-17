@@ -118,6 +118,32 @@ export default function EventSelectionPage() {
                             <div className="col-span-full flex justify-center py-12">
                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                             </div>
+                        ) : events.length === 0 ? (
+                            <div className="col-span-full rounded-[2rem] border border-border bg-card p-8 text-center shadow-sm">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                                    <Calendar className="h-7 w-7" />
+                                </div>
+                                <h2 className="text-xl font-black text-foreground">No events available</h2>
+                                <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+                                    This account is signed in, but there are no accessible events in the selected organization yet. Ask an admin for event access or refresh after access is granted.
+                                </p>
+                                <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
+                                    <button
+                                        onClick={() => void fetchEvents()}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary-foreground transition-opacity hover:opacity-90"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        <span>Refresh Events</span>
+                                    </button>
+                                    <button
+                                        onClick={handleBack}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                        <span>Switch Organization</span>
+                                    </button>
+                                </div>
+                            </div>
                         ) : (
                             <>
                                 {events.map((event) => (

@@ -4,11 +4,14 @@ import { AppShell } from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import ActsPage from '@/pages/ActsPage';
 import DevQuickLogin from '@/pages/dev/DevQuickLogin';
+import LoginPage from '@/pages/auth/LoginPage';
 
 import OrgSelectionPage from '@/pages/selection/OrgSelectionPage';
 import EventSelectionPage from '@/pages/selection/EventSelectionPage';
 import { SelectionGuard } from '@/components/selection/SelectionGuard';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Loader2 } from 'lucide-react';
+import { isDevLoginEnabled } from '@/lib/authConfig';
 
 const ParticipantsPage = lazy(() => import('@/pages/ParticipantsPage'));
 const ParticipantProfilePage = lazy(() => import('@/pages/ParticipantProfilePage').then((module) => ({ default: module.ParticipantProfilePage })));
@@ -16,6 +19,10 @@ const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
 const StageConsolePage = lazy(() => import('@/pages/StageConsolePage'));
 const IntroVideoPrototype = lazy(() => import('@/pages/IntroVideoPrototype'));
+const ExternalProgramSubmissionsPage = lazy(() => import('@/pages/admin/ExternalProgramSubmissionsPage'));
+const LandingPageMidnight = lazy(() => import('@/pages/marketing/LandingPageMidnight'));
+const LandingPageV3 = lazy(() => import('@/pages/marketing/LandingPageV3'));
+const CompetitionLandingPage = lazy(() => import('@/pages/marketing/CompetitionLandingPage'));
 
 function RouteLoader() {
     return (
@@ -33,9 +40,11 @@ export const router = createBrowserRouter([
     {
         path: '/',
         element: (
-            <SelectionGuard>
-                <AppShell />
-            </SelectionGuard>
+            <AuthGuard>
+                <SelectionGuard>
+                    <AppShell />
+                </SelectionGuard>
+            </AuthGuard>
         ),
         children: [
             {
@@ -90,15 +99,39 @@ export const router = createBrowserRouter([
                     </LazyRoute>
                 ),
             },
+            {
+                path: 'admin/external-submissions',
+                element: (
+                    <LazyRoute>
+                        <ExternalProgramSubmissionsPage />
+                    </LazyRoute>
+                ),
+            },
         ],
     },
     {
         path: '/dev/login',
-        element: <DevQuickLogin />,
+        element: isDevLoginEnabled ? <DevQuickLogin /> : <Navigate to="/login" replace />,
     },
     {
         path: '/login',
-        element: <Navigate to="/dev/login" replace />,
+        element: <LoginPage />,
+    },
+    {
+        path: '/landing-midnight',
+        element: (
+            <LazyRoute>
+                <LandingPageMidnight />
+            </LazyRoute>
+        ),
+    },
+    {
+        path: '/landing-v3',
+        element: (
+            <LazyRoute>
+                <LandingPageV3 />
+            </LazyRoute>
+        ),
     },
     {
         path: '/prototype/intro',
@@ -109,15 +142,29 @@ export const router = createBrowserRouter([
         ),
     },
     {
+        path: '/competition/landing',
+        element: (
+            <LazyRoute>
+                <CompetitionLandingPage />
+            </LazyRoute>
+        ),
+    },
+    {
         path: '/select-org',
-        element: <OrgSelectionPage />,
+        element: (
+            <AuthGuard>
+                <OrgSelectionPage />
+            </AuthGuard>
+        ),
     },
     {
         path: '/select-event',
         element: (
-            <SelectionGuard>
-                <EventSelectionPage />
-            </SelectionGuard>
+            <AuthGuard>
+                <SelectionGuard>
+                    <EventSelectionPage />
+                </SelectionGuard>
+            </AuthGuard>
         ),
     },
 ]);
