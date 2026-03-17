@@ -91,7 +91,7 @@ export default function LoginPage() {
 
                         {status === 'success' ? (
                             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700">
-                                Magic link sent. Check your email and open it on this device to continue.
+                                Magic link sent. Check your email and open it on this device to continue. For security, each sign-in link can only be used once. If your link has expired or was already used, return to InOutHub and request a new sign-in link.
                             </div>
                         ) : null}
 
@@ -108,6 +108,9 @@ export default function LoginPage() {
                     </form>
 
                     <p className="mt-4 text-center text-xs font-medium leading-5 text-muted-foreground">
+                        For security, each sign-in link can only be used once. If your link has expired or was already used, return to InOutHub and request a new sign-in link.
+                    </p>
+                    <p className="mt-2 text-center text-xs font-medium leading-5 text-muted-foreground">
                         Don't have access yet? Sign in with your email first, then contact your event or organization admin to complete access setup.
                     </p>
                 </div>
