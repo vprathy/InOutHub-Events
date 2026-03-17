@@ -16,7 +16,7 @@ interface UploadActAssetModalProps {
 export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }: UploadActAssetModalProps) {
     const addAsset = useAddActAsset(eventId);
     const [name, setName] = useState('');
-    const [type, setType] = useState('Prop');
+    const [type, setType] = useState('Audio');
     const [notes, setNotes] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -50,7 +50,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                             Asset Name
                         </label>
                         <Input
-                            placeholder="e.g. Floor Prop Set, Spare Violin, Backup Cable"
+                            placeholder="e.g. Main music track, Floor Prop Set, Spare Violin"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -64,7 +64,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                             Asset Type
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {['Prop', 'Instrument', 'Other'].map((t) => (
+                            {['Audio', 'Prop', 'Instrument', 'Other'].map((t) => (
                                 <button
                                     key={t}
                                     type="button"

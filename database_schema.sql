@@ -155,7 +155,7 @@ CREATE TABLE act_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     act_id UUID NOT NULL REFERENCES acts(id) ON DELETE CASCADE,
     asset_name TEXT NOT NULL,
-    asset_type TEXT NOT NULL CHECK (asset_type IN ('Prop', 'Instrument', 'Other')),
+    asset_type TEXT NOT NULL CHECK (asset_type IN ('Audio', 'Prop', 'Instrument', 'Other')),
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
