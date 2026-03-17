@@ -117,6 +117,7 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
             for (const source of sources) {
                 if (source.type === 'google_sheet' && source.config.sheetId) {
                     const result = await syncSheet({ sheetId: source.config.sheetId });
+                    await updateSourceSyncStatus({ sourceId: source.id, lastSyncedAt: new Date().toISOString() });
                     combinedStats.new += result.stats.new;
                     combinedStats.updated += result.stats.updated;
                     combinedStats.missing += result.stats.missing;

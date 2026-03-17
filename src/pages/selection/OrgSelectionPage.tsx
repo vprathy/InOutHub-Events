@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Landmark, Plus, Loader2, ChevronRight, LogOut, Edit2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
@@ -21,6 +21,7 @@ export default function OrgSelectionPage() {
     const [editingOrg, setEditingOrg] = useState<{ id: string; name: string } | null>(null);
     const { setOrganizationId } = useSelection();
     const navigate = useNavigate();
+    const location = useLocation();
     const signOut = useAppSignOut();
 
     useEffect(() => {
@@ -76,7 +77,7 @@ export default function OrgSelectionPage() {
 
     const handleSelect = (id: string) => {
         setOrganizationId(id);
-        navigate('/select-event');
+        navigate('/select-event', { state: location.state });
     };
 
     const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>, id: string) => {

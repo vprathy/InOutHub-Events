@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Calendar, Plus, Loader2, ChevronRight, ChevronLeft, Edit2, Archive, RefreshCw } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Calendar, Plus, Loader2, ChevronRight, ChevronLeft, Edit2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
 import { CreateEventModal } from '@/components/selection/CreateEventModal';
@@ -15,10 +15,10 @@ export default function EventSelectionPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isManageAccessOpen, setIsManageAccessOpen] = useState(false);
-    const [showArchived, setShowArchived] = useState(false);
     const [editingEvent, setEditingEvent] = useState<any | null>(null);
     const { organizationId, setEventId, setOrganizationId } = useSelection();
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         if (!organizationId) {
@@ -26,22 +26,16 @@ export default function EventSelectionPage() {
             return;
         }
         fetchEvents();
-    }, [organizationId, showArchived]);
+    }, [organizationId, navigate]);
 
     async function fetchEvents() {
         setIsLoading(true);
         try {
-            let query = supabase
+            const { data, error } = await supabase
                 .from('events')
                 .select('*')
                 .eq('organization_id', organizationId!)
                 .order('start_date', { ascending: false });
-
-            if (!showArchived) {
-                query = query.eq('status', 'active');
-            }
-
-            const { data, error } = await query;
 
             if (error) throw error;
             setEvents(data || []);
@@ -52,22 +46,13 @@ export default function EventSelectionPage() {
         }
     }
 
-    const toggleEventStatus = async (eventId: string, newStatus: 'active' | 'archived') => {
-        try {
-            const { error } = await supabase
-                .from('events')
-                .update({ status: newStatus })
-                .eq('id', eventId);
-            if (error) throw error;
-            fetchEvents();
-        } catch (err) {
-            console.error('Error toggling status:', err);
-        }
-    };
-
     const handleSelect = (id: string, timeZone?: string | null) => {
         setEventId(id, timeZone);
-        navigate('/dashboard');
+        const destination = location.state?.from;
+        const nextPath = destination?.pathname
+            ? `${destination.pathname || ''}${destination.search || ''}${destination.hash || ''}`
+            : '/dashboard';
+        navigate(nextPath, { replace: true });
     };
 
     const handleCardKeyDown = (keyboardEvent: React.KeyboardEvent<HTMLElement>, id: string) => {
@@ -95,7 +80,7 @@ export default function EventSelectionPage() {
                     </div>
                     <PageHeader
                         title="Select Event"
-                        subtitle="Select an active event to manage"
+                        subtitle="Select an event to manage"
                         align="center"
                     />
                 </div>
@@ -103,13 +88,14 @@ export default function EventSelectionPage() {
                 <div className="w-full">
                     <div className="flex items-center justify-between mb-3 px-2">
                         <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                            {showArchived ? 'All Events' : 'Active Events'}
+                            Available Events
                         </span>
                         <button
-                            onClick={() => setShowArchived(!showArchived)}
-                            className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                            onClick={() => void fetchEvents()}
+                            className="inline-flex min-h-[44px] items-center justify-center gap-2 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
                         >
-                            {showArchived ? 'Hide Archived' : 'Show Archived'}
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>Refresh</span>
                         </button>
                     </div>
 
@@ -179,15 +165,6 @@ export default function EventSelectionPage() {
                                                                 setEditingEvent(event);
                                                                 setIsCreateModalOpen(true);
                                                             }
-                                                        },
-                                                        event.status === 'active' || !event.status ? {
-                                                            label: 'Archive Event',
-                                                            icon: <Archive className="w-4 h-4" />,
-                                                            onClick: () => toggleEventStatus(event.id, 'archived')
-                                                        } : {
-                                                            label: 'Unarchive Event',
-                                                            icon: <RefreshCw className="w-4 h-4" />,
-                                                            onClick: () => toggleEventStatus(event.id, 'active')
                                                         },
                                                         {
                                                             label: 'Manage Access',

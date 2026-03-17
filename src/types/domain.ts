@@ -138,6 +138,7 @@ export interface ActWithCounts extends Act {
     // Core readiness indicators
     hasTechnicalRider: boolean;
     hasMusicTrack: boolean;
+    hasIntroRequirement: boolean;
     hasApprovedIntro: boolean;
     introBackgroundUrl?: string | null;
     // Operational readiness

@@ -4,8 +4,6 @@ import { useParticipantsQuery } from '@/hooks/useParticipants';
 import { useSelection } from '@/context/SelectionContext';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
 import { AddParticipantModal } from '@/components/participants/AddParticipantModal';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
     Users,
@@ -31,6 +29,7 @@ import { useAssignToAct, useAddParticipantNote } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
+import { useEventSources } from '@/hooks/useEventSources';
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
@@ -53,6 +52,7 @@ export default function ParticipantsPage() {
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
     const canManageSync = currentEventRole === 'EventAdmin';
+    const { sources } = useEventSources(eventId || '');
 
     // Mutations/Hooks
     const { data: allActs } = useActsQuery(eventId || '');
@@ -150,16 +150,6 @@ export default function ParticipantsPage() {
         return allActs.filter((act) => act.name.toLowerCase().includes(query));
     }, [actSearchQuery, allActs]);
 
-    const { data: eventData } = useQuery({
-        queryKey: ['event-metadata', eventId],
-        queryFn: async () => {
-            if (!eventId) return null;
-            const { data } = await supabase.from('events').select('last_synced_at, source_url').eq('id', eventId).single();
-            return data;
-        },
-        enabled: !!eventId
-    });
-
     if (isLoading || !eventId) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
@@ -190,6 +180,12 @@ export default function ParticipantsPage() {
         const diffMs = new Date().getTime() - new Date(dateStr).getTime();
         return diffMs > 2 * 60 * 60 * 1000; // 2 hours
     };
+
+    const lastSyncedAt = sources.reduce<string | null>((latest, source) => {
+        if (!source.lastSyncedAt) return latest;
+        if (!latest) return source.lastSyncedAt;
+        return new Date(source.lastSyncedAt).getTime() > new Date(latest).getTime() ? source.lastSyncedAt : latest;
+    }, null);
 
     return (
             <div className="flex flex-col space-y-5">
@@ -223,9 +219,9 @@ export default function ParticipantsPage() {
                         </div>
                     }
                     status={eventId ? (
-                        <div className={`inline-flex items-center text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(eventData?.last_synced_at || null) ? 'text-amber-500 animate-pulse' : 'text-emerald-500/80'}`}>
-                            <RefreshCw className={`w-2.5 h-2.5 mr-1 ${isSyncOld(eventData?.last_synced_at || null) ? 'animate-spin-slow' : ''}`} />
-                            {eventData?.last_synced_at ? `Synced ${formatLastSynced(eventData.last_synced_at)}` : 'Sync Required'}
+                        <div className={`inline-flex items-center text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(lastSyncedAt) ? 'text-amber-500 animate-pulse' : 'text-emerald-500/80'}`}>
+                            <RefreshCw className={`w-2.5 h-2.5 mr-1 ${isSyncOld(lastSyncedAt) ? 'animate-spin-slow' : ''}`} />
+                            {lastSyncedAt ? `Synced ${formatLastSynced(lastSyncedAt)}` : 'Sync Required'}
                         </div>
                     ) : null}
                 />

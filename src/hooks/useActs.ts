@@ -100,7 +100,17 @@ export function useActsQuery(eventId: string) {
                     practices,
                     items: readinessItems,
                     issues: readinessIssues,
+                    participantCount: actParticipants.length,
+                    missingParticipantAssetCount: participantsWithPendingForms,
+                    hasMusicTrack: (row.act_assets || []).some((a: any) =>
+                        a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
+                    ),
+                    hasIntroRequirement: Boolean(introRequirement),
+                    hasApprovedIntro: Boolean(introRequirement?.fulfilled),
                 });
+                const hasMusicTrack = (row.act_assets || []).some((a: any) =>
+                    a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
+                );
 
                 return {
                     id: row.id,
@@ -118,9 +128,8 @@ export function useActsQuery(eventId: string) {
                     hasTechnicalRider: (row.act_requirements || []).some((r: any) =>
                         ['Audio', 'Lighting', 'Microphone', 'Video'].includes(r.requirement_type)
                     ),
-                    hasMusicTrack: (row.act_assets || []).some((a: any) =>
-                        a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
-                    ),
+                    hasMusicTrack,
+                    hasIntroRequirement: Boolean(introRequirement),
                     hasApprovedIntro: Boolean(introRequirement?.fulfilled),
                     introBackgroundUrl: introRequirement?.file_url || (row.act_requirements || []).find((r: any) => r.requirement_type === 'Generative')?.file_url || null,
                     readinessState: readinessSummary.state,
@@ -138,6 +147,10 @@ export function useActsQuery(eventId: string) {
     useEffect(() => {
         if (!eventId) return;
 
+        const invalidateActs = () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        };
+
         const channel = supabase
             .channel(`acts_changes_${eventId}`)
             .on(
@@ -148,11 +161,48 @@ export function useActsQuery(eventId: string) {
                     table: 'acts',
                     filter: `event_id=eq.${eventId}`,
                 },
-                () => {
-                    // Invalidate and refetch to get fresh counts and data
-                    queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
-                }
+                invalidateActs
             )
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_participants',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'participant_assets',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'participants',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_assets',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_requirements',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_practices',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_items',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_issues',
+            }, invalidateActs)
             .subscribe();
 
         return () => {
@@ -367,6 +417,19 @@ export function useActDetail(actId: string | null) {
                     practices: readinessPractices,
                     items: readinessItems,
                     issues: readinessIssues,
+                    participantCount: (row.act_participants || []).length,
+                    missingParticipantAssetCount: (row.act_participants || []).filter((ap: any) => {
+                        const assets = ap.participant?.participant_assets || [];
+                        if (assets.length === 0) return true;
+                        return assets.some((asset: any) => asset.status !== 'approved');
+                    }).length,
+                    hasMusicTrack: (row.act_assets || []).some((asset: any) =>
+                        asset.asset_type === 'Audio' || asset.asset_name?.toLowerCase().includes('music')
+                    ),
+                    hasIntroRequirement: (row.act_requirements || []).some((requirement: any) => requirement.requirement_type === 'IntroComposition'),
+                    hasApprovedIntro: (row.act_requirements || []).some((requirement: any) =>
+                        requirement.requirement_type === 'IntroComposition' && requirement.fulfilled
+                    ),
                 }),
             };
 

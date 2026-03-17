@@ -37,6 +37,11 @@ export function ActCard({ act }: ActCardProps) {
     }, [act.hasApprovedIntro, act.id]);
 
     const isReady = act.arrivalStatus === 'Ready';
+    const introStatus = act.hasApprovedIntro
+        ? { value: 'Approved', tone: 'ok' as const }
+        : act.hasIntroRequirement
+            ? { value: 'Pending', tone: 'warn' as const }
+            : { value: 'Needs intro', tone: 'warn' as const };
     const primaryMeta = [`${act.durationMinutes}m`, `${act.setupTimeMinutes}m setup`];
     const secondaryMeta = `${act.participantCount} performers`;
     const readinessItems = [
@@ -48,8 +53,8 @@ export function ActCard({ act }: ActCardProps) {
         },
         {
             label: 'Intro',
-            value: act.hasApprovedIntro ? 'Approved' : 'Pending',
-            tone: act.hasApprovedIntro ? 'ok' : 'warn',
+            value: introStatus.value,
+            tone: introStatus.tone,
             icon: MonitorPlay,
         },
         {

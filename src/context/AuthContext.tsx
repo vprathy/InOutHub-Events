@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
@@ -17,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const previousUserIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!data.session) {
                 clearSelection();
             }
+            previousUserIdRef.current = data.session?.user?.id ?? null;
             setSession(data.session);
             setUser(data.session?.user ?? null);
             setIsLoading(false);
@@ -47,9 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, nextSession) => {
             if (!isMounted) return;
-            if (!nextSession) {
+
+            const nextUserId = nextSession?.user?.id ?? null;
+            const didUserChange = Boolean(previousUserIdRef.current && nextUserId && previousUserIdRef.current !== nextUserId);
+
+            if (!nextSession || didUserChange) {
                 clearSelection();
             }
+
+            previousUserIdRef.current = nextUserId;
             setSession(nextSession);
             setUser(nextSession?.user ?? null);
             setIsLoading(false);

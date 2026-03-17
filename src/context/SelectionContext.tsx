@@ -1,4 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+
+const ORGANIZATION_STORAGE_KEY = 'inouthub_org_id';
+const EVENT_STORAGE_KEY = 'inouthub_event_id';
+const EVENT_TIMEZONE_STORAGE_KEY = 'inouthub_event_timezone';
+const SELECTION_OWNER_STORAGE_KEY = 'inouthub_selection_user_id';
+
+function clearStoredSelection() {
+    localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
+    localStorage.removeItem(EVENT_STORAGE_KEY);
+    localStorage.removeItem(EVENT_TIMEZONE_STORAGE_KEY);
+    localStorage.removeItem(SELECTION_OWNER_STORAGE_KEY);
+}
 
 interface SelectionContextType {
     organizationId: string | null;
@@ -19,83 +32,109 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     // Load from localStorage on mount, validating the cached org ID still exists in DB.
-    // This prevents stale IDs from ghost/deleted orgs causing RLS failures.
+    // This prevents stale IDs from ghost/deleted orgs or previous-user sessions causing RLS failures.
     useEffect(() => {
-        const savedOrg = localStorage.getItem('inouthub_org_id');
-        const savedEvent = localStorage.getItem('inouthub_event_id');
-        const savedEventTimezone = localStorage.getItem('inouthub_event_timezone');
+        const savedOrg = localStorage.getItem(ORGANIZATION_STORAGE_KEY);
+        const savedEvent = localStorage.getItem(EVENT_STORAGE_KEY);
+        const savedEventTimezone = localStorage.getItem(EVENT_TIMEZONE_STORAGE_KEY);
+        const savedSelectionOwner = localStorage.getItem(SELECTION_OWNER_STORAGE_KEY);
 
         if (!savedOrg) {
             setIsLoading(false);
             return;
         }
 
-        import('../lib/supabase').then(async ({ supabase }) => {
+        void (async () => {
             try {
-                // Validate Org exists
+                const {
+                    data: { user },
+                } = await supabase.auth.getUser();
+
+                if (!user || savedSelectionOwner !== user.id) {
+                    clearStoredSelection();
+                    return;
+                }
+
                 const { data: orgData } = await supabase
                     .from('organizations')
                     .select('id')
                     .eq('id', savedOrg)
                     .maybeSingle();
 
-                if (orgData) {
-                    setOrgId(savedOrg);
-
-                    // If we have a saved event, validate it belongs to this org
-                    if (savedEvent) {
-                        const { data: eventData } = await supabase
-                            .from('events')
-                            .select('id, organization_id, timezone')
-                            .eq('id', savedEvent)
-                            .maybeSingle();
-
-                        if (eventData && eventData.organization_id === savedOrg) {
-                            setEvId(savedEvent);
-                            setEventTimezone(eventData.timezone || savedEventTimezone);
-                        } else {
-                            localStorage.removeItem('inouthub_event_id');
-                            localStorage.removeItem('inouthub_event_timezone');
-                        }
-                    }
-                } else {
-                    // Org is gone — clear everything
-                    localStorage.removeItem('inouthub_org_id');
-                    localStorage.removeItem('inouthub_event_id');
-                    localStorage.removeItem('inouthub_event_timezone');
+                if (!orgData) {
+                    clearStoredSelection();
+                    return;
                 }
+
+                setOrgId(savedOrg);
+
+                if (!savedEvent) {
+                    return;
+                }
+
+                const { data: eventData } = await supabase
+                    .from('events')
+                    .select('id, organization_id, timezone')
+                    .eq('id', savedEvent)
+                    .maybeSingle();
+
+                if (eventData && eventData.organization_id === savedOrg) {
+                    setEvId(savedEvent);
+                    setEventTimezone(eventData.timezone || savedEventTimezone);
+                    return;
+                }
+
+                localStorage.removeItem(EVENT_STORAGE_KEY);
+                localStorage.removeItem(EVENT_TIMEZONE_STORAGE_KEY);
             } finally {
                 setIsLoading(false);
             }
-        });
+        })();
     }, []);
+
+    useEffect(() => {
+        if (!organizationId && !eventId) {
+            localStorage.removeItem(SELECTION_OWNER_STORAGE_KEY);
+            return;
+        }
+
+        void (async () => {
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (user) {
+                localStorage.setItem(SELECTION_OWNER_STORAGE_KEY, user.id);
+            }
+        })();
+    }, [organizationId, eventId]);
 
     const setOrganizationId = (id: string | null) => {
         setOrgId(id);
         if (id) {
-            localStorage.setItem('inouthub_org_id', id);
+            localStorage.setItem(ORGANIZATION_STORAGE_KEY, id);
         } else {
-            localStorage.removeItem('inouthub_org_id');
+            localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
             // Clearing org should clear event too
             setEvId(null);
             setEventTimezone(null);
-            localStorage.removeItem('inouthub_event_id');
-            localStorage.removeItem('inouthub_event_timezone');
+            localStorage.removeItem(EVENT_STORAGE_KEY);
+            localStorage.removeItem(EVENT_TIMEZONE_STORAGE_KEY);
         }
     };
 
     const setEventId = (id: string | null, timeZone?: string | null) => {
         setEvId(id);
         if (id) {
-            localStorage.setItem('inouthub_event_id', id);
+            localStorage.setItem(EVENT_STORAGE_KEY, id);
             if (timeZone) {
                 setEventTimezone(timeZone);
-                localStorage.setItem('inouthub_event_timezone', timeZone);
+                localStorage.setItem(EVENT_TIMEZONE_STORAGE_KEY, timeZone);
             }
         } else {
             setEventTimezone(null);
-            localStorage.removeItem('inouthub_event_id');
-            localStorage.removeItem('inouthub_event_timezone');
+            localStorage.removeItem(EVENT_STORAGE_KEY);
+            localStorage.removeItem(EVENT_TIMEZONE_STORAGE_KEY);
         }
     };
 
@@ -103,9 +142,7 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
         setOrgId(null);
         setEvId(null);
         setEventTimezone(null);
-        localStorage.removeItem('inouthub_org_id');
-        localStorage.removeItem('inouthub_event_id');
-        localStorage.removeItem('inouthub_event_timezone');
+        clearStoredSelection();
     };
 
     return (

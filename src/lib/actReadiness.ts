@@ -17,22 +17,38 @@ export function deriveActReadinessSummary({
     practices = [],
     items = [],
     issues = [],
+    participantCount = 0,
+    missingParticipantAssetCount = 0,
+    hasMusicTrack = false,
+    hasIntroRequirement = false,
+    hasApprovedIntro = false,
 }: {
     practices?: ActPracticeSession[];
     items?: ActReadinessItem[];
     issues?: ActReadinessIssue[];
+    participantCount?: number;
+    missingParticipantAssetCount?: number;
+    hasMusicTrack?: boolean;
+    hasIntroRequirement?: boolean;
+    hasApprovedIntro?: boolean;
 }): ActReadinessSummary {
     const nextPractice = getNextPractice(practices);
     const openIssues = issues.filter((issue) => issue.status !== 'resolved');
     const missingChecklistCount = items.filter((item) => item.status === 'missing').length;
     const blockingIssueCount = openIssues.filter((issue) => issue.severity === 'high' || issue.status === 'blocked').length;
+    const blockingDependencyCount =
+        (participantCount === 0 ? 1 : 0) +
+        (missingParticipantAssetCount > 0 ? 1 : 0) +
+        (!hasMusicTrack ? 1 : 0);
+    const atRiskDependency = hasIntroRequirement && !hasApprovedIntro;
     const atRiskSignals =
         openIssues.length > 0 ||
         items.some((item) => item.status === 'needed' || item.status === 'in_progress') ||
-        nextPractice?.status === 'changed';
+        nextPractice?.status === 'changed' ||
+        atRiskDependency;
 
     let state: ActReadinessState = 'On Track';
-    if (blockingIssueCount > 0 || missingChecklistCount > 0) {
+    if (blockingIssueCount > 0 || missingChecklistCount > 0 || blockingDependencyCount > 0) {
         state = 'Blocked';
     } else if (atRiskSignals) {
         state = 'At Risk';
