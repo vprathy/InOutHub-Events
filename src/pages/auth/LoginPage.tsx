@@ -62,12 +62,12 @@ export default function LoginPage() {
                     <div className="space-y-4 text-center">
                         <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            <span>Operator Access</span>
+                            <span>Secure Sign In</span>
                         </div>
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black tracking-tight text-foreground">Sign In</h1>
+                            <h1 className="text-3xl font-black tracking-tight text-foreground">Sign in to InOutHub</h1>
                             <p className="text-sm leading-6 text-muted-foreground">
-                                Use your work email to receive a secure magic link.
+                                Enter the email address linked to your event access and we'll send you a secure sign-in link.
                             </p>
                         </div>
                     </div>
@@ -75,13 +75,13 @@ export default function LoginPage() {
                     <form className="mt-6 space-y-4" onSubmit={handleMagicLink}>
                         <div className="space-y-2">
                             <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                Work Email
+                                Email Address
                             </label>
                             <Input
                                 type="email"
                                 autoComplete="email"
                                 inputMode="email"
-                                placeholder="name@organization.com"
+                                placeholder="name@example.com"
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
                                 className="h-12 rounded-2xl"
@@ -103,12 +103,12 @@ export default function LoginPage() {
 
                         <Button type="submit" className="h-12 w-full rounded-2xl" disabled={status === 'loading'}>
                             {status === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                            Email Magic Link
+                            Send Sign-In Link
                         </Button>
                     </form>
 
                     <p className="mt-4 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        If you have not been granted organization or event access yet, sign in first and then contact an admin to complete access assignment.
+                        Don't have access yet? Sign in with your email first, then contact your event or organization admin to complete access setup.
                     </p>
                 </div>
             </div>
