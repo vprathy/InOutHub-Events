@@ -5,7 +5,6 @@ import DashboardPage from '@/pages/DashboardPage';
 import ActsPage from '@/pages/ActsPage';
 import DevQuickLogin from '@/pages/dev/DevQuickLogin';
 import LoginPage from '@/pages/auth/LoginPage';
-
 import OrgSelectionPage from '@/pages/selection/OrgSelectionPage';
 import EventSelectionPage from '@/pages/selection/EventSelectionPage';
 import { SelectionGuard } from '@/components/selection/SelectionGuard';
@@ -19,10 +18,6 @@ const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
 const StageConsolePage = lazy(() => import('@/pages/StageConsolePage'));
 const IntroVideoPrototype = lazy(() => import('@/pages/IntroVideoPrototype'));
-const ExternalProgramSubmissionsPage = lazy(() => import('@/pages/admin/ExternalProgramSubmissionsPage'));
-const LandingPageMidnight = lazy(() => import('@/pages/marketing/LandingPageMidnight'));
-const LandingPageV3 = lazy(() => import('@/pages/marketing/LandingPageV3'));
-const CompetitionLandingPage = lazy(() => import('@/pages/marketing/CompetitionLandingPage'));
 
 function RouteLoader() {
     return (
@@ -99,14 +94,6 @@ export const router = createBrowserRouter([
                     </LazyRoute>
                 ),
             },
-            {
-                path: 'admin/external-submissions',
-                element: (
-                    <LazyRoute>
-                        <ExternalProgramSubmissionsPage />
-                    </LazyRoute>
-                ),
-            },
         ],
     },
     {
@@ -118,34 +105,10 @@ export const router = createBrowserRouter([
         element: <LoginPage />,
     },
     {
-        path: '/landing-midnight',
-        element: (
-            <LazyRoute>
-                <LandingPageMidnight />
-            </LazyRoute>
-        ),
-    },
-    {
-        path: '/landing-v3',
-        element: (
-            <LazyRoute>
-                <LandingPageV3 />
-            </LazyRoute>
-        ),
-    },
-    {
         path: '/prototype/intro',
         element: (
             <LazyRoute>
                 <IntroVideoPrototype />
-            </LazyRoute>
-        ),
-    },
-    {
-        path: '/competition/landing',
-        element: (
-            <LazyRoute>
-                <CompetitionLandingPage />
             </LazyRoute>
         ),
     },

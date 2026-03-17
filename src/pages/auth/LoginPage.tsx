@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, Mail, ShieldCheck } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
@@ -60,18 +59,18 @@ export default function LoginPage() {
                 </div>
 
                 <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-                    <PageHeader
-                        title="Sign In"
-                        subtitle="Use your work email to receive a secure magic link."
-                        density="compact"
-                        align="center"
-                        status={
-                            <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                                <ShieldCheck className="h-3.5 w-3.5" />
-                                <span>Operator Access</span>
-                            </div>
-                        }
-                    />
+                    <div className="space-y-4 text-center">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            <span>Operator Access</span>
+                        </div>
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-black tracking-tight text-foreground">Sign In</h1>
+                            <p className="text-sm leading-6 text-muted-foreground">
+                                Use your work email to receive a secure magic link.
+                            </p>
+                        </div>
+                    </div>
 
                     <form className="mt-6 space-y-4" onSubmit={handleMagicLink}>
                         <div className="space-y-2">
