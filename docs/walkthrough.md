@@ -17,17 +17,13 @@ Instead of a static video file, the **Live Console** now features a real-time as
 - **Background Layer**: Uses the approved AI-generated theatrical poster.
 - **Audio Prioritization**: Automatically favors approved act-level audio/music assets, falling back to generated audio if none exist.
 
-### 3. Workflow Visual Guides (NEW)
-The "easy flow" is now explicit on the screen with a 4-step progress indicator:
-1. **Select**: Activated when no photos are chosen.
-2. **Curate**: Activated when photos are selected but curation is missing.
-3. **Approve**: Activated when curation is complete but the intro is still a draft.
-4. **Play**: Guided to the Stage Console for final playback.
+### 3. Workflow Visual Guides (Historical Context)
+The development version of this system utilized a 4-step progress indicator (Select -> Curate -> Approve -> Play). Previous operational validation passes focused on background generation and publish timing; following the 2026-03-15 fallback fix, this loop is now marked as passed.
 
 ### 4. Operational Integrity & Guardrails
 - **Draft vs Approved**: Intros must be approved in the Builder before appearing in the Live Console.
 - **Self-Healing Fallbacks**: If AI curation fails, the system defaults to a "Cinematic" fallback loop to ensure the show never stalls.
-- **CORS Hardening**: Fixed a critical preflight issue with the `x-inouthub-trust` security header (requires redeploy to remote).
+- **CORS Hardening**: The `x-inouthub-trust` security header path was hardened as part of the intro pipeline stabilization work.
 
 ## 📸 Visual Verification
 
@@ -42,5 +38,9 @@ The original artifact version of this walkthrough referenced external screenshot
 - `src/components/console/IntroVideoPlayer.tsx`: Transformed into a dynamic Ken Burns playback engine.
 
 ## ✅ Final Gate Status
-- [x] **Gate 15: Intro System MVP (Dynamic Assembly)**: Verified & Completed.
+- [x] **Gate 15: Intro System MVP (Dynamic Assembly)**: **PASSED** on 2026-03-15. Fallback backdrop logic verified end-to-end.
 - [x] **Gate 16: Workflow Visual Guides**: Verified & Completed.
+- [x] **Tablet Rehearsal Verification (Console Hardening)**: **PASSED** on 2026-03-15. Verified persistence, recovery, and core actions.
+
+Revalidation artifact: `docs/verification/gate-15-intro-system-revalidation.md`
+Verification Recording: [tablet_rehearsal_verification_1773589395809.webp](file:///Users/vinay/.gemini/antigravity/brain/81db6b12-2384-454e-9c15-cccdb345f1c5/tablet_rehearsal_verification_1773589395809.webp) (External)

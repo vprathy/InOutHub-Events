@@ -4,7 +4,7 @@ import { SignJWT, importPKCS8 } from 'https://deno.land/x/jose@v5.2.2/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-inouthub-trust',
 }
 
 // --- GCP Service Account Auth (JWT → Access Token) ---
@@ -72,7 +72,7 @@ serve(async (req: Request) => {
     let finalPrompt = manualPrompt;
     let actName = "Dynamic Performance";
 
-    if (!manualPrompt) {
+    if (!manualPrompt && mode !== 'Curation') {
       // 1. Fetch act context
       const { data: act, error: actError } = await supabaseClient
         .from('acts')
@@ -104,6 +104,7 @@ serve(async (req: Request) => {
             1. Use professional ${mode === 'Audio' ? 'theatrical voice acting' : 'architectural and stage lighting'} terms.
             2. FOCUS on ${mode === 'Audio' ? 'pacing, tone, and excitement' : 'artistic aesthetics, movement, and performance energy'}.
             3. CRITICAL: For 'Background' mode, DO NOT include humans, faces, animals, or cartoon characters. Use abstract stage metaphors.
+            3b. CRITICAL: For 'Background' mode, DO NOT include words, letters, logos, title treatment, captions, signage, posters, or any readable typography.
             4. Ensure the content is safe for all audiences and avoids any keywords related to violence, weapons, or danger.
             5. If the act name or description sounds slightly controversial, rephrase it into a positive, theatrical metaphor to avoid safety filters.
             6. Output ONLY the ${mode === 'Audio' ? 'script' : 'prompt'} string. No conversational filler or markdown.`
@@ -131,45 +132,103 @@ serve(async (req: Request) => {
     // --- NEW: Curation Mode (Gemini 2.5 Vision) ---
     if (mode === 'Curation') {
       console.log(`[VertexPipeline] Curation Mode: Analyzing ${assetIds.length} assets...`)
-      const geminiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-2.5-flash-001:generateContent`
       
       const { data: assets, error: assetError } = await supabaseClient
         .from('participant_assets')
-        .select('file_url')
+        .select('id, file_url')
         .in('id', assetIds)
 
       if (assetError) throw assetError
+      if (!assets || assets.length === 0) throw new Error('No assets found for curation')
 
-      // Fetch images as base64 for Gemini
+      // 3. Fetch images as base64 for Gemini
       const assetParts = await Promise.all(assets.map(async (a: any) => {
-        const response = await fetch(a.file_url)
-        const blob = await response.blob()
-        const buffer = await blob.arrayBuffer()
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
-        return { inlineData: { mimeType: "image/png", data: b64 } }
+        try {
+          const response = await fetch(a.file_url)
+          if (!response.ok) throw new Error(`Failed to fetch image: ${a.file_url}`)
+          const blob = await response.blob()
+          const buffer = await blob.arrayBuffer()
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          // Include ID in the text part following the image for correlation
+          return [
+            { inlineData: { mimeType: "image/png", data: b64 } },
+            { text: `Asset ID: ${a.id}` }
+          ]
+        } catch (e: any) {
+          console.warn(`[VertexPipeline] Failed to process asset ${a.id}:`, e.message)
+          return null
+        }
       }))
 
+      const filteredAssetParts = assetParts.filter(p => p !== null).flat()
+
+      if (filteredAssetParts.length === 0) {
+        // Fallback if all image processing fails
+        return new Response(
+          JSON.stringify({ 
+            status: 'Curation Fallback', 
+            suggestions: JSON.stringify({
+              suggestions: assets.map(a => ({ 
+                id: a.id, pacing: 'cinematic', focalPoint: 'center', timing: 3, narrative: 'Performer spotlight' 
+              }))
+            })
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        )
+      }
+
+      const geminiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-2.5-flash-001:generateContent`
+      
       const curationPayload = {
         contents: [{
           role: "user",
           parts: [
-            { text: "Analyze these participant photos for an act intro video. 1. Identify which photos are centered and high-quality. 2. Suggest an ordering (index list) that creates a good narrative flow. 3. Provide cropping coordinates (x, y, w, h) for each to center faces. Output JSON only: { suggestions: [ { index: number, crop: string, quality: string } ] }" },
-            ...assetParts
+            { text: `Analyze these participant photos for a theatrical act intro video. 
+            For each photo provided, look at the subject and return:
+            1. id: The exact Asset ID provided with the photo.
+            2. pacing: Suggest 'slow', 'cinematic', or 'fast'.
+            3. focalPoint: Location of the subject face ('center', 'left', 'right').
+            4. timing: Duration in seconds (2.0 to 4.0).
+            5. narrative: Short vibe (e.g., 'Heroic entry', 'Emotional peak').
+            
+            Output ONLY valid JSON: { "suggestions": [ { "id": "string", "pacing": "string", "focalPoint": "string", "timing": number, "narrative": "string" } ] }` },
+            ...filteredAssetParts
           ]
-        }]
+        }],
+        generationConfig: { responseMimeType: "application/json" }
       }
 
-      const curationRes = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(curationPayload)
-      })
+      try {
+        const curationRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(curationPayload)
+        })
 
-      const curationData = await curationRes.json()
-      return new Response(
-        JSON.stringify({ status: 'Curation Complete', suggestions: curationData.candidates?.[0]?.content?.parts?.[0]?.text }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
-      )
+        if (!curationRes.ok) throw new Error(`Gemini Curation Failed: ${curationRes.status}`)
+        
+        const curationData = await curationRes.json()
+        const textResponse = curationData.candidates?.[0]?.content?.parts?.[0]?.text
+        
+        return new Response(
+          JSON.stringify({ status: 'Curation Complete', suggestions: textResponse }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        )
+      } catch (err: any) {
+        console.error(`[VertexPipeline] Curation AI Error:`, err.message)
+        // Graceful fallback
+        return new Response(
+          JSON.stringify({ 
+            status: 'Curation Fallback', 
+            suggestions: JSON.stringify({ 
+              suggestions: assets.map(a => ({ 
+                id: a.id, pacing: 'cinematic', focalPoint: 'center', timing: 3, narrative: 'Performer spotlight' 
+              })) 
+            }) 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        )
+      }
     }
 
     // STAGE 2: Core Generation (Image vs Video vs Audio)

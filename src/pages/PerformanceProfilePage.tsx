@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useActDetail, useUpdateActStatus, useAddActReadinessPractice, useAddActReadinessItem, useAddActReadinessIssue } from '@/hooks/useActs';
+import { useActActivityFeed, useActDetail, useUpdateActStatus, useAddActReadinessPractice, useAddActReadinessItem, useAddActReadinessIssue } from '@/hooks/useActs';
 import {
     Users,
     Settings,
@@ -16,7 +16,8 @@ import {
     ChevronRight,
     CalendarClock,
     ListChecks,
-    TriangleAlert
+    TriangleAlert,
+    History
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -27,9 +28,12 @@ import { IntroVideoBuilder } from '@/components/acts/IntroVideoBuilder';
 import { UploadActAssetModal } from '@/components/acts/UploadActAssetModal';
 import { AddParticipantToActModal } from '@/components/acts/AddParticipantToActModal';
 import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { formatReadinessDate } from '@/lib/actReadiness';
+import { formatEventDateTime } from '@/lib/eventTime';
+import { getArrivalStatusLabel } from '@/types/domain';
 
-type TabType = 'overview' | 'readiness' | 'cast' | 'assets';
+type TabType = 'overview' | 'readiness' | 'activity' | 'cast' | 'assets';
 
 export function PerformanceProfilePage() {
     const { actId } = useParams();
@@ -39,6 +43,7 @@ export function PerformanceProfilePage() {
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
     const { data: act, isLoading } = useActDetail(actId || null);
+    const { data: activity = [], isLoading: isActivityLoading, error: activityError } = useActActivityFeed(actId || null);
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
 
     if (isLoading) {
@@ -88,57 +93,57 @@ export function PerformanceProfilePage() {
     ];
 
     return (
-        <div className="flex flex-col space-y-5 max-w-5xl mx-auto pb-20">
-            {/* Operational Header - Unified Strip */}
-            <div className="flex flex-col space-y-3">
-                <div className="flex items-center justify-between">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate('/acts')}
-                        className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group p-0 h-auto"
-                    >
-                        <ChevronLeft className="w-3.5 h-3.5 mr-1 group-hover:-translate-x-1 transition-transform" />
-                        Back to Performances
-                    </Button>
-                </div>
+        <div className="flex flex-col space-y-4 max-w-5xl mx-auto pb-20">
+            <div className="space-y-3">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/acts')}
+                    className="w-fit p-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition-colors hover:text-primary group h-auto"
+                >
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
+                    Back to Performances
+                </Button>
 
-                {/* Unified Badge Strip - High Density Cockpit */}
-                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-xl border border-border/40 overflow-x-auto scrollbar-hide">
-                    <div className="min-w-[180px]">
-                        <StatusPicker
-                            currentStatus={act.arrivalStatus}
-                            onStatusChange={(status) => updateStatus({ actId: act.id, status })}
-                            isLoading={isPending}
-                        />
-                    </div>
-                    
-                    <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-primary/5 text-primary border-none shrink-0 antialiased">
-                        PERFORMANCE
-                    </Badge>
-
-                    <Badge variant="outline" className={`px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg border-none shrink-0 antialiased ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted/50 text-muted-foreground'}`}>
-                        {act.arrivalStatus === 'Ready' ? 'Operational' : 'Draft Mode'}
-                    </Badge>
-
-                    {act.durationMinutes && (
-                        <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-muted text-muted-foreground border-none shrink-0 tabular-nums">
-                            <Clock size={10} className="mr-1.5" />
-                            {act.durationMinutes}m
-                        </Badge>
-                    )}
-
-                    <Badge variant="outline" className="px-3 h-7 text-[9px] font-black tracking-widest uppercase rounded-lg bg-muted text-muted-foreground border-none shrink-0">
-                        <Users size={10} className="mr-1.5" />
-                        {act.participants.length} Cast
-                    </Badge>
-                </div>
-            </div>
-
-            {/* Title Section */}
-            <div className="space-y-1 px-1">
-                <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">{act.name}</h1>
-                <p className="text-xs font-medium text-muted-foreground">{act.participants.length} active cast members assigned</p>
+                <PageHeader
+                    title={act.name}
+                    subtitle={`${act.participants.length} active cast members assigned`}
+                    density="compact"
+                    actions={
+                        <div className="w-full min-w-[220px] sm:w-auto">
+                            <StatusPicker
+                                currentStatus={act.arrivalStatus}
+                                onStatusChange={(status) => updateStatus({ actId: act.id, status })}
+                                isLoading={isPending}
+                            />
+                        </div>
+                    }
+                    status={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="h-7 rounded-lg border-none bg-primary/5 px-3 text-[9px] font-black uppercase tracking-widest text-primary antialiased">
+                                Performance
+                            </Badge>
+                            <Badge variant="outline" className={`h-7 rounded-lg border-none px-3 text-[9px] font-black uppercase tracking-widest antialiased ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted/50 text-muted-foreground'}`}>
+                                {act.arrivalStatus === 'Ready' ? 'Operational' : 'Draft Mode'}
+                            </Badge>
+                            {act.businessStatus ? (
+                                <Badge variant="outline" className={`h-7 rounded-lg border-none px-3 text-[9px] font-black uppercase tracking-widest antialiased ${act.businessStatus === 'Awaiting Roster' ? 'bg-amber-500/10 text-amber-700' : act.businessStatus === 'Needs Attention' ? 'bg-rose-500/10 text-rose-700' : 'bg-emerald-500/10 text-emerald-700'}`}>
+                                    {act.businessStatus}
+                                </Badge>
+                            ) : null}
+                            {act.durationMinutes && (
+                                <Badge variant="outline" className="h-7 rounded-lg border-none bg-muted px-3 text-[9px] font-black uppercase tracking-widest text-muted-foreground tabular-nums">
+                                    <Clock size={10} className="mr-1.5" />
+                                    {act.durationMinutes}m
+                                </Badge>
+                            )}
+                            <Badge variant="outline" className="h-7 rounded-lg border-none bg-muted px-3 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                                <Users size={10} className="mr-1.5" />
+                                {act.participants.length} Cast
+                            </Badge>
+                        </div>
+                    }
+                />
             </div>
 
             <Card className="border-border/50 p-3">
@@ -203,6 +208,16 @@ export function PerformanceProfilePage() {
                         Team
                     </button>
                     <button
+                        onClick={() => setActiveTab('activity')}
+                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'activity' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                    >
+                        <History size={14} />
+                        Activity
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                            {activity.length}
+                        </span>
+                    </button>
+                    <button
                         onClick={() => setActiveTab('assets')}
                         className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
                     >
@@ -226,6 +241,7 @@ export function PerformanceProfilePage() {
             <div className="mt-2">
                 {activeTab === 'overview' && <OverviewTab act={act} />}
                 {activeTab === 'readiness' && <ReadinessTab act={act} />}
+                {activeTab === 'activity' && <ActivityTab activity={activity} isLoading={isActivityLoading} error={activityError} />}
                 {activeTab === 'cast' && <CastTab participants={act.participants} onAddParticipant={(role) => {
                     setAddRole(role);
                     setIsAddParticipantOpen(true);
@@ -729,6 +745,194 @@ function OverviewTab({ act }: { act: any }) {
             </div>
         </div>
     );
+}
+
+function ActivityTab({ activity, isLoading, error }: { activity: any[]; isLoading: boolean; error: Error | null }) {
+    return (
+        <div className="space-y-4">
+            <Card className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
+                            <History className="h-4 w-4 text-primary" />
+                            Performance Activity
+                        </h3>
+                        <p className="mt-1 text-xs font-medium text-muted-foreground">
+                            Recent performance, schedule, cast, asset, requirement, and readiness changes for this act.
+                        </p>
+                    </div>
+                    <Badge variant="outline" className="h-7 rounded-lg px-3 text-[9px] font-black uppercase tracking-[0.16em]">
+                        {activity.length} recent events
+                    </Badge>
+                </div>
+            </Card>
+
+            {isLoading ? (
+                <Card className="p-8">
+                    <div className="flex items-center justify-center gap-3 text-sm font-medium text-muted-foreground">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        Loading activity...
+                    </div>
+                </Card>
+            ) : error ? (
+                <Card className="border-amber-500/20 bg-amber-500/5 p-5">
+                    <div className="flex items-start gap-3">
+                        <TriangleAlert className="mt-0.5 h-4 w-4 text-amber-600" />
+                        <div>
+                            <p className="text-sm font-black tracking-tight text-foreground">Activity feed unavailable</p>
+                            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+                                This view needs the latest audit migration and an authorized event role. {error.message}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            ) : activity.length > 0 ? (
+                <div className="space-y-3">
+                    {activity.map((entry) => {
+                        const details = describeActivityEntry(entry);
+                        return (
+                            <Card key={entry.id} className="p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline" className={`h-6 rounded-lg px-2.5 text-[9px] font-black uppercase tracking-[0.16em] border-none ${getActivityBadgeTone(entry.operation)}`}>
+                                                {getActivityBadgeLabel(entry.operation)}
+                                            </Badge>
+                                            <Badge variant="outline" className="h-6 rounded-lg px-2.5 text-[9px] font-black uppercase tracking-[0.16em]">
+                                                {entry.entityLabel}
+                                            </Badge>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black tracking-tight text-foreground">{details.title}</p>
+                                            {details.summary ? (
+                                                <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">{details.summary}</p>
+                                            ) : null}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                            <span>{entry.actorName || 'System'}</span>
+                                            <span className="text-border">•</span>
+                                            <span>{entry.id.slice(0, 8)}</span>
+                                        </div>
+                                    </div>
+                                    <time className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                                        {formatEventDateTime(entry.changedAt, undefined, false)}
+                                    </time>
+                                </div>
+                            </Card>
+                        );
+                    })}
+                </div>
+            ) : (
+                <Card className="p-8">
+                    <div className="text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border/50 bg-muted/20">
+                            <History className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <h4 className="mt-4 text-sm font-black uppercase tracking-[0.16em] text-foreground">No Activity Yet</h4>
+                        <p className="mt-2 text-xs font-medium text-muted-foreground">
+                            Changes to this performance will appear here as operators update cast, media, requirements, schedule, and readiness.
+                        </p>
+                    </div>
+                </Card>
+            )}
+        </div>
+    );
+}
+
+function getActivityBadgeLabel(operation: string) {
+    if (operation === 'INSERT') return 'Created';
+    if (operation === 'DELETE') return 'Removed';
+    return 'Updated';
+}
+
+function getActivityBadgeTone(operation: string) {
+    if (operation === 'INSERT') return 'bg-emerald-500/10 text-emerald-600';
+    if (operation === 'DELETE') return 'bg-rose-500/10 text-rose-600';
+    return 'bg-blue-500/10 text-blue-600';
+}
+
+function describeActivityEntry(entry: any) {
+    const current = entry.newData || entry.oldData || {};
+    const previous = entry.oldData || {};
+    const title = current.title || current.name || current.requirement_type || current.asset_name || 'Record updated';
+
+    if (entry.tableName === 'acts') {
+        if (entry.operation === 'INSERT') return { title: 'Performance record created', summary: current.name || null };
+        if (entry.operation === 'DELETE') return { title: 'Performance record removed', summary: entry.oldData?.name || null };
+        if (previous.arrival_status !== current.arrival_status) {
+            return { title: `Arrival status changed to ${getArrivalStatusLabel(current.arrival_status)}`, summary: current.name || null };
+        }
+        return { title: 'Performance details updated', summary: summarizeChangedFields(previous, current, ['updated_at', 'created_at']) };
+    }
+
+    if (entry.tableName === 'lineup_items') {
+        if (entry.operation === 'INSERT') return { title: 'Added to lineup', summary: current.scheduled_start_time ? `Scheduled ${formatEventDateTime(current.scheduled_start_time, undefined, false)}` : null };
+        if (entry.operation === 'DELETE') return { title: 'Removed from lineup', summary: previous.scheduled_start_time ? `Was scheduled ${formatEventDateTime(previous.scheduled_start_time, undefined, false)}` : null };
+        return { title: 'Lineup timing updated', summary: summarizeChangedFields(previous, current, ['created_at']) };
+    }
+
+    if (entry.tableName === 'act_participants') {
+        return {
+            title: entry.operation === 'DELETE' ? 'Cast assignment removed' : 'Cast assignment updated',
+            summary: current.role || previous.role || 'Performer',
+        };
+    }
+
+    if (entry.tableName === 'act_assets') {
+        if (entry.operation === 'INSERT') return { title: 'Asset record added', summary: current.asset_name || null };
+        if (entry.operation === 'DELETE') return { title: 'Asset record removed', summary: previous.asset_name || null };
+        return { title, summary: summarizeChangedFields(previous, current, ['created_at']) };
+    }
+
+    if (entry.tableName === 'act_requirements') {
+        if (entry.operation === 'INSERT') return { title: 'Requirement added', summary: current.requirement_type || null };
+        if (entry.operation === 'DELETE') return { title: 'Requirement removed', summary: previous.requirement_type || null };
+        if (previous.fulfilled !== current.fulfilled) {
+            return { title: current.fulfilled ? 'Requirement marked ready' : 'Requirement marked pending', summary: current.requirement_type || null };
+        }
+        return { title: 'Requirement updated', summary: summarizeChangedFields(previous, current, ['created_at', 'file_url']) };
+    }
+
+    if (entry.tableName === 'act_readiness_practices') {
+        if (entry.operation === 'INSERT') return { title: 'Practice added', summary: current.venue_name || null };
+        if (entry.operation === 'DELETE') return { title: 'Practice removed', summary: previous.venue_name || null };
+        return { title: current.venue_name || 'Practice updated', summary: summarizeChangedFields(previous, current, ['updated_at', 'created_at']) };
+    }
+
+    if (entry.tableName === 'act_readiness_items') {
+        if (entry.operation === 'INSERT') return { title: 'Checklist item added', summary: current.title || null };
+        if (entry.operation === 'DELETE') return { title: 'Checklist item removed', summary: previous.title || null };
+        if (previous.status !== current.status) {
+            return { title: `Checklist item marked ${String(current.status || '').replace('_', ' ')}`, summary: current.title || null };
+        }
+        return { title: current.title || 'Checklist item updated', summary: summarizeChangedFields(previous, current, ['updated_at', 'created_at']) };
+    }
+
+    if (entry.tableName === 'act_readiness_issues') {
+        if (entry.operation === 'INSERT') return { title: 'Issue raised', summary: current.title || null };
+        if (entry.operation === 'DELETE') return { title: 'Issue removed', summary: previous.title || null };
+        if (previous.status !== current.status) {
+            return { title: `Issue moved to ${current.status}`, summary: current.title || null };
+        }
+        return { title: current.title || 'Issue updated', summary: summarizeChangedFields(previous, current, ['updated_at', 'created_at']) };
+    }
+
+    return { title, summary: summarizeChangedFields(previous, current, ['updated_at', 'created_at']) };
+}
+
+function summarizeChangedFields(previous: Record<string, any>, current: Record<string, any>, hiddenFields: string[] = []) {
+    const hidden = new Set(hiddenFields);
+    const changedFields = Object.keys(current).filter((key) => {
+        if (hidden.has(key)) return false;
+        return JSON.stringify(previous[key]) !== JSON.stringify(current[key]);
+    });
+
+    if (changedFields.length === 0) return null;
+
+    return changedFields
+        .slice(0, 3)
+        .map((field) => field.replace(/_/g, ' '))
+        .join(' • ');
 }
 
 function CastTab({ participants, onAddParticipant }: { participants: any[]; onAddParticipant: (role: 'Performer' | 'Manager') => void }) {

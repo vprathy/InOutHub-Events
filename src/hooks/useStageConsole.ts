@@ -24,7 +24,7 @@ export function useStageConsole(stageId: string | null) {
                 .from('stage_state')
                 .select('*')
                 .eq('stage_id', stageId)
-                .single();
+                .maybeSingle();
 
             if (error) throw error;
             return data;
@@ -185,8 +185,12 @@ export function useStageConsole(stageId: string | null) {
             if (!stageId) return;
             const { error } = await supabase
                 .from('stage_state')
-                .update(updates)
-                .eq('stage_id', stageId);
+                .upsert({
+                    stage_id: stageId,
+                    ...updates,
+                }, {
+                    onConflict: 'stage_id',
+                });
             if (error) throw error;
         },
         onSuccess: () => {

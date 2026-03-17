@@ -85,6 +85,40 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     hasSelectedAssets && !hasCuration ? 'Arrange photos to create the playback order.' : null,
     hasCuration && !hasBackground ? 'Generate a safe intro background before approval.' : null,
   ].filter(Boolean) as string[];
+  const nextAction = !hasSelectedAssets
+    ? {
+        badge: 'Step 1',
+        title: 'Pick the approved participant photos for this intro.',
+        detail: 'Choose the images below first. The builder uses those photos to arrange the playback order.',
+        tone: 'border-primary/20 bg-primary/5 text-primary',
+      }
+    : !hasCuration
+      ? {
+          badge: 'Step 2',
+          title: 'Arrange the selected photos.',
+          detail: 'Tap Arrange Photos to build the playback order and framing suggestions.',
+          tone: 'border-amber-500/20 bg-amber-500/5 text-amber-700',
+        }
+      : !hasBackground
+        ? {
+            badge: 'Step 3',
+            title: 'Generate the backdrop before approval.',
+            detail: 'The intro needs a safe stage background before it can be approved for playback.',
+            tone: 'border-amber-500/20 bg-amber-500/5 text-amber-700',
+          }
+        : !isApproved
+          ? {
+              badge: 'Final Step',
+              title: 'Review the preview and approve it for Stage Console.',
+              detail: 'Save Draft if you want to come back later. Approve for Stage only when this version is ready to play live.',
+              tone: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700',
+            }
+          : {
+              badge: 'Ready',
+              title: 'This intro is approved and ready for Stage Console playback.',
+              detail: 'Only regenerate or re-approve if the act needs a different version.',
+              tone: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700',
+            };
 
   const resetCompositionState = () => {
     if (backgroundPollIntervalRef.current) {
@@ -419,30 +453,10 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
             )}
           </div>
           <p className="max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-            Build the act-scoped intro recipe, review curation, and approve only when stage playback is ready.
+            Select approved photos, arrange the playback order, generate the backdrop, then approve the intro for live playback.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={generateBackground}
-            disabled={isGeneratingBackground || isApproved}
-            className="h-11 rounded-2xl border-border/80 px-4 font-bold"
-          >
-            {isGeneratingBackground ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
-            {backgroundUrl ? 'Regenerate Background' : 'Generate Background'}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={generateAudio}
-            disabled={isGeneratingAudio || isApproved}
-            className="h-11 rounded-2xl border-border/80 px-4 font-bold"
-          >
-            {isGeneratingAudio ? <Loader2 className="animate-spin mr-2" /> : <Play className="mr-2" />}
-            {audioUrl ? 'Regenerate Audio' : 'Generate Audio'}
-          </Button>
           <Button 
             variant="default" 
             size="sm"
@@ -453,8 +467,36 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
              {isCurating ? <Loader2 className="animate-spin mr-2" /> : <WandSparkles className="mr-2" />}
              Arrange Photos
           </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={generateBackground}
+            disabled={isGeneratingBackground || isApproved}
+            className="h-11 rounded-2xl border-border/80 px-4 font-bold"
+          >
+            {isGeneratingBackground ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
+            {backgroundUrl ? 'Refresh Backdrop' : 'Generate Backdrop'}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={generateAudio}
+            disabled={isGeneratingAudio || isApproved}
+            className="h-11 rounded-2xl border-border/80 px-4 font-bold"
+          >
+            {isGeneratingAudio ? <Loader2 className="animate-spin mr-2" /> : <Play className="mr-2" />}
+            {audioUrl ? 'Refresh Audio' : 'Optional Audio'}
+          </Button>
         </div>
       </div>
+
+      <Card className={`rounded-2xl border p-4 ${nextAction.tone}`}>
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em]">{nextAction.badge}</p>
+          <p className="text-base font-black tracking-tight">{nextAction.title}</p>
+          <p className="text-sm font-medium leading-6 text-current/80">{nextAction.detail}</p>
+        </div>
+      </Card>
 
       {errorMessage ? (
         <Card className="flex items-start gap-3 rounded-2xl border-rose-500/20 bg-rose-500/5 p-4 text-rose-700">
@@ -511,39 +553,17 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         </Card>
       ) : null}
 
-      <div className="flex items-center justify-between rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3">
-        {[
-          { id: 'select', label: '1. Select', active: selectedIds.length === 0, done: selectedIds.length > 0 },
-          { id: 'curate', label: '2. Curate', active: selectedIds.length > 0 && curationSuggestions.length === 0, done: curationSuggestions.length > 0 },
-          { id: 'background', label: '3. Background', active: hasCuration && !hasBackground, done: hasBackground },
-          { id: 'approve', label: '4. Approve', active: hasBackground && !isApproved, done: isApproved },
-          { id: 'play', label: '5. Play', active: isApproved, done: false },
-        ].map((step, idx) => (
-          <React.Fragment key={step.id}>
-            <div className={`flex items-center gap-2 ${step.active ? 'opacity-100' : 'opacity-40'}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 ${step.done ? 'bg-green-500 border-green-500 text-white' : step.active ? 'border-primary text-primary' : 'border-gray-500 text-gray-500'}`}>
-                {step.done ? <Check className="w-3 h-3" /> : idx + 1}
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-[0.22em] ${step.active ? 'text-primary' : 'text-gray-500'}`}>
-                {step.label}
-              </span>
-            </div>
-            {idx < 4 && <div className="h-px flex-1 mx-4 bg-gray-500/10" />}
-          </React.Fragment>
-        ))}
-      </div>
-
       <div className="grid gap-3 rounded-3xl border border-border/60 bg-muted/10 p-4 sm:grid-cols-3">
         <div className={`rounded-2xl border px-4 py-3 ${hasSelectedAssets ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/60 bg-background/70'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Photos</p>
-          <p className="mt-1 text-sm font-bold text-slate-900">{hasSelectedAssets ? `${selectedIds.length} selected` : 'Waiting for selection'}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">1. Photos</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{hasSelectedAssets ? `${selectedIds.length} selected` : 'Choose photos below'}</p>
         </div>
         <div className={`rounded-2xl border px-4 py-3 ${hasCuration ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-border/60 bg-background/70'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Curation</p>
-          <p className="mt-1 text-sm font-bold text-slate-900">{hasCuration ? `${curationSuggestions.length} frames arranged` : 'Arrange photos first'}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">2. Arrange</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{hasCuration ? `${curationSuggestions.length} frames arranged` : 'Run Arrange Photos'}</p>
         </div>
         <div className={`rounded-2xl border px-4 py-3 ${hasBackground ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Background</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">3. Backdrop</p>
           <p className="mt-1 text-sm font-bold text-slate-900">{backgroundSourceLabel}</p>
           {hasBackground && backgroundSource === 'fallback_background' ? (
             <p className="mt-1 text-xs font-medium text-amber-700">Launch-safe fallback prepared for rehearsal approval.</p>
@@ -555,8 +575,8 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         <section className="space-y-4">
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Step 1</p>
-              <h3 className="text-lg font-black tracking-tight text-slate-900">Select Participant Photos</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Photo Selection</p>
+              <h3 className="text-lg font-black tracking-tight text-slate-900">Choose the approved photos for this act</h3>
             </div>
             <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{selectedIds.length} Selected</span>
           </div>
@@ -601,8 +621,8 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
         <section className="space-y-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Step 2</p>
-            <h3 className="text-lg font-black tracking-tight text-slate-900">Preview & Template</h3>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-muted-foreground">Preview & Approval</p>
+            <h3 className="text-lg font-black tracking-tight text-slate-900">Review the stage version before approval</h3>
           </div>
           <Card className="relative aspect-video overflow-hidden rounded-[2rem] border-slate-900/80 bg-slate-950 shadow-2xl">
             {backgroundUrl && !isBackgroundBroken ? (

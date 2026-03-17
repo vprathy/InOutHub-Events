@@ -138,8 +138,70 @@ CREATE TABLE acts (
     duration_minutes INTEGER NOT NULL DEFAULT 5,
     setup_time_minutes INTEGER NOT NULL DEFAULT 2,
     arrival_status TEXT NOT NULL DEFAULT 'Not Arrived' CHECK (arrival_status IN ('Not Arrived', 'Arrived', 'Backstage', 'Ready')),
+    business_status TEXT CHECK (business_status IN ('Awaiting Roster', 'Needs Attention', 'Ready')),
+    intake_source_type TEXT,
+    intake_source_id UUID,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE external_program_submissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    program_name TEXT NOT NULL,
+    team_name TEXT,
+    manager_name TEXT,
+    manager_email TEXT,
+    manager_phone TEXT,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'Submitted' CHECK (status IN ('Submitted', 'Waitlisted', 'Approved', 'Rejected')),
+    approved_at TIMESTAMP WITH TIME ZONE,
+    approved_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    linked_act_id UUID REFERENCES acts(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE submission_roster_upload_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    submission_id UUID NOT NULL REFERENCES external_program_submissions(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_type TEXT,
+    file_url TEXT,
+    template_version TEXT,
+    uploaded_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    summary_ready_count INTEGER NOT NULL DEFAULT 0,
+    summary_warning_count INTEGER NOT NULL DEFAULT 0,
+    summary_blocked_count INTEGER NOT NULL DEFAULT 0,
+    promotion_confirmed_at TIMESTAMP WITH TIME ZONE,
+    promotion_confirmed_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL
+);
+
+CREATE TABLE submission_roster_staging_rows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id UUID NOT NULL REFERENCES submission_roster_upload_batches(id) ON DELETE CASCADE,
+    submission_id UUID NOT NULL REFERENCES external_program_submissions(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    source_row_number INTEGER NOT NULL,
+    raw_row JSONB NOT NULL DEFAULT '{}'::jsonb,
+    mapped_first_name TEXT,
+    mapped_last_name TEXT,
+    mapped_guardian_name TEXT,
+    mapped_guardian_phone TEXT,
+    mapped_notes TEXT,
+    review_status TEXT NOT NULL DEFAULT 'blocked' CHECK (review_status IN ('ready', 'warning', 'blocked', 'promoted')),
+    issue_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    operator_decision JSONB,
+    source_system TEXT NOT NULL DEFAULT 'external_program_roster',
+    source_instance TEXT,
+    source_anchor_type TEXT,
+    source_anchor_value TEXT,
+    promoted_participant_id UUID REFERENCES participants(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE act_participants (
@@ -317,10 +379,182 @@ RETURNS UUID AS $$
     SELECT event_id FROM stages WHERE id = p_stage_id;
 $$ LANGUAGE sql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION get_external_program_submission_event_id(p_submission_id UUID)
+RETURNS UUID AS $$
+    SELECT event_id FROM external_program_submissions WHERE id = p_submission_id;
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_submission_roster_batch_event_id(p_batch_id UUID)
+RETURNS UUID AS $$
+    SELECT event_id FROM submission_roster_upload_batches WHERE id = p_batch_id;
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION approve_external_program_submission(p_submission_id UUID)
+RETURNS UUID AS $$
+DECLARE
+    v_submission public.external_program_submissions%ROWTYPE;
+    v_act_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT *
+    INTO v_submission
+    FROM public.external_program_submissions
+    WHERE id = p_submission_id;
+
+    IF v_submission.id IS NULL THEN
+        RAISE EXCEPTION 'Submission not found';
+    END IF;
+
+    IF NOT auth_is_super_admin() THEN
+        v_role := auth_event_role(v_submission.event_id);
+        IF v_role <> 'EventAdmin' THEN
+            RAISE EXCEPTION 'Insufficient privileges to approve external submission';
+        END IF;
+    END IF;
+
+    IF v_submission.status = 'Rejected' THEN
+        RAISE EXCEPTION 'Rejected submissions cannot be approved';
+    END IF;
+
+    IF v_submission.linked_act_id IS NOT NULL THEN
+        UPDATE public.external_program_submissions
+        SET
+            status = 'Approved',
+            approved_at = COALESCE(approved_at, NOW()),
+            approved_by = COALESCE(approved_by, auth.uid()),
+            updated_at = NOW()
+        WHERE id = p_submission_id;
+
+        UPDATE public.acts
+        SET
+            business_status = 'Awaiting Roster',
+            intake_source_type = 'external_program_submission',
+            intake_source_id = p_submission_id
+        WHERE id = v_submission.linked_act_id;
+
+        RETURN v_submission.linked_act_id;
+    END IF;
+
+    INSERT INTO public.acts (
+        event_id,
+        name,
+        duration_minutes,
+        setup_time_minutes,
+        arrival_status,
+        business_status,
+        intake_source_type,
+        intake_source_id,
+        notes
+    )
+    VALUES (
+        v_submission.event_id,
+        COALESCE(NULLIF(v_submission.program_name, ''), NULLIF(v_submission.team_name, ''), 'Approved Program'),
+        5,
+        2,
+        'Not Arrived',
+        'Awaiting Roster',
+        'external_program_submission',
+        p_submission_id,
+        v_submission.notes
+    )
+    RETURNING id INTO v_act_id;
+
+    UPDATE public.external_program_submissions
+    SET
+        status = 'Approved',
+        approved_at = COALESCE(approved_at, NOW()),
+        approved_by = COALESCE(approved_by, auth.uid()),
+        linked_act_id = v_act_id,
+        updated_at = NOW()
+    WHERE id = p_submission_id;
+
+    RETURN v_act_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION update_act_arrival_status(p_act_id UUID, p_status TEXT)
+RETURNS VOID AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id
+    FROM public.acts
+    WHERE acts.id = p_act_id;
+
+    IF v_event_id IS NULL THEN
+        RAISE EXCEPTION 'Act not found';
+    END IF;
+
+    IF NOT auth_is_super_admin() THEN
+        v_role := auth_event_role(v_event_id);
+        IF v_role NOT IN ('EventAdmin', 'StageManager') THEN
+            RAISE EXCEPTION 'Insufficient privileges to update act arrival status';
+        END IF;
+    END IF;
+
+    UPDATE public.acts
+    SET arrival_status = p_status
+    WHERE id = p_act_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 CREATE OR REPLACE FUNCTION get_participant_event_id(p_participant_id UUID)
 RETURNS UUID AS $$
     SELECT event_id FROM participants WHERE id = p_participant_id;
 $$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_participant_activity_feed(p_participant_id UUID, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE (
+    id UUID,
+    table_name TEXT,
+    record_id UUID,
+    operation TEXT,
+    changed_at TIMESTAMP WITH TIME ZONE,
+    changed_by UUID,
+    actor_name TEXT,
+    old_data JSONB,
+    new_data JSONB
+) AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id
+    FROM public.participants
+    WHERE participants.id = p_participant_id;
+
+    IF v_event_id IS NULL THEN
+        RAISE EXCEPTION 'Participant not found';
+    END IF;
+
+    IF NOT auth_is_super_admin() THEN
+        v_role := auth_event_role(v_event_id);
+        IF v_role NOT IN ('EventAdmin', 'StageManager') THEN
+            RAISE EXCEPTION 'Insufficient privileges to view participant activity';
+        END IF;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        audit_logs.id,
+        audit_logs.table_name,
+        audit_logs.record_id,
+        audit_logs.operation,
+        audit_logs.changed_at,
+        audit_logs.changed_by,
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', user_profiles.first_name, user_profiles.last_name)), ''), user_profiles.email, 'System') AS actor_name,
+        audit_logs.old_data,
+        audit_logs.new_data
+    FROM public.audit_logs
+    LEFT JOIN public.user_profiles
+        ON user_profiles.id = audit_logs.changed_by
+    WHERE audit_logs.table_name = 'participants'
+        AND audit_logs.record_id = p_participant_id
+    ORDER BY audit_logs.changed_at DESC
+    LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
@@ -359,6 +593,18 @@ CREATE POLICY "participant_notes_manage" ON participant_notes FOR ALL USING (aut
 ALTER TABLE acts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "acts_select" ON acts FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
 CREATE POLICY "acts_manage_admin" ON acts FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
+
+ALTER TABLE external_program_submissions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "external_program_submissions_select" ON external_program_submissions FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
+CREATE POLICY "external_program_submissions_manage" ON external_program_submissions FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
+
+ALTER TABLE submission_roster_upload_batches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "submission_roster_upload_batches_select" ON submission_roster_upload_batches FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
+CREATE POLICY "submission_roster_upload_batches_manage" ON submission_roster_upload_batches FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
+
+ALTER TABLE submission_roster_staging_rows ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "submission_roster_staging_rows_select" ON submission_roster_staging_rows FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
+CREATE POLICY "submission_roster_staging_rows_manage" ON submission_roster_staging_rows FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
 
 ALTER TABLE act_participants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "act_participants_select" ON act_participants FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
@@ -415,16 +661,100 @@ BEGIN
         INSERT INTO audit_logs (table_name, record_id, operation, new_data, changed_by)
         VALUES (TG_TABLE_NAME, NEW.id, TG_OP, to_jsonb(NEW), auth.uid());
         RETURN NEW;
-    END IF;
+END IF;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION get_act_activity_feed(p_act_id UUID, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE (
+    id UUID,
+    table_name TEXT,
+    record_id UUID,
+    operation TEXT,
+    changed_at TIMESTAMP WITH TIME ZONE,
+    changed_by UUID,
+    actor_name TEXT,
+    entity_label TEXT,
+    old_data JSONB,
+    new_data JSONB
+) AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id
+    FROM public.acts
+    WHERE acts.id = p_act_id;
+
+    IF v_event_id IS NULL THEN
+        RAISE EXCEPTION 'Act not found';
+    END IF;
+
+    IF NOT auth_is_super_admin() THEN
+        v_role := auth_event_role(v_event_id);
+        IF v_role NOT IN ('EventAdmin', 'StageManager') THEN
+            RAISE EXCEPTION 'Insufficient privileges to view act activity';
+        END IF;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        audit_logs.id,
+        audit_logs.table_name,
+        audit_logs.record_id,
+        audit_logs.operation,
+        audit_logs.changed_at,
+        audit_logs.changed_by,
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', user_profiles.first_name, user_profiles.last_name)), ''), user_profiles.email, 'System') AS actor_name,
+        CASE audit_logs.table_name
+            WHEN 'acts' THEN 'Performance'
+            WHEN 'lineup_items' THEN 'Schedule'
+            WHEN 'act_participants' THEN 'Cast'
+            WHEN 'act_assets' THEN 'Assets'
+            WHEN 'act_requirements' THEN 'Requirements'
+            WHEN 'act_readiness_practices' THEN 'Practice'
+            WHEN 'act_readiness_items' THEN 'Checklist'
+            WHEN 'act_readiness_issues' THEN 'Issue'
+            ELSE audit_logs.table_name
+        END AS entity_label,
+        audit_logs.old_data,
+        audit_logs.new_data
+    FROM public.audit_logs
+    LEFT JOIN public.user_profiles
+        ON user_profiles.id = audit_logs.changed_by
+    WHERE
+        (audit_logs.table_name = 'acts' AND audit_logs.record_id = p_act_id)
+        OR (
+            audit_logs.table_name IN (
+                'lineup_items',
+                'act_participants',
+                'act_assets',
+                'act_requirements',
+                'act_readiness_practices',
+                'act_readiness_items',
+                'act_readiness_issues'
+            )
+            AND COALESCE(
+                NULLIF(audit_logs.new_data ->> 'act_id', '')::UUID,
+                NULLIF(audit_logs.old_data ->> 'act_id', '')::UUID
+            ) = p_act_id
+        )
+    ORDER BY audit_logs.changed_at DESC
+    LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 CREATE TRIGGER audit_participants AFTER INSERT OR UPDATE OR DELETE ON participants FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_acts AFTER INSERT OR UPDATE OR DELETE ON acts FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_external_program_submissions AFTER INSERT OR UPDATE OR DELETE ON external_program_submissions FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_submission_roster_upload_batches AFTER INSERT OR UPDATE OR DELETE ON submission_roster_upload_batches FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_events AFTER INSERT OR UPDATE OR DELETE ON events FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_org_members AFTER INSERT OR UPDATE OR DELETE ON organization_members FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_lineup_items AFTER INSERT OR UPDATE OR DELETE ON lineup_items FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_act_participants AFTER INSERT OR UPDATE OR DELETE ON act_participants FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_act_assets AFTER INSERT OR UPDATE OR DELETE ON act_assets FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_act_requirements AFTER INSERT OR UPDATE OR DELETE ON act_requirements FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_stage_state AFTER INSERT OR UPDATE OR DELETE ON stage_state FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_act_readiness_practices AFTER INSERT OR UPDATE OR DELETE ON act_readiness_practices FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_act_readiness_items AFTER INSERT OR UPDATE OR DELETE ON act_readiness_items FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
@@ -439,6 +769,12 @@ CREATE INDEX IF NOT EXISTS idx_events_organization_id ON events(organization_id)
 CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
 CREATE INDEX IF NOT EXISTS idx_stages_event_id ON stages(event_id);
 CREATE INDEX IF NOT EXISTS idx_acts_event_id ON acts(event_id);
+CREATE INDEX IF NOT EXISTS idx_acts_business_status ON acts(business_status);
+CREATE INDEX IF NOT EXISTS idx_external_program_submissions_event_id ON external_program_submissions(event_id);
+CREATE INDEX IF NOT EXISTS idx_external_program_submissions_status ON external_program_submissions(status);
+CREATE INDEX IF NOT EXISTS idx_submission_roster_upload_batches_submission_id ON submission_roster_upload_batches(submission_id);
+CREATE INDEX IF NOT EXISTS idx_submission_roster_staging_rows_batch_id ON submission_roster_staging_rows(batch_id);
+CREATE INDEX IF NOT EXISTS idx_submission_roster_staging_rows_review_status ON submission_roster_staging_rows(review_status);
 CREATE INDEX IF NOT EXISTS idx_act_readiness_practices_act_id ON act_readiness_practices(act_id);
 CREATE INDEX IF NOT EXISTS idx_act_readiness_practices_starts_at ON act_readiness_practices(starts_at);
 CREATE INDEX IF NOT EXISTS idx_act_readiness_items_act_id ON act_readiness_items(act_id);

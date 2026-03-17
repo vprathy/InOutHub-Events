@@ -1,6 +1,15 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { faker } from '@faker-js/faker';
 
+const DEMO_EVENT_NAME = 'ZiffyVolve Talent Showcase MVP 2026';
+const DEMO_EVENT_TIMEZONE = 'America/New_York';
+
+const DEV_EVENT_MEMBERS = [
+    { email: 'owner@ziffyvolve.com', role: 'EventAdmin' },
+    { email: 'eventadmin@ziffyvolve.com', role: 'EventAdmin' },
+    { email: 'stagemanager@ziffyvolve.com', role: 'StageManager' },
+] as const;
+
 function createSvgPhotoDataUrl(label: string, accent: string) {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
@@ -16,6 +25,44 @@ function createSvgPhotoDataUrl(label: string, accent: string) {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+async function seedEventMembers(supabase: SupabaseClient, eventId: string) {
+    const { data: userProfiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, email')
+        .in('email', DEV_EVENT_MEMBERS.map((member) => member.email));
+
+    if (profilesError) {
+        console.warn('⚠️ Event member seed warning:', profilesError.message);
+        return;
+    }
+
+    const emailToUserId = new Map((userProfiles || []).map((profile) => [profile.email, profile.id]));
+    const eventMembers = DEV_EVENT_MEMBERS
+        .map((member) => {
+            const userId = emailToUserId.get(member.email);
+            if (!userId) return null;
+            return {
+                event_id: eventId,
+                user_id: userId,
+                role: member.role,
+            };
+        })
+        .filter(Boolean);
+
+    if (eventMembers.length === 0) {
+        console.warn('⚠️ Event member seed warning: no dev users found. Sign in once via Dev Login to establish user_profiles.');
+        return;
+    }
+
+    const { error: eventMembersError } = await supabase
+        .from('event_members')
+        .upsert(eventMembers, { onConflict: 'event_id,user_id' });
+
+    if (eventMembersError) {
+        console.warn('⚠️ Event member seed warning:', eventMembersError.message);
+    }
+}
+
 export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     // 4. Create Event
     console.log('📅 Creating Event...');
@@ -23,14 +70,17 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         .from('events')
         .insert({
             organization_id: orgId,
-            name: 'ZiffyVolve Talent Showcase MVP 2026',
+            name: DEMO_EVENT_NAME,
             start_date: new Date().toISOString().split('T')[0],
-            end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
+            end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+            timezone: DEMO_EVENT_TIMEZONE,
         })
         .select()
         .single();
 
     if (eventError) throw eventError;
+
+    await seedEventMembers(supabase, event.id);
 
     // 5. Create Stages
     console.log('🎭 Creating Stages...');
@@ -134,6 +184,7 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     if (actsError) throw actsError;
 
     const deterministicParticipants = participants.slice(1, 6);
+    const deterministicAct = acts[0];
 
     // 8. Link Participants, Assets, and Requirements
     console.log('🔗 Wiring Act Participants and Assets...');
@@ -189,6 +240,88 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
                 description: `${faker.number.int({ min: 1, max: 4 })} wireless mics needed`,
                 fulfilled: faker.datatype.boolean()
             });
+        }
+    }
+
+    console.log('🧭 Seeding Readiness fixtures...');
+    const practiceStart = new Date();
+    practiceStart.setHours(16, 30, 0, 0);
+    const practiceEnd = new Date(practiceStart.getTime() + 60 * 60000);
+
+    const { data: readinessPractice, error: readinessPracticeError } = await supabase
+        .from('act_readiness_practices')
+        .insert({
+            act_id: deterministicAct.id,
+            expected_for: 'Dress Rehearsal',
+            venue_name: 'Main Stage Warmup Block',
+            address: '123 Demo Venue Way',
+            room_area: 'Backstage Left',
+            parking_note: 'Use the north loading entrance for costume bins.',
+            special_instructions: 'Check wireless mic battery before stage entry.',
+            contact_name: 'Morgan Ops',
+            contact_phone: '(555) 010-2026',
+            starts_at: practiceStart.toISOString(),
+            ends_at: practiceEnd.toISOString(),
+            status: 'confirmed',
+            notes: 'Deterministic readiness fixture for launch verification.',
+        })
+        .select()
+        .single();
+
+    if (readinessPracticeError) {
+        console.warn('⚠️ Readiness practice seed warning:', readinessPracticeError.message);
+    } else {
+        const checklistDueAt = new Date(practiceStart.getTime() - 30 * 60000).toISOString();
+        const issueDueAt = new Date(practiceStart.getTime() - 45 * 60000).toISOString();
+
+        const { error: readinessItemsError } = await supabase
+            .from('act_readiness_items')
+            .insert([
+                {
+                    act_id: deterministicAct.id,
+                    practice_id: readinessPractice.id,
+                    category: 'music',
+                    title: 'Confirm intro narration playback',
+                    notes: 'Run the intro cue once from the stage console.',
+                    status: 'ready',
+                    owner_label: 'Stage Audio',
+                    due_at: checklistDueAt,
+                    sort_order: 0,
+                },
+                {
+                    act_id: deterministicAct.id,
+                    practice_id: readinessPractice.id,
+                    category: 'costume',
+                    title: 'Stage left costume rack loaded',
+                    notes: 'Keep backup garment bag in the wing.',
+                    status: 'in_progress',
+                    owner_label: 'Wardrobe Lead',
+                    due_at: checklistDueAt,
+                    sort_order: 1,
+                },
+            ]);
+
+        if (readinessItemsError) {
+            console.warn('⚠️ Readiness item seed warning:', readinessItemsError.message);
+        }
+
+        const { error: readinessIssuesError } = await supabase
+            .from('act_readiness_issues')
+            .insert({
+                act_id: deterministicAct.id,
+                practice_id: readinessPractice.id,
+                issue_type: 'timing',
+                title: 'Narration cue needs final timing check',
+                details: 'Ops should validate that the intro clears before the vocalist enters.',
+                severity: 'medium',
+                status: 'watching',
+                owner_label: 'Event Admin',
+                due_at: issueDueAt,
+                resolution_note: 'Recheck during dress rehearsal.',
+            });
+
+        if (readinessIssuesError) {
+            console.warn('⚠️ Readiness issue seed warning:', readinessIssuesError.message);
         }
     }
 

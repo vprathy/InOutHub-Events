@@ -845,9 +845,38 @@ export type Database = {
                 Returns: string
             }
             get_act_event_id: { Args: { p_act_id: string }; Returns: string }
+            get_act_activity_feed: {
+                Args: { p_act_id: string; p_limit?: number }
+                Returns: {
+                    actor_name: string
+                    changed_at: string
+                    changed_by: string | null
+                    entity_label: string
+                    id: string
+                    new_data: Json | null
+                    old_data: Json | null
+                    operation: string
+                    record_id: string
+                    table_name: string
+                }[]
+            }
             get_effective_event_role: {
                 Args: { p_event_id: string; p_user_id: string }
                 Returns: string
+            }
+            get_participant_activity_feed: {
+                Args: { p_participant_id: string; p_limit?: number }
+                Returns: {
+                    actor_name: string
+                    changed_at: string
+                    changed_by: string | null
+                    id: string
+                    new_data: Json | null
+                    old_data: Json | null
+                    operation: string
+                    record_id: string
+                    table_name: string
+                }[]
             }
             get_stage_event_id: { Args: { p_stage_id: string }; Returns: string }
             update_act_arrival_status: {

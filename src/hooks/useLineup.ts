@@ -259,6 +259,16 @@ export function useUpdateLineupOrder() {
                         .eq('stage_id', firstItem.stage_id);
 
                     if (syncError) throw syncError;
+                } else if (!stageState) {
+                    const { error: initError } = await supabase
+                        .from('stage_state')
+                        .insert({
+                            stage_id: firstItem.stage_id,
+                            current_lineup_item_id: firstItem.id,
+                            status: 'Idle',
+                        });
+
+                    if (initError) throw initError;
                 }
             }
         },

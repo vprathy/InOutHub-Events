@@ -30,6 +30,25 @@ export const ArrivalStatus = {
 } as const;
 export type ArrivalStatus = typeof ArrivalStatus[keyof typeof ArrivalStatus];
 
+export const ActBusinessStatus = {
+    AwaitingRoster: 'Awaiting Roster',
+    NeedsAttention: 'Needs Attention',
+    Ready: 'Ready',
+} as const;
+export type ActBusinessStatus = typeof ActBusinessStatus[keyof typeof ActBusinessStatus];
+
+export const ArrivalStatusLabel: Record<ArrivalStatus, string> = {
+    'Not Arrived': 'Not Here',
+    'Arrived': 'Checked In',
+    'Backstage': 'Backstage',
+    'Ready': 'On Deck',
+};
+
+export function getArrivalStatusLabel(status: ArrivalStatus | string | null | undefined) {
+    if (!status) return 'Unknown';
+    return ArrivalStatusLabel[status as ArrivalStatus] || status;
+}
+
 export const RequirementType = {
     Audio: 'Audio',
     Lighting: 'Lighting',
@@ -111,6 +130,9 @@ export interface Act {
     durationMinutes: number;
     setupTimeMinutes: number;
     arrivalStatus: ArrivalStatus;
+    businessStatus?: ActBusinessStatus | null;
+    intakeSourceType?: string | null;
+    intakeSourceId?: string | null;
     notes: string | null;
 }
 
@@ -177,6 +199,19 @@ export interface ActRequirement {
     description: string;
     fileUrl: string | null;
     fulfilled: boolean | null;
+}
+
+export interface ActActivityEntry {
+    id: string;
+    tableName: string;
+    recordId: string;
+    operation: string;
+    changedAt: string;
+    changedBy: string | null;
+    actorName: string;
+    entityLabel: string;
+    oldData: any | null;
+    newData: any | null;
 }
 
 export type ActReadinessState = 'On Track' | 'At Risk' | 'Blocked';
@@ -346,6 +381,17 @@ export interface ParticipantNote {
     createdAt: string;
 }
 
+export interface ParticipantAuditLog {
+    id: string;
+    operation: string;
+    tableName: string;
+    recordId: string;
+    changedBy: string | null;
+    changedAt: string;
+    actorName: string;
+    diff: Record<string, { from?: unknown; to?: unknown }>;
+}
+
 export interface ParticipantDetail extends Participant {
     acts: {
         id: string;
@@ -365,8 +411,47 @@ export interface ParticipantDetail extends Participant {
         status: Participant['status'];
     }[];
     operationalNotes: ParticipantNote[];
-    auditLogs: any[];
+    auditLogs: ParticipantAuditLog[];
     actRequirements?: ActRequirement[];
+}
+
+export type ExternalProgramSubmissionStatus = 'Submitted' | 'Waitlisted' | 'Approved' | 'Rejected';
+export type IntakeReviewStatus = 'ready' | 'warning' | 'blocked' | 'promoted';
+
+export interface ExternalProgramSubmission {
+    id: string;
+    eventId: string;
+    organizationId: string | null;
+    programName: string;
+    teamName: string | null;
+    managerName: string | null;
+    managerEmail: string | null;
+    managerPhone: string | null;
+    notes: string | null;
+    status: ExternalProgramSubmissionStatus;
+    approvedAt: string | null;
+    approvedBy: string | null;
+    linkedActId: string | null;
+    createdAt: string;
+    updatedAt: string;
+    linkedAct?: Pick<Act, 'id' | 'name' | 'arrivalStatus' | 'businessStatus'> | null;
+}
+
+export interface SubmissionRosterUploadBatch {
+    id: string;
+    submissionId: string;
+    eventId: string;
+    fileName: string;
+    fileType: string | null;
+    fileUrl: string | null;
+    templateVersion: string | null;
+    uploadedBy: string | null;
+    uploadedAt: string;
+    summaryReadyCount: number;
+    summaryWarningCount: number;
+    summaryBlockedCount: number;
+    promotionConfirmedAt: string | null;
+    promotionConfirmedBy: string | null;
 }
 
 /**

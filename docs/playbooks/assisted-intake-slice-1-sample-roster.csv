@@ -1,0 +1,4 @@
+Participant Name,Parent Name,Phone,Notes
+Asha Patel,Mira Patel,555-0101,Ready row for baseline validation
+Rohan Iyer,,,Warning row: missing guardian contact
+,,555-0199,Blocked row: missing participant name

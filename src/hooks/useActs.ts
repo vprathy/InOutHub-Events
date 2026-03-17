@@ -1,9 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
+import type { ActActivityEntry, ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
 import { localInputToEventIso } from '@/lib/eventTime';
+
+function invalidateActActivityFeed(queryClient: ReturnType<typeof useQueryClient>, actId?: string | null) {
+    if (!actId) return;
+    queryClient.invalidateQueries({ queryKey: ['act-activity', actId] });
+}
 
 export function useActsQuery(eventId: string) {
     const queryClient = useQueryClient();
@@ -119,6 +124,9 @@ export function useActsQuery(eventId: string) {
                     durationMinutes: row.duration_minutes,
                     setupTimeMinutes: row.setup_time_minutes,
                     arrivalStatus: row.arrival_status as ArrivalStatus,
+                    businessStatus: row.business_status || null,
+                    intakeSourceType: row.intake_source_type || null,
+                    intakeSourceId: row.intake_source_id || null,
                     notes: row.notes,
                     participantCount: actParticipants.length,
                     assetCount: row.act_assets?.length || 0,
@@ -218,15 +226,13 @@ export function useUpdateActStatus() {
 
     return useMutation({
         mutationFn: async ({ actId, status }: { actId: string; status: ArrivalStatus }) => {
-            const { data, error } = await supabase
-                .from('acts')
-                .update({ arrival_status: status })
-                .eq('id', actId)
-                .select()
-                .single();
+            const { error } = await supabase.rpc('update_act_arrival_status', {
+                p_act_id: actId,
+                p_status: status,
+            });
 
             if (error) throw error;
-            return data;
+            return { actId, status };
         },
         onMutate: async ({ actId, status }) => {
             // Find the eventId from the acts list in cache
@@ -260,6 +266,7 @@ export function useUpdateActStatus() {
             if (context?.eventId) {
                 queryClient.invalidateQueries({ queryKey: ['acts', context.eventId] });
             }
+            invalidateActActivityFeed(queryClient, _variables.actId);
         },
     });
 }
@@ -385,6 +392,9 @@ export function useActDetail(actId: string | null) {
                 durationMinutes: row.duration_minutes,
                 setupTimeMinutes: row.setup_time_minutes,
                 arrivalStatus: row.arrival_status as ArrivalStatus,
+                businessStatus: row.business_status || null,
+                intakeSourceType: row.intake_source_type || null,
+                intakeSourceId: row.intake_source_id || null,
                 notes: row.notes,
                 participants: (row.act_participants || []).map((ap: any) => ({
                     id: ap.id,
@@ -466,6 +476,104 @@ export function useActDetail(actId: string | null) {
     return query;
 }
 
+export function useActActivityFeed(actId: string | null, limit: number = 20) {
+    const queryClient = useQueryClient();
+
+    const query = useQuery({
+        queryKey: ['act-activity', actId, limit],
+        queryFn: async (): Promise<ActActivityEntry[]> => {
+            if (!actId) return [];
+
+            const { data, error } = await supabase.rpc('get_act_activity_feed', {
+                p_act_id: actId,
+                p_limit: limit,
+            });
+
+            if (error) throw error;
+
+            return (data || []).map((entry) => ({
+                id: entry.id,
+                tableName: entry.table_name,
+                recordId: entry.record_id,
+                operation: entry.operation,
+                changedAt: entry.changed_at,
+                changedBy: entry.changed_by,
+                actorName: entry.actor_name,
+                entityLabel: entry.entity_label,
+                oldData: entry.old_data,
+                newData: entry.new_data,
+            }));
+        },
+        enabled: !!actId,
+    });
+
+    useEffect(() => {
+        if (!actId) return;
+
+        const invalidateActivity = () => {
+            queryClient.invalidateQueries({ queryKey: ['act-activity', actId] });
+        };
+
+        const channel = supabase
+            .channel(`act_activity_${actId}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'acts',
+                filter: `id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'lineup_items',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_participants',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_assets',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_requirements',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_practices',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_items',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_readiness_issues',
+                filter: `act_id=eq.${actId}`,
+            }, invalidateActivity)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [actId, queryClient]);
+
+    return query;
+}
+
 export function useAddActReadinessPractice(actId: string, eventId?: string) {
     const queryClient = useQueryClient();
 
@@ -510,6 +618,7 @@ export function useAddActReadinessPractice(actId: string, eventId?: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['act', actId] });
             if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            invalidateActActivityFeed(queryClient, actId);
         },
     });
 }
@@ -548,6 +657,7 @@ export function useAddActReadinessItem(actId: string, eventId?: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['act', actId] });
             if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            invalidateActActivityFeed(queryClient, actId);
         },
     });
 }
@@ -590,6 +700,7 @@ export function useAddActReadinessIssue(actId: string, eventId?: string) {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['act', actId] });
             if (eventId) queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            invalidateActActivityFeed(queryClient, actId);
         },
     });
 }
@@ -612,9 +723,10 @@ export function useAddActAsset(eventId: string) {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
             queryClient.invalidateQueries({ queryKey: ['act'] });
+            invalidateActActivityFeed(queryClient, variables.actId);
         }
     });
 }
@@ -661,6 +773,7 @@ export function useAddParticipantToAct(actId: string, eventId?: string) {
             if (eventId) {
                 queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
             }
+            invalidateActActivityFeed(queryClient, actId);
         }
     });
 }

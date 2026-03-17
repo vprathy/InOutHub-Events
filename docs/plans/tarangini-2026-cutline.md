@@ -1,4 +1,6 @@
-# Tarangini / 2026 Ugadi Launch Cutline
+# [SUPERSEDED] Tarangini / 2026 Ugadi Launch Cutline
+> [!IMPORTANT]
+> This file is superseded by the [Consolidated Launch Packet](file:///Users/vinay/dev/InOutHub-Events/docs/tarangini-launch-packet.md).
 
 Date: March 15, 2026
 Event date: May 16, 2026

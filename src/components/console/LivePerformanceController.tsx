@@ -6,7 +6,7 @@ import { StatusPicker } from '@/components/acts/StatusPicker';
 import { useUpdateActStatus } from '@/hooks/useActs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Suspense, lazy, useState, useEffect } from 'react';
-import type { IntroComposition } from '@/types/domain';
+import { getArrivalStatusLabel, type IntroComposition } from '@/types/domain';
 import { getPlayableIntro, prefetchPlayableIntro } from '@/lib/introCapabilities';
 import { formatEventTime, formatNowInEventTime } from '@/lib/eventTime';
 
@@ -340,7 +340,7 @@ export function LivePerformanceController({
                                         <div className="flex items-center gap-1 border-l border-border pl-3"><Clock size={14} /> {next.act.setupTimeMinutes || next.act.setup_time_minutes || 0}m Setup</div>
                                         {next.act.arrivalStatus === 'Ready' && (
                                             <div className="flex items-center gap-1 text-emerald-600 border-l border-border pl-3">
-                                                <CheckCircle2 size={12} /> READY
+                                                <CheckCircle2 size={12} /> {getArrivalStatusLabel('Ready').toUpperCase()}
                                             </div>
                                         )}
                                     </div>

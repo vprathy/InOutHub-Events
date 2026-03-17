@@ -286,7 +286,7 @@ export default function LineupPage() {
                             <Sparkles size={24} />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70">Ready To Run</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70">On Deck</p>
                             <h2 className="text-xl sm:text-2xl font-black text-emerald-600">{readyCount}</h2>
                         </div>
                     </Card>

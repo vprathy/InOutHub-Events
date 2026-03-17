@@ -43,7 +43,6 @@ The most important realities are:
 ## Recommended Future Sequence
 
 1. Keep the root governance docs current and committed.
-2. Reconcile schema, runtime types, and intro/generative contracts.
-3. Revalidate Gate 15 end to end.
-4. Continue Gate 17 only from a stable intro baseline.
-5. Keep V1 hardening ahead of broader feature expansion.
+2. Revalidate Gate 15 end to end against the stabilized intro contract using `docs/verification/gate-15-intro-system-revalidation.md`.
+3. Continue Gate 17 only from a stable intro baseline.
+4. Keep V1 hardening ahead of broader feature expansion.

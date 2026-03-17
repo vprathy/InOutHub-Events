@@ -1,6 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { Participant, ParticipantDetail } from '@/types/domain';
+import type { Participant, ParticipantDetail, ParticipantAuditLog } from '@/types/domain';
+
+function asJsonRecord(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return {};
+    }
+
+    return value as Record<string, unknown>;
+}
+
+function getParticipantAssetStoragePath(fileUrl: string | null | undefined) {
+    if (!fileUrl) return null;
+
+    try {
+        const url = new URL(fileUrl);
+        const marker = '/storage/v1/object/public/participant-assets/';
+        const markerIndex = url.pathname.indexOf(marker);
+        if (markerIndex === -1) return null;
+        return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+    } catch {
+        return null;
+    }
+}
 
 export function useParticipantsQuery(eventId: string) {
     return useQuery({
@@ -254,30 +276,28 @@ export function useParticipantDetail(participantId: string) {
             }
 
             // 9. Fetch audit logs (Accountability)
-            const { data: logs, error: lError } = await (supabase as any)
-                .from('audit_logs')
-                .select('*')
-                .eq('table_name', 'participants')
-                .eq('record_id', participantId)
-                .order('changed_at', { ascending: false })
-                .limit(20);
+            const { data: logs, error: lError } = await supabase.rpc('get_participant_activity_feed', {
+                p_participant_id: participantId,
+                p_limit: 20,
+            });
 
-            if (lError) throw lError;
+            const mappedLogs: ParticipantAuditLog[] = lError ? [] : (logs || []).map((log) => {
+                const diff: ParticipantAuditLog['diff'] = {};
+                const oldData = asJsonRecord(log.old_data);
+                const newData = asJsonRecord(log.new_data);
 
-            const mappedLogs = (logs || []).map((log: any) => {
-                const diff: any = {};
-                if (log.operation === 'UPDATE' && log.old_data && log.new_data) {
-                    Object.keys(log.new_data).forEach(key => {
-                        if (JSON.stringify(log.old_data[key]) !== JSON.stringify(log.new_data[key])) {
+                if (log.operation === 'UPDATE' && Object.keys(oldData).length > 0 && Object.keys(newData).length > 0) {
+                    Object.keys(newData).forEach(key => {
+                        if (JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
                             diff[key] = {
-                                from: log.old_data[key],
-                                to: log.new_data[key]
+                                from: oldData[key],
+                                to: newData[key]
                             };
                         }
                     });
                 } else if (log.operation === 'INSERT') {
-                    Object.keys(log.new_data || {}).forEach(key => {
-                        diff[key] = { to: log.new_data[key] };
+                    Object.keys(newData).forEach(key => {
+                        diff[key] = { to: newData[key] };
                     });
                 }
                 return {
@@ -286,8 +306,9 @@ export function useParticipantDetail(participantId: string) {
                     tableName: log.table_name,
                     recordId: log.record_id,
                     changedBy: log.changed_by,
-                    changedAt: log.changed_at || log.created_at,
-                    diff
+                    changedAt: log.changed_at,
+                    actorName: log.actor_name,
+                    diff,
                 };
             });
 
@@ -543,21 +564,13 @@ export function useCreateAssetFulfillment(participantId: string) {
 
     return useMutation({
         mutationFn: async ({ templateId, status = 'approved', name = 'Manual Override', notes }: { templateId: string; status?: string; name?: string; notes?: string }) => {
-            const { data, error } = await (supabase as any)
-                .from('participant_assets')
-                .insert([{
-                    participant_id: participantId,
-                    template_id: templateId,
-                    status,
-                    name,
-                    review_notes: notes,
-                    type: 'other' // Default for manual overrides
-                }])
-                .select()
-                .single();
+            void participantId;
+            void templateId;
+            void status;
+            void name;
+            void notes;
 
-            if (error) throw error;
-            return data;
+            throw new Error('Manual asset fulfillment requires an uploaded file. Use the participant upload flow instead.');
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
@@ -600,40 +613,45 @@ export function useUploadParticipantAsset(participantId: string) {
                 .from('participant-assets')
                 .getPublicUrl(filePath);
 
-            if (replaceAssetId) {
+            try {
+                if (replaceAssetId) {
+                    const { data, error } = await (supabase as any)
+                        .from('participant_assets')
+                        .update({
+                            file_url: publicData.publicUrl,
+                            name: name || file.name,
+                            type,
+                            status: 'uploaded',
+                            review_notes: reviewNotes || null,
+                        })
+                        .eq('id', replaceAssetId)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+                    return data;
+                }
+
                 const { data, error } = await (supabase as any)
                     .from('participant_assets')
-                    .update({
+                    .insert([{
+                        participant_id: participantId,
+                        template_id: templateId || null,
                         file_url: publicData.publicUrl,
-                        name: name || file.name,
-                        type,
                         status: 'uploaded',
+                        name: name || file.name,
                         review_notes: reviewNotes || null,
-                    })
-                    .eq('id', replaceAssetId)
+                        type,
+                    }])
                     .select()
                     .single();
 
                 if (error) throw error;
                 return data;
+            } catch (error) {
+                await supabase.storage.from('participant-assets').remove([filePath]);
+                throw error;
             }
-
-            const { data, error } = await (supabase as any)
-                .from('participant_assets')
-                .insert([{
-                    participant_id: participantId,
-                    template_id: templateId || null,
-                    file_url: publicData.publicUrl,
-                    status: 'uploaded',
-                    name: name || file.name,
-                    review_notes: reviewNotes || null,
-                    type,
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
@@ -693,12 +711,25 @@ export function useDeleteAsset(participantId: string) {
 
     return useMutation({
         mutationFn: async (assetId: string) => {
+            const { data: existingAsset, error: fetchError } = await (supabase as any)
+                .from('participant_assets')
+                .select('file_url')
+                .eq('id', assetId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
             const { error } = await (supabase as any)
                 .from('participant_assets')
                 .delete()
                 .eq('id', assetId);
 
             if (error) throw error;
+
+            const storagePath = getParticipantAssetStoragePath(existingAsset?.file_url);
+            if (storagePath) {
+                await supabase.storage.from('participant-assets').remove([storagePath]);
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participant', participantId] });

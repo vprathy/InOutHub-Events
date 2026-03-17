@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import type { ActWithCounts } from '@/types/domain';
+import { getArrivalStatusLabel, type ActWithCounts } from '@/types/domain';
 import { ActIndicators } from '@/components/acts/ActIndicators';
 import { Clock, Info, ExternalLink, UserPlus, Music, CheckCircle2, Loader2, MonitorPlay } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -115,6 +115,13 @@ export function ActCard({ act }: ActCardProps) {
             <div className="space-y-2.5">
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
+                        {act.businessStatus ? (
+                            <div className="mb-2">
+                                <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${act.businessStatus === 'Awaiting Roster' ? 'bg-amber-500/10 text-amber-700' : act.businessStatus === 'Needs Attention' ? 'bg-rose-500/10 text-rose-700' : 'bg-emerald-500/10 text-emerald-700'}`}>
+                                    {act.businessStatus}
+                                </span>
+                            </div>
+                        ) : null}
                         <div className="flex items-start gap-2">
                             <h3 className="text-lg font-black leading-tight tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1">
                                 {act.name}
@@ -146,7 +153,7 @@ export function ActCard({ act }: ActCardProps) {
                     >
                         <span className="inline-flex items-center gap-2">
                             <CheckCircle2 className={`w-3.5 h-3.5 ${isReady ? 'animate-pulse' : ''}`} />
-                            {isReady ? 'Stage Ready' : 'Mark Ready'}
+                            {isReady ? getArrivalStatusLabel('Ready') : `Mark ${getArrivalStatusLabel('Ready')}`}
                         </span>
                     </button>
                 </div>

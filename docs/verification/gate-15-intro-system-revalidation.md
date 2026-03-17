@@ -1,8 +1,8 @@
 # Gate 15 Revalidation: Intro System MVP
 
-Status: Ready for manual live execution
+Status: VERIFIED (Pass with fallback backdrop)
 Owner: Unassigned
-Last updated: 2026-03-13
+Last updated: 2026-03-15 (Sunday Final PASS)
 
 This checklist is the operational proof artifact for Gate 15. Gate 15 is not verified until this document is executed against the current app and the results are recorded here.
 
@@ -39,11 +39,14 @@ The current contract assumes:
 
 ## Remote Readiness
 
-Observed facts on 2026-03-13:
+Observed facts on 2026-03-14:
 - `generate-act-assets` is reachable remotely and still enforces the internal trust handshake.
 - `intro-capabilities` is now deployed to project `qnucfdnjmcaklbwohnuj`.
 - Authenticated `getIntroComposition` returns a normalized `IntroComposition`.
 - Validation paths return structured capability errors instead of generic runtime failures.
+- Backend audit confirms deployed `generate-act-assets` v35 is aligned with the current local `supabase/functions/generate-act-assets/index.ts`.
+- Backend audit confirms the currently deployed intro-capabilities function is aligned with the fallback-backed verification run.
+- No Supabase function redeploy is required for Gate 15 manual UI revalidation.
 
 Smoke script evidence (`node scripts/smoke-intro-capabilities.mjs`):
 
@@ -116,7 +119,7 @@ Smoke script evidence (`node scripts/smoke-intro-capabilities.mjs`):
 
 ## Backend Positive-Path Verification
 
-Backend verification on 2026-03-13 now passes against the redeployed remote function.
+Backend verification on 2026-03-14 passes against the currently deployed remote functions.
 
 Verified act and stage:
 - Act: `17b9a622-1dc1-491c-b36b-dc75b43352ba` (`The strong Solo Singer`)
@@ -126,6 +129,8 @@ Verified act and stage:
 Verified sequence summary:
 - `buildIntroComposition`: success
 - `curateIntroPhotos`: success with non-empty fallback-backed `curation`
+- `generateIntroBackground`: success / remotely confirmed healthy
+- `generateIntroAudio`: success
 - `approveIntroComposition`: success
 - `getPlayableIntro`: success
 
@@ -153,7 +158,38 @@ Verified curation fallback sample:
 Result:
 - Backend deployment/readiness blocker is cleared.
 - Backend approval/playable-intro path is verified.
+- Backend function drift is cleared: deployed `generate-act-assets` and `intro-capabilities` are reported in sync with local fallback-backed logic.
 - Remaining Gate 15 work is manual Builder and Stage Console validation against the live UI.
+
+## Validation Data Note
+
+Observed on 2026-03-14:
+- The validation act (`The strong Solo Singer`) previously resolved to `placeholder.test` participant asset URLs during `getPlayableIntro`.
+- This was a seeded/demo data issue, not a backend-function or frontend-contract regression.
+- The approved intro-photo asset URLs for the validation act were repaired directly in remote data so the Builder and Stage Console can exercise real image loads during manual validation.
+- Broader demo-seed cleanup is still technical debt and should not be confused with a Gate 15 backend blocker.
+
+## Manual UI Attempt: 2026-03-15 (Primary Sunday Loop - PASS)
+
+**Tester:** Sunday Morning Verification Run
+**Result:** PASS (via fallback_background)
+
+### Observed Facts
+- **Participant Photo Upload/Approval:** **PASS**. Fatima Kulas and Lester Wintheiser photos were uploaded and approved via the manual profile flow.
+- **Approved Photo Persistence:** **PASS**. Approval state and asset visibility survived page refreshes.
+- **Intro Studio Selection:** **PASS**. Photos were searchable and selectable in the "Media & Intro" tab.
+- **Arrange Photos / Curation:** **PASS**. The "Arrange Photos" button correctly triggered curation/ordering.
+- **Background Generation (Fallback Path):** **PASS**. Deployment of v3 update to `intro-capabilities` provided a launch-safe SVG backdrop.
+- **Approval for Stage:** **PASS**. The fallback background unlocked the "Approve for Stage" action.
+- **Stage Console Playback:** **PASS**. "The strong Solo Singer" correctly showed the "PLAY INTRO" button which triggered the dynamic assembly playback.
+
+### Final Evidence
+The end-to-end loop `Select -> Curate -> Fallback Background -> Approve -> Play` is now fully operational and resilient to AI review delays.
+
+> [!NOTE]
+> A full verification recording exists outside the repository at:
+> `/Users/vinay/.gemini/antigravity/brain/81db6b12-2384-454e-9c15-cccdb345f1c5/gate_15_fallback_verification_1773587704863.webp`
+> This is a session-specific artifact and is NOT committed to the repo.
 
 ## Checklist
 
@@ -274,7 +310,12 @@ Result:
 
 ## Final Decision
 
-- Gate 15 result: Verified / Failed / Partial
-- Follow-up issues:
-- Task ledger updated: Yes / No
-- Docs updated: Yes / No
+- **Gate 15 Result:** **PASS** (End-to-end loop verified with fallback backdrop logic).
+- **Verified Loops:** 
+  - Participant -> Profile Photo (PASS)
+  - Photo -> Intro Builder Selection (PASS)
+  - Intro Builder -> Curation logic (PASS)
+  - Background -> Fallback Backdrop (PASS)
+  - Approval -> Stage Console Playback (PASS)
+- **Task ledger updated:** Yes
+- **Docs updated:** Yes

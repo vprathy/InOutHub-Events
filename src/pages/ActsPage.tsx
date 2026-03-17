@@ -9,6 +9,14 @@ import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 
+const TRIAGE_FILTERS = [
+    { key: 'all', label: 'All', icon: Users },
+    { key: 'needs_cast', label: 'Needs Cast', icon: Users },
+    { key: 'docs', label: 'Docs', icon: Clock3 },
+    { key: 'intro_ready', label: 'Intro Ready', icon: Music },
+    { key: 'stage_ready', label: 'On Deck', icon: CheckCircle2 },
+] as const;
+
 export default function ActsPage() {
     const { eventId } = useSelection();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -76,11 +84,12 @@ export default function ActsPage() {
     }
 
     return (
-        <div className="flex flex-col space-y-5">
+        <div className="flex flex-col space-y-4">
             <div className="space-y-3">
                 <PageHeader
                     title="Performances"
                     subtitle={`${stats.total} scheduled, ${stats.needsCast + stats.musicMissing} blocked before stage`}
+                    density="compact"
                     actions={
                         <Button
                             onClick={() => setIsAddModalOpen(true)}
@@ -93,34 +102,25 @@ export default function ActsPage() {
                 />
 
                 <div className="grid grid-cols-3 gap-2">
-                    <button
-                        onClick={() => updateFilter('needs_cast')}
-                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'needs_cast' ? 'border-indigo-500 bg-indigo-500/5' : 'border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40'}`}
-                    >
+                    <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2.5">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700">Needs Cast</p>
                         <p className="mt-1 text-xl font-black tracking-tight text-indigo-700">{stats.needsCast}</p>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('intro_ready')}
-                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'intro_ready' ? 'border-primary bg-primary/5' : 'border-primary/20 bg-primary/5 hover:border-primary/40'}`}
-                    >
+                    </div>
+                    <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2.5">
                         <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
                             <AlertTriangle className="h-3 w-3" />
                             Intro Ready
                         </p>
                         <p className="mt-1 text-xl font-black tracking-tight text-primary">{stats.introReady}</p>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('stage_ready')}
-                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'stage_ready' ? 'border-emerald-500 bg-emerald-500/5' : 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40'}`}
-                    >
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Stage Ready</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">On Deck</p>
                         <p className="mt-1 text-xl font-black tracking-tight text-emerald-700">{stats.stageReady}</p>
-                    </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -134,56 +134,33 @@ export default function ActsPage() {
                     </div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                    <button
-                        onClick={() => updateFilter('all')}
-                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
-                    >
-                        <Users className="w-3.5 h-3.5" />
-                        All
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'all' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
-                            {stats.total}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('needs_cast')}
-                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'needs_cast' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'bg-card border border-border text-muted-foreground'}`}
-                    >
-                        <Users className="w-3.5 h-3.5" />
-                        Needs Cast
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'needs_cast' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
-                            {stats.needsCast}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('docs')}
-                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'docs' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-card border border-border text-muted-foreground'}`}
-                    >
-                        <Clock3 className="w-3.5 h-3.5" />
-                        Docs
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'docs' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
-                            {stats.docs}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('intro_ready')}
-                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'intro_ready' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
-                    >
-                        <Music className="w-3.5 h-3.5" />
-                        Intro Ready
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'intro_ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
-                            {stats.introReady}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('stage_ready')}
-                        className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'stage_ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-card border border-border text-muted-foreground'}`}
-                    >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Stage Ready
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'stage_ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
-                            {stats.stageReady}
-                        </span>
-                    </button>
+                    {TRIAGE_FILTERS.map((filter) => {
+                        const count = filter.key === 'all'
+                            ? stats.total
+                            : filter.key === 'needs_cast'
+                                ? stats.needsCast
+                                : filter.key === 'docs'
+                                    ? stats.docs
+                                    : filter.key === 'intro_ready'
+                                        ? stats.introReady
+                                        : stats.stageReady;
+                        const isActive = activeFilter === filter.key;
+                        const Icon = filter.icon;
+
+                        return (
+                            <button
+                                key={filter.key}
+                                onClick={() => updateFilter(filter.key)}
+                                className={`flex h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${isActive ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
+                            >
+                                <Icon className="w-3.5 h-3.5" />
+                                {filter.label}
+                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

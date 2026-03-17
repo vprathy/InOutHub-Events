@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatEventTime } from '@/lib/eventTime';
+import { getArrivalStatusLabel } from '@/types/domain';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
@@ -84,7 +85,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                         <div className={`w-2 h-2 rounded-full mr-2 ${slot.act.arrivalStatus === 'Ready' ? 'bg-green-500' :
                                                 slot.act.arrivalStatus === 'Arrived' ? 'bg-blue-500' : 'bg-muted'
                                             }`} />
-                                        {slot.act.arrivalStatus}
+                                        {getArrivalStatusLabel(slot.act.arrivalStatus)}
                                     </div>
                                     <div className="h-1 w-1 rounded-full bg-border" />
                                     <span className="text-xs text-muted-foreground font-medium">

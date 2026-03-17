@@ -86,3 +86,32 @@ This file defines the operating contract for any agent working in the `InOutHub-
 - **Direct & Rigorous:** Focus on contracts and regressions.
 - **No Speculation:** Avoid adding scope during stabilization.
 - **Fact-First:** Inspect `git status` and `database_schema.sql` before planning.
+
+---
+
+## 11. Workflow Simplicity / Adoption Rules
+- **Relief Over Process:** Users do not want to learn the system; they want relief from coordination chaos. The app must feel easier to move work forward in than juggling spreadsheets, WhatsApp, email, and printed trackers.
+- **Hide Internal Complexity:** Internal stages such as parsing, staging, mapping, validation, and promotion may exist, but user-facing workflow must stay minimal and business-oriented.
+- **Keep Visible Steps Tiny:** For approved external team/program intake, the visible workflow should feel like: `Approve Program -> Add Roster -> Review Flagged Gaps -> Continue`.
+- **Prefer Assisted Intake:** Offer templates as an option, not as template-or-fail enforcement. Prefer “upload what you already have” plus assisted intake over rigid required formats.
+- **Preferred but Flexible Intake:** Support a preferred import format where helpful, but do not require one rigid schema for all organizations. Flexible uploads should be handled through assisted mapping and review.
+- **Use Business States:** Prefer user-facing labels such as `Submitted`, `Approved`, `Awaiting Roster`, `Needs Attention`, and `Ready`. Avoid exposing internal states like `staged`, `parsed`, `normalized`, `promoted`, `synced`, or `mapped` unless strictly necessary.
+- **Show Attention, Not Machinery:** Do not force users through every row if most data is usable. Summarize outcomes in operator language, for example: `24 participants ready, 3 need attention`.
+- **Require Operator Confirmation:** Smart mapping/import can assist, but messy external data must not auto-create participant records without explicit operator confirmation before promotion into the live roster.
+- **Allow Partial Progress:** If some rows are clean and some need follow-up, the workflow should still move forward where safe. Unresolved items must remain visible and recoverable.
+- **Complexity Belongs in Guided Review:** When complexity is unavoidable, contain it within a bounded admin review or mapping surface rather than spreading it across core operational screens.
+- **Protect Live Surfaces:** Preserve the product spine:
+  - `Acts list = scan/triage surface`
+  - `Performance Workspace = coordination surface`
+  - `Stage Console = live execution surface`
+  Intake and review complexity must not leak into live execution surfaces.
+- **Do Not Overbuild MVP Workflow:** Avoid portal-heavy admin flows, multi-step wizard complexity, chat/comms systems, generic task-management behavior, and unnecessary review stages.
+- **Adoption Test:** Every new screen or flow must pass this test: does it help the user move forward quickly, or does it force the user to learn the system? If it teaches the system more than it reduces work, simplify it.
+
+---
+
+## 12. Dual-Intake Guardrail
+- **Separate Upstream Sources:** Keep direct participant intake and external team/program submissions separate upstream.
+- **Converge Late:** Converge the two intake paths only at the approved act/performance layer.
+- **Approved Is Not Ready:** Approval alone does not mean stage readiness.
+- **Use Clear Business Labels:** If an approved act is still awaiting cast or roster completion, show a clear business label such as `Awaiting Roster`.

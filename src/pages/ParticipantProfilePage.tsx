@@ -38,6 +38,7 @@ import {
     X,
     Loader2
 } from 'lucide-react';
+import { getArrivalStatusLabel } from '@/types/domain';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -1053,7 +1054,7 @@ export function ParticipantProfilePage() {
                                                     {act.role || 'Performer'}
                                                 </Badge>
                                                 <Badge variant="outline" className="text-[9px] h-4 font-mono uppercase">
-                                                    {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
+                                                    {getArrivalStatusLabel(act.arrivalStatus) || 'Registered'}
                                                 </Badge>
                                             </div>
                                             <p className="font-black text-lg tracking-tight">{act.name}</p>

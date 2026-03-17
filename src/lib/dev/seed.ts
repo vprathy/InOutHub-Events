@@ -3,6 +3,14 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import { seedDemoEvent } from '@/lib/dev/seedDemoEvent';
 
+const ORG_ROLE_BY_EMAIL: Record<string, 'Owner' | 'Admin' | 'StageManager' | 'ActAdmin'> = {
+    'vinay.prathy@ziffyvolve.com': 'Owner',
+    'owner@ziffyvolve.com': 'Owner',
+    'eventadmin@ziffyvolve.com': 'Admin',
+    'stagemanager@ziffyvolve.com': 'StageManager',
+    'actadmin@ziffyvolve.com': 'ActAdmin',
+};
+
 // Load the Vite .env.local file
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -42,29 +50,14 @@ async function seed() {
         const members = users.map(u => ({
             organization_id: org.id,
             user_id: u.id,
-            role: u.email === 'vinay.prathy@ziffyvolve.com' ? 'Owner' : 'StageManager'
+            role: ORG_ROLE_BY_EMAIL[u.email] || 'StageManager'
         }));
         await supabase.from('organization_members').insert(members);
     } else {
         console.log('⚠️ No existing user profiles found to link. Sign up via Dev Login first next time!');
     }
 
-    // 4. Create Event
-    console.log('📅 Creating Event...');
-    const { error: eventError } = await supabase
-        .from('events')
-        .insert({
-            organization_id: org.id,
-            name: 'ZiffyVolve Talent Showcase MVP 2026',
-            start_date: new Date().toISOString().split('T')[0],
-            end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
-        })
-        .select()
-        .single();
-
-    if (eventError) throw eventError;
-
-    // Let the shared core module handle the rest of the generation (stages, acts, etc)
+    // Let the shared core module create the event plus all dependent demo fixtures.
     await seedDemoEvent(supabase, org.id);
 }
 

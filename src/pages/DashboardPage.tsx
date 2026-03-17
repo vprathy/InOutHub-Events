@@ -74,9 +74,9 @@ export default function DashboardPage() {
                     isAlert={!!radar?.participants.unassigned}
                 />
                 <RadarCard
-                    label="Docs & Waivers"
+                    label="Approvals"
                     value={(radar?.assets.pending || 0) + (radar?.assets.missing || 0)}
-                    subtext={`${radar?.assets.fulfilled || 0} cleared`}
+                    subtext={`${radar?.assets.fulfilled || 0} approved`}
                     percent={radar?.overallReadiness || 0}
                     icon={FileCheck}
                     color={(radar?.assets.pending || radar?.assets.missing) ? 'orange' : 'emerald'}
@@ -90,7 +90,7 @@ export default function DashboardPage() {
                     percent={radar?.participants.minors ? ((radar.participants.minors - radar.participants.minorsAtRisk) / radar.participants.minors) * 100 : 100}
                     icon={ShieldAlert}
                     color={radar?.participants.minorsAtRisk ? "orange" : "emerald"}
-                    onClick={() => navigate('/participants?filter=at-risk')}
+                    onClick={() => navigate('/participants?filter=at_risk')}
                     isAlert={!!radar?.participants.minorsAtRisk}
                 />
             </div>
@@ -98,11 +98,11 @@ export default function DashboardPage() {
             {/* Secondary Metrics */}
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Arrived</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Checked In</p>
                     <p className="text-xl font-black tracking-tighter">{radar?.acts.arrived}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Stage Ready</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">On Deck</p>
                     <p className="text-xl font-black tracking-tighter">{radar?.acts.ready}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
                     <p className="text-xl font-black tracking-tighter">{radar?.participants.total}</p>
                 </div>
                 <div className="bg-card/50 border border-border/50 p-2.5 rounded-2xl text-orange-500">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Docs Pending</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Approvals Pending</p>
                     <p className="text-xl font-black tracking-tighter">{(radar?.assets.pending || 0) + (radar?.assets.missing || 0)}</p>
                 </div>
             </div>
