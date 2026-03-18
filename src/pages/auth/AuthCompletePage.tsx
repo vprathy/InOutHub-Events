@@ -4,6 +4,7 @@ import { CheckCircle2, ExternalLink, Loader2, Smartphone } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
+import { flushPendingMagicLinkRequest, logAuthEvent } from '@/lib/authTelemetry';
 
 function isStandaloneDisplayMode() {
     if (typeof window === 'undefined') return false;
@@ -33,6 +34,15 @@ export default function AuthCompletePage() {
         }
     }, [isAuthenticated, isLoading, isStandalone, navigate, nextPath]);
 
+    useEffect(() => {
+        if (!isLoading && isAuthenticated) {
+            void (async () => {
+                await flushPendingMagicLinkRequest();
+                await logAuthEvent('login_completed');
+            })();
+        }
+    }, [isAuthenticated, isLoading]);
+
     if (isLoading) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
@@ -51,12 +61,12 @@ export default function AuthCompletePage() {
                     </div>
 
                     <div className="rounded-[2rem] border border-border bg-card p-6 text-center shadow-sm">
-                        <h1 className="text-2xl font-black tracking-tight text-foreground">Sign-in link incomplete</h1>
+                        <h1 className="text-2xl font-black tracking-tight text-foreground">Sign-in incomplete</h1>
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                            This link did not finish the sign-in session. Return to InOutHub and request a new sign-in link.
+                            This callback did not finish the sign-in session. Return to InOutHub and try Google first, or request a fallback magic link.
                         </p>
                         <Button className="mt-6 h-12 w-full rounded-2xl" onClick={() => navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true })}>
-                            Request New Sign-In Link
+                            Return To Sign In
                         </Button>
                     </div>
                 </div>

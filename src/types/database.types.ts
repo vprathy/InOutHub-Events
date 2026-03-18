@@ -284,6 +284,51 @@ export type Database = {
                 }
                 Relationships: []
             }
+            auth_events: {
+                Row: {
+                    context_event_id: string | null
+                    created_at: string
+                    event_type: string
+                    id: string
+                    ip_address: string | null
+                    user_agent: string | null
+                    user_id: string
+                }
+                Insert: {
+                    context_event_id?: string | null
+                    created_at?: string
+                    event_type: string
+                    id?: string
+                    ip_address?: string | null
+                    user_agent?: string | null
+                    user_id?: string
+                }
+                Update: {
+                    context_event_id?: string | null
+                    created_at?: string
+                    event_type?: string
+                    id?: string
+                    ip_address?: string | null
+                    user_agent?: string | null
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "auth_events_context_event_id_fkey"
+                        columns: ["context_event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "auth_events_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             event_members: {
                 Row: {
                     created_at: string
@@ -799,6 +844,9 @@ export type Database = {
                     first_name: string | null
                     id: string
                     last_name: string | null
+                    metadata: Json | null
+                    phone_number: string | null
+                    timezone_pref: string | null
                 }
                 Insert: {
                     created_at?: string | null
@@ -806,6 +854,9 @@ export type Database = {
                     first_name?: string | null
                     id: string
                     last_name?: string | null
+                    metadata?: Json | null
+                    phone_number?: string | null
+                    timezone_pref?: string | null
                 }
                 Update: {
                     created_at?: string | null
@@ -813,8 +864,68 @@ export type Database = {
                     first_name?: string | null
                     id?: string
                     last_name?: string | null
+                    metadata?: Json | null
+                    phone_number?: string | null
+                    timezone_pref?: string | null
                 }
                 Relationships: []
+            }
+            user_sessions: {
+                Row: {
+                    active_event_id: string | null
+                    device_info: Json | null
+                    ended_at: string | null
+                    ended_reason: string | null
+                    id: string
+                    is_offline_mode: boolean
+                    last_active_at: string
+                    pwa_version: string | null
+                    started_at: string
+                    status: string
+                    user_id: string
+                }
+                Insert: {
+                    active_event_id?: string | null
+                    device_info?: Json | null
+                    ended_at?: string | null
+                    ended_reason?: string | null
+                    id?: string
+                    is_offline_mode?: boolean
+                    last_active_at?: string
+                    pwa_version?: string | null
+                    started_at?: string
+                    status?: string
+                    user_id?: string
+                }
+                Update: {
+                    active_event_id?: string | null
+                    device_info?: Json | null
+                    ended_at?: string | null
+                    ended_reason?: string | null
+                    id?: string
+                    is_offline_mode?: boolean
+                    last_active_at?: string
+                    pwa_version?: string | null
+                    started_at?: string
+                    status?: string
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "user_sessions_active_event_id_fkey"
+                        columns: ["active_event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "user_sessions_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
         }
         Views: {
@@ -840,6 +951,7 @@ export type Database = {
             auth_event_role: { Args: { p_event_id: string }; Returns: string }
             auth_is_super_admin: { Args: never; Returns: boolean }
             auth_org_role: { Args: { p_org_id: string }; Returns: string }
+            can_manage_event_staff: { Args: { p_event_id: string }; Returns: boolean }
             create_organization_with_owner: {
                 Args: { p_name: string }
                 Returns: string

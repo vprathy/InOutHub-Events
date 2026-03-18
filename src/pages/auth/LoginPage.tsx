@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { buildLoginRedirectTo } from '@/lib/authConfig';
+import { rememberMagicLinkRequest } from '@/lib/authTelemetry';
 
 export default function LoginPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { isAuthenticated, isLoading } = useAuth();
     const [email, setEmail] = useState('');
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [status, setStatus] = useState<'idle' | 'google-loading' | 'magic-loading' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
     const nextPath = useMemo(() => {
@@ -28,11 +29,32 @@ export default function LoginPage() {
         }
     }, [isAuthenticated, isLoading, navigate, nextPath]);
 
+    const handleGoogleSignIn = async () => {
+        setStatus('google-loading');
+        setErrorMessage('');
+
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: buildLoginRedirectTo(nextPath),
+                queryParams: {
+                    prompt: 'select_account',
+                },
+            },
+        });
+
+        if (error) {
+            setStatus('error');
+            setErrorMessage(error.message || 'Could not start Google sign-in.');
+            return;
+        }
+    };
+
     const handleMagicLink = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!email.trim()) return;
 
-        setStatus('loading');
+        setStatus('magic-loading');
         setErrorMessage('');
 
         const { error } = await supabase.auth.signInWithOtp({
@@ -48,6 +70,7 @@ export default function LoginPage() {
             return;
         }
 
+        rememberMagicLinkRequest(email.trim());
         setStatus('success');
     };
 
@@ -67,51 +90,65 @@ export default function LoginPage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-black tracking-tight text-foreground">Sign in to InOutHub</h1>
                             <p className="text-sm leading-6 text-muted-foreground">
-                                Enter the email address linked to your event access and we'll send you a secure sign-in link.
+                                Request a magic link to stay on the standard event-access path. Google sign-in remains available as a secondary option.
                             </p>
                         </div>
                     </div>
 
-                    <form className="mt-6 space-y-4" onSubmit={handleMagicLink}>
-                        <div className="space-y-2">
-                            <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                Email Address
-                            </label>
-                            <Input
-                                type="email"
-                                autoComplete="email"
-                                inputMode="email"
-                                placeholder="name@example.com"
-                                value={email}
-                                onChange={(event) => setEmail(event.target.value)}
-                                className="h-12 rounded-2xl"
-                                required
-                            />
+                    <div className="mt-6 space-y-4">
+                        <form className="space-y-4" onSubmit={handleMagicLink}>
+                            <div className="space-y-2">
+                                <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                    Email Address
+                                </label>
+                                <Input
+                                    type="email"
+                                    autoComplete="email"
+                                    inputMode="email"
+                                    placeholder="name@example.com"
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    className="h-12 rounded-2xl"
+                                    required
+                                />
+                            </div>
+
+                            {status === 'success' ? (
+                                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700">
+                                    Magic link sent. Check your email and open it on this device to continue.
+                                </div>
+                            ) : null}
+
+                            {status === 'error' ? (
+                                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-700">
+                                    {errorMessage}
+                                </div>
+                            ) : null}
+
+                            <Button type="submit" className="h-12 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'magic-loading'}>
+                                {status === 'magic-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                                Send Magic Link
+                            </Button>
+                        </form>
+
+                        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Secondary Option</p>
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                Use Google only if you prefer it and the consent-screen tradeoff is acceptable.
+                            </p>
                         </div>
 
-                        {status === 'success' ? (
-                            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700">
-                                Magic link sent. Check your email and open it on this device to continue. For security, each sign-in link can only be used once. If your link has expired or was already used, return to InOutHub and request a new sign-in link.
-                            </div>
-                        ) : null}
-
-                        {status === 'error' ? (
-                            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-700">
-                                {errorMessage}
-                            </div>
-                        ) : null}
-
-                        <Button type="submit" className="h-12 w-full rounded-2xl" disabled={status === 'loading'}>
-                            {status === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                            Send Sign-In Link
+                        <Button type="button" variant="outline" className="h-12 w-full rounded-2xl" onClick={handleGoogleSignIn} disabled={status === 'google-loading' || status === 'magic-loading'}>
+                            {status === 'google-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4 fill-current" aria-hidden="true"><path d="M21.805 10.023h-9.18v3.955h5.27c-.227 1.27-.907 2.347-1.93 3.067v2.547h3.12c1.827-1.683 2.88-4.16 2.88-7.102 0-.663-.06-1.3-.16-1.927Z"/><path d="M12.625 22c2.61 0 4.8-.865 6.4-2.408l-3.12-2.547c-.866.58-1.974.923-3.28.923-2.52 0-4.654-1.703-5.417-3.99H4.003v2.628A9.67 9.67 0 0 0 12.625 22Z"/><path d="M7.208 13.978A5.8 5.8 0 0 1 6.905 12c0-.687.12-1.35.303-1.978V7.394H4.003A9.67 9.67 0 0 0 2.94 12c0 1.56.373 3.037 1.063 4.606l3.205-2.628Z"/><path d="M12.625 6.032c1.42 0 2.694.487 3.697 1.443l2.773-2.773C17.42 3.14 15.236 2 12.625 2a9.67 9.67 0 0 0-8.622 5.394l3.205 2.628c.763-2.287 2.897-3.99 5.417-3.99Z"/></svg>}
+                            Continue With Google
                         </Button>
-                    </form>
+                    </div>
 
                     <p className="mt-4 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        For security, each sign-in link can only be used once. If your link has expired or was already used, return to InOutHub and request a new sign-in link.
+                        If the installed app still does not pick up the browser session cleanly, we should keep this as the primary path only after validating the handoff on the deployed origin.
                     </p>
                     <p className="mt-2 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        Don't have access yet? Sign in with your email first, then contact your event or organization admin to complete access setup.
+                        Don't have access yet? Contact your organization or event admin to complete access setup.
                     </p>
                 </div>
             </div>
