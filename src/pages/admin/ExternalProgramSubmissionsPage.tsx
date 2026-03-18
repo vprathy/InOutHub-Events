@@ -21,7 +21,7 @@ export default function ExternalProgramSubmissionsPage() {
             <div className="mx-auto flex max-w-3xl flex-col space-y-4 pb-20">
                 <PageHeader
                     title="External Program Intake"
-                    subtitle="Admin-only surface for external team review and roster onboarding."
+                    subtitle="Admin-only surface for external team review and participant onboarding."
                     align="left"
                 />
 
@@ -31,7 +31,7 @@ export default function ExternalProgramSubmissionsPage() {
                         <div>
                             <p className="text-sm font-black tracking-tight text-foreground">Admin-only surface</p>
                             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                                External team approval and post-approval roster onboarding require EventAdmin access for this event.
+                                External team approval and post-approval participant onboarding require EventAdmin access for this event.
                                 Current access: <span className="font-bold text-foreground">{currentEventRole || 'No event role'}</span>.
                             </p>
                         </div>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Performances - InOutHub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#10b981", // Teal-600 inspired emerald/teal
+                "background-light": "#f8f6f6",
+                "background-dark": "#020617", // Slate-950
+              },
+              fontFamily: {
+                "display": ["Nunito", "sans-serif"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-teal {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+        .radial-glow {
+            background: radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col antialiased radial-glow">
+<!-- Global App Shell Header -->
+<header class="sticky top-0 z-50 glass-card border-x-0 border-t-0 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
+<span class="material-symbols-outlined text-primary fill-1">hub</span>
+</div>
+<div>
+<h1 class="text-sm font-extrabold tracking-tight text-white/90 uppercase">ZiffyVolve / Tarangini</h1>
+<div class="flex items-center gap-1.5">
+<span class="size-2 rounded-full bg-primary animate-pulse"></span>
+<p class="text-[10px] font-bold text-primary tracking-widest uppercase leading-none">Live Ops Center</p>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="size-10 rounded-xl glass-card flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-white/70">notifications</span>
+</button>
+<div class="size-10 rounded-xl bg-cover bg-center border border-white/10" data-alt="User profile avatar male" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBEFrnfLzhV788fMiCRqVBNlwxv7wgc1cKjd3YRKSKbiimCv5US65gY7ZB8T028YsDh1aOPde7uXgFzjikYC2JParLlgRfMnCOJgrbpUCMZRzP7A0hlLqXAs287XCDo-AW2ySRzcBzTrbrLVQQC6VW-OaVm047CfWgNo_MnW8i0qx7IMP_rdzMRUxO-HrxxxZYtgAtiEcc-DyphSgQGOOCnzKOwP29Jtw7fTDcaKiLe_iDsc6JHFL3cV1E8DsSwGZkkoc1yE12OPEM')"></div>
+</div>
+</header>
+<!-- Stage Navigator -->
+<nav class="px-4 pt-6 pb-2">
+<div class="flex p-1 gap-1 glass-card rounded-xl">
+<button class="flex-1 py-2.5 px-4 rounded-lg bg-primary text-background-dark text-sm font-bold shadow-lg shadow-primary/20 transition-all">
+                Main Stage
+            </button>
+<button class="flex-1 py-2.5 px-4 rounded-lg text-white/60 hover:text-white text-sm font-bold transition-all">
+                Side Stage
+            </button>
+<button class="flex-1 py-2.5 px-4 rounded-lg text-white/60 hover:text-white text-sm font-bold transition-all">
+                VIP Lounge
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+<!-- ON NOW Section -->
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="text-xs font-black uppercase tracking-widest text-primary">On Now</h2>
+<span class="text-[10px] font-bold py-0.5 px-2 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase tracking-tighter">Live Broadcast</span>
+</div>
+<div class="relative glass-card rounded-xl p-5 border-primary/50 glow-teal overflow-hidden">
+<!-- Visual Background Accent -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 rounded-full"></div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1">Current Act</p>
+<h3 class="text-2xl font-extrabold text-white leading-tight">Opening Dance /<br/>Fusion Odyssey</h3>
+</div>
+<div class="relative size-16 flex items-center justify-center">
+<svg class="size-16 -rotate-90">
+<circle class="text-white/5" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-width="4"></circle>
+<circle class="text-primary" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-dasharray="176" stroke-dashoffset="44" stroke-width="4"></circle>
+</svg>
+<span class="absolute text-[10px] font-black text-primary">75%</span>
+</div>
+</div>
+<div class="mt-6 flex items-center gap-4 relative z-10">
+<div class="flex-1">
+<div class="flex justify-between text-[10px] font-bold uppercase text-white/40 mb-1.5">
+<span>Started 7:00 PM</span>
+<span>Ends 7:20 PM</span>
+</div>
+<div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[75%] shadow-[0_0_8px_#10b981]"></div>
+</div>
+</div>
+<button class="size-10 rounded-xl bg-white text-background-dark flex items-center justify-center hover:bg-primary transition-colors">
+<span class="material-symbols-outlined font-bold">play_arrow</span>
+</button>
+</div>
+</div>
+</section>
+<!-- UPCOMING Section -->
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="text-xs font-black uppercase tracking-widest text-white/40">Coming Up</h2>
+<button class="text-[10px] font-bold text-primary uppercase">View All</button>
+</div>
+<div class="space-y-3">
+<!-- Act Card: Coming Up -->
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 hover:border-white/20 transition-all group">
+<div class="w-16 h-16 rounded-lg bg-center bg-cover border border-white/5 shrink-0" data-alt="Electronic music producer on stage" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD0LsH47_cIf3twZqS1fuWe5qUb-S_Mml8yIRWz9CT-T1W5m8XZ47V2yhusbvx0LWMsdPJsfdX_vsHlZL4O-i9Y_vY3HEuLYAY9qwDwStG3jyxO137RHv-WwYAuYBcdOL4QMwC9byWm5BURT3teF9eHs2GgIRXWiI2xUp6qc2spbI-YVRk8b4BrOoM3YadnjwquSXq7Gz6gUJIWkrUtIe8f2LAoWrPSA3RkHC8ooRBdwfDXbKn3Hy3QjVhip1y5erdgC1jo-1kdC-o')"></div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-0.5">
+<span class="text-[10px] font-bold text-amber-400 uppercase tracking-tighter bg-amber-400/10 px-1.5 rounded">Coming Up</span>
+<span class="text-[10px] text-white/40 font-bold uppercase">10m left</span>
+</div>
+<h4 class="text-white font-bold truncate group-hover:text-primary transition-colors">Keynote Address: Future Hub</h4>
+<p class="text-white/40 text-xs font-medium">7:30 PM • 30m Duration</p>
+</div>
+<span class="material-symbols-outlined text-white/20 group-hover:text-white transition-colors">chevron_right</span>
+</div>
+<!-- Act Card: Coming Up -->
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 hover:border-white/20 transition-all group">
+<div class="w-16 h-16 rounded-lg bg-center bg-cover border border-white/5 shrink-0" data-alt="Microphone on stage with colorful lights" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDhbeEBRIF40GxsluMR1N_L9kTvYfZumkjlJkPWxNM7LHwFULY9GOyJ5bvxM_ewHjbCOCK7S4k8XloPevAxC4mpjq8d0fVIb0E0X5S03NBArLky6wuraoZX8pRnAXjDj94wb6S78R39jR4_8LuJUwDVB7nuuN5kTVXXSZTodDKYqX6RaBBXQUWsS9HGxjyRwkoe5gkjx7Iz6v0BC6i_gxNPDHBpS9J7oxKzuEAGpV1Ff0eN0NL5mcHwYqbFQcWFJOyOz0iCqyQRXlg')"></div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2 mb-0.5">
+<span class="text-[10px] text-white/40 font-bold uppercase">Scheduled</span>
+</div>
+<h4 class="text-white font-bold truncate group-hover:text-primary transition-colors">Acoustic Set: Midnight Rain</h4>
+<p class="text-white/40 text-xs font-medium">8:00 PM • 45m Duration</p>
+</div>
+<span class="material-symbols-outlined text-white/20 group-hover:text-white transition-colors">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- COMPLETED Section -->
+<section class="opacity-60">
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="text-xs font-black uppercase tracking-widest text-white/40">Completed</h2>
+</div>
+<div class="glass-card rounded-xl p-4 flex items-center gap-4 border-emerald-500/10">
+<div class="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
+<span class="material-symbols-outlined text-emerald-500">check_circle</span>
+</div>
+<div class="flex-1">
+<h4 class="text-white/60 font-bold text-sm line-through">Soundcheck &amp; Calibration</h4>
+<p class="text-white/30 text-[10px] font-bold uppercase">Finished at 6:45 PM</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="sticky bottom-0 z-50 glass-card border-x-0 border-b-0 px-4 pb-6 pt-3 flex justify-between items-center">
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-white/40 group-hover:text-white transition-colors">dashboard</span>
+<span class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-white/40 group-hover:text-white transition-colors">groups</span>
+<span class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Roster</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-white/40 group-hover:text-white transition-colors">theater_comedy</span>
+<span class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Acts</span>
+</a>
+<!-- ACTIVE ITEM: Flow/Performances -->
+<a class="flex flex-col items-center gap-1 -mt-4 bg-primary rounded-xl p-2 px-4 shadow-lg shadow-primary/30" href="#">
+<span class="material-symbols-outlined text-background-dark fill-1">timeline</span>
+<span class="text-[10px] font-black text-background-dark uppercase tracking-tighter">Flow</span>
+</a>
+<a class="flex flex-col items-center gap-1 group" href="#">
+<span class="material-symbols-outlined text-white/40 group-hover:text-white transition-colors">terminal</span>
+<span class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Console</span>
+</a>
+</nav>
+</body></html>

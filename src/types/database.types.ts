@@ -284,6 +284,51 @@ export type Database = {
                 }
                 Relationships: []
             }
+            auth_events: {
+                Row: {
+                    context_event_id: string | null
+                    created_at: string
+                    event_type: string
+                    id: string
+                    ip_address: string | null
+                    user_agent: string | null
+                    user_id: string
+                }
+                Insert: {
+                    context_event_id?: string | null
+                    created_at?: string
+                    event_type: string
+                    id?: string
+                    ip_address?: string | null
+                    user_agent?: string | null
+                    user_id?: string
+                }
+                Update: {
+                    context_event_id?: string | null
+                    created_at?: string
+                    event_type?: string
+                    id?: string
+                    ip_address?: string | null
+                    user_agent?: string | null
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "auth_events_context_event_id_fkey"
+                        columns: ["context_event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "auth_events_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             event_members: {
                 Row: {
                     created_at: string
@@ -721,6 +766,190 @@ export type Database = {
                     },
                 ]
             }
+            requirement_assignments: {
+                Row: {
+                    act_id: string | null
+                    created_at: string
+                    due_at: string | null
+                    evidence_summary: Json
+                    id: string
+                    notes: string | null
+                    owner_user_id: string | null
+                    participant_id: string | null
+                    policy_id: string
+                    reviewed_at: string | null
+                    reviewed_by: string | null
+                    status: string
+                    subject_type: string
+                    submitted_at: string | null
+                    updated_at: string
+                    waived_at: string | null
+                    waived_by: string | null
+                }
+                Insert: {
+                    act_id?: string | null
+                    created_at?: string
+                    due_at?: string | null
+                    evidence_summary?: Json
+                    id?: string
+                    notes?: string | null
+                    owner_user_id?: string | null
+                    participant_id?: string | null
+                    policy_id: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
+                    status?: string
+                    subject_type: string
+                    submitted_at?: string | null
+                    updated_at?: string
+                    waived_at?: string | null
+                    waived_by?: string | null
+                }
+                Update: {
+                    act_id?: string | null
+                    created_at?: string
+                    due_at?: string | null
+                    evidence_summary?: Json
+                    id?: string
+                    notes?: string | null
+                    owner_user_id?: string | null
+                    participant_id?: string | null
+                    policy_id?: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
+                    status?: string
+                    subject_type?: string
+                    submitted_at?: string | null
+                    updated_at?: string
+                    waived_at?: string | null
+                    waived_by?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "requirement_assignments_act_id_fkey"
+                        columns: ["act_id"]
+                        isOneToOne: false
+                        referencedRelation: "acts"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_assignments_owner_user_id_fkey"
+                        columns: ["owner_user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_assignments_participant_id_fkey"
+                        columns: ["participant_id"]
+                        isOneToOne: false
+                        referencedRelation: "participants"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_assignments_policy_id_fkey"
+                        columns: ["policy_id"]
+                        isOneToOne: false
+                        referencedRelation: "requirement_policies"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_assignments_reviewed_by_fkey"
+                        columns: ["reviewed_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_assignments_waived_by_fkey"
+                        columns: ["waived_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            requirement_policies: {
+                Row: {
+                    allow_bulk_approve: boolean
+                    applies_when: Json
+                    blocking_level: string
+                    category: string
+                    code: string
+                    created_at: string
+                    description: string | null
+                    event_id: string | null
+                    id: string
+                    input_config: Json
+                    input_type: string
+                    is_active: boolean
+                    is_required: boolean
+                    label: string
+                    organization_id: string | null
+                    review_mode: string
+                    sort_order: number
+                    subject_type: string
+                    updated_at: string
+                }
+                Insert: {
+                    allow_bulk_approve?: boolean
+                    applies_when?: Json
+                    blocking_level?: string
+                    category: string
+                    code: string
+                    created_at?: string
+                    description?: string | null
+                    event_id?: string | null
+                    id?: string
+                    input_config?: Json
+                    input_type: string
+                    is_active?: boolean
+                    is_required?: boolean
+                    label: string
+                    organization_id?: string | null
+                    review_mode?: string
+                    sort_order?: number
+                    subject_type: string
+                    updated_at?: string
+                }
+                Update: {
+                    allow_bulk_approve?: boolean
+                    applies_when?: Json
+                    blocking_level?: string
+                    category?: string
+                    code?: string
+                    created_at?: string
+                    description?: string | null
+                    event_id?: string | null
+                    id?: string
+                    input_config?: Json
+                    input_type?: string
+                    is_active?: boolean
+                    is_required?: boolean
+                    label?: string
+                    organization_id?: string | null
+                    review_mode?: string
+                    sort_order?: number
+                    subject_type?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "requirement_policies_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "requirement_policies_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             stage_state: {
                 Row: {
                     current_lineup_item_id: string | null
@@ -799,6 +1028,9 @@ export type Database = {
                     first_name: string | null
                     id: string
                     last_name: string | null
+                    metadata: Json | null
+                    phone_number: string | null
+                    timezone_pref: string | null
                 }
                 Insert: {
                     created_at?: string | null
@@ -806,6 +1038,9 @@ export type Database = {
                     first_name?: string | null
                     id: string
                     last_name?: string | null
+                    metadata?: Json | null
+                    phone_number?: string | null
+                    timezone_pref?: string | null
                 }
                 Update: {
                     created_at?: string | null
@@ -813,8 +1048,68 @@ export type Database = {
                     first_name?: string | null
                     id?: string
                     last_name?: string | null
+                    metadata?: Json | null
+                    phone_number?: string | null
+                    timezone_pref?: string | null
                 }
                 Relationships: []
+            }
+            user_sessions: {
+                Row: {
+                    active_event_id: string | null
+                    device_info: Json | null
+                    ended_at: string | null
+                    ended_reason: string | null
+                    id: string
+                    is_offline_mode: boolean
+                    last_active_at: string
+                    pwa_version: string | null
+                    started_at: string
+                    status: string
+                    user_id: string
+                }
+                Insert: {
+                    active_event_id?: string | null
+                    device_info?: Json | null
+                    ended_at?: string | null
+                    ended_reason?: string | null
+                    id?: string
+                    is_offline_mode?: boolean
+                    last_active_at?: string
+                    pwa_version?: string | null
+                    started_at?: string
+                    status?: string
+                    user_id?: string
+                }
+                Update: {
+                    active_event_id?: string | null
+                    device_info?: Json | null
+                    ended_at?: string | null
+                    ended_reason?: string | null
+                    id?: string
+                    is_offline_mode?: boolean
+                    last_active_at?: string
+                    pwa_version?: string | null
+                    started_at?: string
+                    status?: string
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "user_sessions_active_event_id_fkey"
+                        columns: ["active_event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "user_sessions_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
         }
         Views: {
@@ -840,13 +1135,22 @@ export type Database = {
             auth_event_role: { Args: { p_event_id: string }; Returns: string }
             auth_is_super_admin: { Args: never; Returns: boolean }
             auth_org_role: { Args: { p_org_id: string }; Returns: string }
+            can_manage_event_staff: { Args: { p_event_id: string }; Returns: boolean }
             create_organization_with_owner: {
                 Args: { p_name: string }
                 Returns: string
             }
             get_act_event_id: { Args: { p_act_id: string }; Returns: string }
+            get_participant_event_id: {
+                Args: { p_participant_id: string }
+                Returns: string
+            }
             get_effective_event_role: {
                 Args: { p_event_id: string; p_user_id: string }
+                Returns: string
+            }
+            map_legacy_act_requirement_code: {
+                Args: { p_requirement_type: string }
                 Returns: string
             }
             get_stage_event_id: { Args: { p_stage_id: string }; Returns: string }

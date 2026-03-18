@@ -24,6 +24,13 @@ export function useActsQuery(eventId: string) {
                     ),
                     act_assets(id, asset_type, asset_name),
                     act_requirements(id, requirement_type, file_url, fulfilled),
+                    requirement_assignments(
+                        id,
+                        status,
+                        notes,
+                        evidence_summary,
+                        policy:requirement_policies(code, label, input_type, review_mode, blocking_level)
+                    ),
                     act_readiness_practices(id, expected_for, venue_name, address, room_area, parking_note, special_instructions, contact_name, contact_phone, starts_at, ends_at, status, notes),
                     act_readiness_items(id, practice_id, category, title, notes, status, owner_user_id, owner_label, due_at, sort_order),
                     act_readiness_issues(id, practice_id, issue_type, title, details, severity, status, owner_user_id, owner_label, due_at, escalate_to_user_id, resolution_note)
@@ -52,6 +59,17 @@ export function useActsQuery(eventId: string) {
                 ).length;
 
                 const introRequirement = (row.act_requirements || []).find((r: any) => r.requirement_type === 'IntroComposition');
+                const requirementAssignments = (row.requirement_assignments || []).map((assignment: any) => ({
+                    id: assignment.id,
+                    status: assignment.status,
+                    notes: assignment.notes,
+                    evidenceSummary: assignment.evidence_summary,
+                    policyCode: assignment.policy?.code,
+                    policyLabel: assignment.policy?.label,
+                    inputType: assignment.policy?.input_type,
+                    reviewMode: assignment.policy?.review_mode,
+                    blockingLevel: assignment.policy?.blocking_level,
+                }));
                 const practices = (row.act_readiness_practices || []).map((practice: any) => ({
                     id: practice.id,
                     actId: row.id,
@@ -131,12 +149,13 @@ export function useActsQuery(eventId: string) {
                     hasMusicTrack,
                     hasIntroRequirement: Boolean(introRequirement),
                     hasApprovedIntro: Boolean(introRequirement?.fulfilled),
+                    requirementAssignments,
                     introBackgroundUrl: introRequirement?.file_url || (row.act_requirements || []).find((r: any) => r.requirement_type === 'Generative')?.file_url || null,
                     readinessState: readinessSummary.state,
                     nextPracticeStartsAt: readinessSummary.nextPractice?.startsAt || null,
                     nextPracticeStatus: readinessSummary.nextPractice?.status || null,
                     openIssueCount: readinessSummary.openIssueCount,
-                    missingChecklistCount: readinessSummary.missingChecklistCount,
+                    missingChecklistCount: readinessSummary.incompleteChecklistCount,
                 };
             });
         },
@@ -187,6 +206,11 @@ export function useActsQuery(eventId: string) {
                 event: '*',
                 schema: 'public',
                 table: 'act_requirements',
+            }, invalidateActs)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'requirement_assignments',
             }, invalidateActs)
             .on('postgres_changes', {
                 event: '*',
@@ -322,6 +346,13 @@ export function useActDetail(actId: string | null) {
                     ),
                     act_assets(id, asset_type, asset_name, notes),
                     act_requirements(id, requirement_type, description, file_url, fulfilled),
+                    requirement_assignments(
+                        id,
+                        status,
+                        notes,
+                        evidence_summary,
+                        policy:requirement_policies(code, label, input_type, review_mode, blocking_level)
+                    ),
                     act_readiness_practices(id, expected_for, venue_name, address, room_area, parking_note, special_instructions, contact_name, contact_phone, starts_at, ends_at, status, notes),
                     act_readiness_items(id, practice_id, category, title, notes, status, owner_user_id, owner_label, due_at, sort_order),
                     act_readiness_issues(id, practice_id, issue_type, title, details, severity, status, owner_user_id, owner_label, due_at, escalate_to_user_id, resolution_note)
@@ -378,6 +409,17 @@ export function useActDetail(actId: string | null) {
                 escalateToUserId: issue.escalate_to_user_id,
                 resolutionNote: issue.resolution_note,
             }));
+            const requirementAssignments = (row.requirement_assignments || []).map((assignment: any) => ({
+                id: assignment.id,
+                status: assignment.status,
+                notes: assignment.notes,
+                evidenceSummary: assignment.evidence_summary,
+                policyCode: assignment.policy?.code,
+                policyLabel: assignment.policy?.label,
+                inputType: assignment.policy?.input_type,
+                reviewMode: assignment.policy?.review_mode,
+                blockingLevel: assignment.policy?.blocking_level,
+            }));
             const actDetails: any = {
                 id: row.id,
                 eventId: row.event_id,
@@ -410,6 +452,7 @@ export function useActDetail(actId: string | null) {
                     fileUrl: r.file_url,
                     fulfilled: r.fulfilled
                 })),
+                requirementAssignments,
                 readinessPractices,
                 readinessItems,
                 readinessIssues,
@@ -456,6 +499,21 @@ export function useActDetail(actId: string | null) {
                     queryClient.invalidateQueries({ queryKey: ['act', actId] });
                 }
             )
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'act_requirements',
+            }, () => {
+                queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            })
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'requirement_assignments',
+                filter: `act_id=eq.${actId}`,
+            }, () => {
+                queryClient.invalidateQueries({ queryKey: ['act', actId] });
+            })
             .subscribe();
 
         return () => {

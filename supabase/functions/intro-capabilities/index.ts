@@ -316,6 +316,7 @@ async function fetchActAssetMap(supabaseClient: ReturnType<typeof createClient>,
 
 async function fetchCurrentComposition(supabaseClient: ReturnType<typeof createClient>, actId: string) {
   const introRequirement = await fetchIntroRequirement(supabaseClient, actId)
+  const uploadedAudio = await fetchLatestRequirement(supabaseClient, actId, 'Audio')
   const latestAudio = await fetchLatestRequirement(supabaseClient, actId, 'Generative_Audio')
   const latestBackground = await fetchLatestRequirement(supabaseClient, actId, 'Generative')
 
@@ -335,8 +336,12 @@ async function fetchCurrentComposition(supabaseClient: ReturnType<typeof createC
       stylePreset: null,
     },
     audio: {
-      fileUrl: latestAudio?.file_url ?? null,
-      source: latestAudio?.file_url ? 'generated_tts' : null,
+      fileUrl: uploadedAudio?.file_url ?? latestAudio?.file_url ?? null,
+      source: uploadedAudio?.file_url
+        ? 'act_audio_requirement'
+        : latestAudio?.file_url
+          ? 'generated_tts'
+          : null,
       optional: true,
     },
     approved: Boolean(introRequirement?.fulfilled),
@@ -570,18 +575,22 @@ serve(async (req: Request) => {
     }
 
     if (action === 'generateIntroAudio') {
-      const generationResult = await invokeGenerationCapability(supabaseUrl, serviceRoleKey, {
-        actId,
-        mode: 'Audio',
-      })
-
       const { introRequirement, composition } = await fetchCurrentComposition(supabaseClient, actId)
+      const uploadedAudio = await fetchLatestRequirement(supabaseClient, actId, 'Audio')
+
+      if (!uploadedAudio?.file_url) {
+        throw new IntroCapabilityError(
+          'Upload the performance music file first. The intro now uses the act audio file instead of generated voice.',
+          'MISSING_AUDIO_SOURCE',
+        )
+      }
+
       const updatedComposition = normalizeComposition(
         {
           ...composition,
           audio: {
-            fileUrl: generationResult.publicUrl ?? composition.audio.fileUrl,
-            source: generationResult.publicUrl ? 'generated_tts' : composition.audio.source,
+            fileUrl: uploadedAudio.file_url,
+            source: 'act_audio_requirement',
             optional: true,
           },
           lastUpdated: new Date().toISOString(),
@@ -598,8 +607,8 @@ serve(async (req: Request) => {
         JSON.stringify({
           composition: updatedComposition,
           compositionId: saved.id,
-          isPending: Boolean(generationResult.isPending),
-          message: generationResult.message ?? null,
+          isPending: false,
+          message: 'Performance audio linked from the uploaded act music file.',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
       )

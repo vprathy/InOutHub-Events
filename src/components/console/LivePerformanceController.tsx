@@ -1,4 +1,4 @@
-import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle, CheckCircle2, ChevronRight, Activity, Wifi, WifiOff, MonitorPlay } from 'lucide-react';
+import { Play, SkipForward, Pause, Square, Users, Clock, Timer, AlertCircle, CheckCircle2, Wifi, WifiOff, MonitorPlay, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -129,7 +129,8 @@ export function LivePerformanceController({
 
     if (status === 'Idle') {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center space-y-6">
+            <div className="rounded-[2rem] border border-border/70 bg-card/70 p-8 text-center shadow-sm shadow-black/10">
+                <div className="mx-auto flex max-w-xl flex-col items-center justify-center space-y-6">
                 <div className="p-6 bg-primary/10 rounded-full text-primary animate-pulse">
                     <Play size={48} fill="currentColor" />
                 </div>
@@ -147,51 +148,34 @@ export function LivePerformanceController({
                 >
                     {isStageActionPending ? 'STARTING...' : 'START SHOW'}
                 </Button>
+                </div>
             </div>
         );
     }
 
     return (
         <div className="space-y-6 pb-12">
-            {/* System Status & Pace Dashboard */}
-            <div className="flex justify-between items-center bg-card border border-border/50 rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                        <Activity size={20} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Live Execution Pace</p>
-                        <h4 className="text-sm font-bold flex items-center gap-2">
-                            {isOvertime ? (
-                                <span className="text-rose-600 flex items-center">
-                                    <AlertCircle size={14} className="mr-1" /> RUNNING OVER (+{overtimeMinutes}m)
-                                </span>
-                            ) : driftMinutes > 5 ? (
-                                <span className="text-amber-600 flex items-center">
-                                    <Clock size={14} className="mr-1" /> DELAYED (+{driftMinutes}m)
-                                </span>
-                            ) : (
-                                <span className="text-emerald-600 flex items-center">
-                                    <CheckCircle2 size={14} className="mr-1" /> ON TRACK
-                                </span>
-                            )}
-                        </h4>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6">
-                    <div className="text-right flex items-center gap-3 pr-6 border-r border-border">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">System Status</p>
-                            <p className={`text-[10px] font-black uppercase flex items-center gap-1.5 ${isOnline ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-                                {isOnline ? 'Live Network' : 'Offline Mode'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Current Time</p>
-                        <p className="text-lg font-black">{formatNowInEventTime()}</p>
-                    </div>
+            <div className="rounded-[1.5rem] border border-border/60 bg-card/50 p-3">
+                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Live Status</p>
+                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <ConsoleSignal
+                        label="Execution Pace"
+                        value={isOvertime ? `Running Over +${overtimeMinutes}m` : driftMinutes > 5 ? `Delayed +${driftMinutes}m` : 'On Track'}
+                        tone={isOvertime ? 'risk' : driftMinutes > 5 ? 'warning' : 'good'}
+                        icon={isOvertime || driftMinutes > 5 ? AlertCircle : CheckCircle2}
+                    />
+                    <ConsoleSignal
+                        label="Network"
+                        value={isOnline ? 'Live Network' : 'Offline Mode'}
+                        tone={isOnline ? 'good' : 'risk'}
+                        icon={isOnline ? Wifi : WifiOff}
+                    />
+                    <ConsoleSignal
+                        label="Current Time"
+                        value={formatNowInEventTime()}
+                        tone="default"
+                        icon={Clock}
+                    />
                 </div>
             </div>
 
@@ -274,18 +258,17 @@ export function LivePerformanceController({
                                             {backgroundSourceBadge.label}
                                         </div>
                                     ) : null}
-                                    {isIntroReady && (
+                                {isIntroReady && (
                                         <Button 
                                             size="sm" 
                                             variant="ghost" 
                                             onClick={handlePlayIntro}
                                             disabled={isLoadingIntro}
-                                            className="h-8 bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 hover:text-rose-400 font-black text-[10px] tracking-[0.2em] rounded-full px-4 gap-2 flex flex-col items-center justify-center leading-none"
+                                            className="min-h-11 rounded-full bg-rose-500/20 px-4 text-[10px] font-black tracking-[0.2em] text-rose-500 hover:bg-rose-500/30 hover:text-rose-400"
                                         >
                                             <div className="flex items-center gap-2">
                                                 <MonitorPlay size={14} /> {isLoadingIntro ? 'LOADING INTRO' : 'PLAY INTRO'}
                                             </div>
-                                            <span className="text-[8px] opacity-40 font-black uppercase tracking-widest mt-0.5">Step 4: Play</span>
                                         </Button>
                                     )}
                                     {!isIntroReady && current?.act?.id ? (
@@ -314,7 +297,7 @@ export function LivePerformanceController({
                                 <Button
                                     onClick={actions.nextPerformance}
                                     disabled={isStageActionPending}
-                                    className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-black gap-2 px-8 py-6 text-lg rounded-xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]"
+                                    className="w-full sm:w-auto min-h-[56px] rounded-xl bg-primary px-8 text-lg font-black text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] hover:bg-primary/90 gap-2"
                                 >
                                     <SkipForward size={24} fill="currentColor" /> {isStageActionPending ? 'ADVANCING...' : 'NEXT PERFORMANCE'}
                                 </Button>
@@ -408,6 +391,28 @@ export function LivePerformanceController({
                     )}
                 </AnimatePresence>
             </div>
+        </div>
+    );
+}
+
+function ConsoleSignal({ label, value, tone, icon: Icon }: any) {
+    const toneClasses = tone === 'good'
+        ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
+        : tone === 'warning'
+            ? 'border-amber-500/20 bg-amber-500/5 text-amber-300'
+            : tone === 'risk'
+                ? 'border-rose-500/20 bg-rose-500/5 text-rose-300'
+                : 'border-border/50 bg-background/40 text-foreground';
+
+    return (
+        <div className={`rounded-2xl border px-3 py-3 ${toneClasses}`}>
+            <div className="flex items-center gap-2">
+                <div className="rounded-xl bg-black/10 p-2">
+                    <Icon size={16} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+            </div>
+            <p className="mt-3 text-sm font-black tracking-tight">{value}</p>
         </div>
     );
 }

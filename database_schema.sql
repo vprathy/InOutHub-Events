@@ -18,6 +18,9 @@ CREATE TABLE user_profiles (
     first_name TEXT DEFAULT '',
     last_name TEXT DEFAULT '',
     email TEXT UNIQUE,
+    phone_number TEXT,
+    timezone_pref TEXT DEFAULT 'America/New_York',
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -273,6 +276,96 @@ CREATE TABLE audit_logs (
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE auth_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES user_profiles(id) ON DELETE CASCADE,
+    context_event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('magic_link_requested', 'login_completed', 'logout', 'session_timeout')),
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES user_profiles(id) ON DELETE CASCADE,
+    active_event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'stale', 'timed_out', 'ended')),
+    ended_reason TEXT CHECK (ended_reason IN ('logout', 'timed_out', 'revoked', 'replaced', 'ended')),
+    pwa_version TEXT,
+    device_info JSONB DEFAULT '{}'::jsonb,
+    is_offline_mode BOOLEAN NOT NULL DEFAULT false,
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    last_active_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    ended_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE requirement_policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    subject_type TEXT NOT NULL CHECK (subject_type IN ('participant', 'act')),
+    label TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL CHECK (category IN ('identity', 'safety', 'waiver', 'media', 'technical', 'readiness', 'admin')),
+    input_type TEXT NOT NULL,
+    input_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_required BOOLEAN NOT NULL DEFAULT true,
+    review_mode TEXT NOT NULL DEFAULT 'review_required' CHECK (review_mode IN ('system_derived', 'no_review', 'submission_only', 'review_required')),
+    blocking_level TEXT NOT NULL DEFAULT 'blocking' CHECK (blocking_level IN ('none', 'warning', 'blocking')),
+    allow_bulk_approve BOOLEAN NOT NULL DEFAULT false,
+    applies_when JSONB NOT NULL DEFAULT '{}'::jsonb,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CHECK (
+        (organization_id IS NOT NULL AND event_id IS NULL)
+        OR (event_id IS NOT NULL AND organization_id IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_requirement_policies_org_code
+    ON requirement_policies(organization_id, code)
+    WHERE organization_id IS NOT NULL AND event_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_requirement_policies_event_code
+    ON requirement_policies(event_id, code)
+    WHERE event_id IS NOT NULL AND organization_id IS NULL;
+
+CREATE TABLE requirement_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    policy_id UUID NOT NULL REFERENCES requirement_policies(id) ON DELETE CASCADE,
+    subject_type TEXT NOT NULL CHECK (subject_type IN ('participant', 'act')),
+    participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
+    act_id UUID REFERENCES acts(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'missing' CHECK (status IN ('missing', 'submitted', 'pending_review', 'approved', 'rejected', 'waived', 'auto_complete')),
+    due_at TIMESTAMP WITH TIME ZONE,
+    evidence_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    submitted_at TIMESTAMP WITH TIME ZONE,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    reviewed_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    waived_at TIMESTAMP WITH TIME ZONE,
+    waived_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    owner_user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CHECK (
+        (subject_type = 'participant' AND participant_id IS NOT NULL AND act_id IS NULL)
+        OR (subject_type = 'act' AND act_id IS NOT NULL AND participant_id IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_requirement_assignments_policy_participant
+    ON requirement_assignments(policy_id, participant_id)
+    WHERE participant_id IS NOT NULL AND act_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_requirement_assignments_policy_act
+    ON requirement_assignments(policy_id, act_id)
+    WHERE act_id IS NOT NULL AND participant_id IS NULL;
+
 -- ==========================================
 -- 6. RBAC HELPERS (Functions)
 -- ==========================================
@@ -325,12 +418,136 @@ RETURNS UUID AS $$
     SELECT event_id FROM participants WHERE id = p_participant_id;
 $$ LANGUAGE sql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION can_manage_event_staff(p_event_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT auth_is_super_admin() OR auth_event_role(p_event_id) IN ('EventAdmin', 'StageManager');
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION map_legacy_act_requirement_code(p_requirement_type TEXT)
+RETURNS TEXT AS $$
+    SELECT CASE p_requirement_type
+        WHEN 'Audio' THEN 'ACT_AUDIO'
+        WHEN 'Lighting' THEN 'ACT_LIGHTING'
+        WHEN 'Microphone' THEN 'ACT_MICROPHONE'
+        WHEN 'Video' THEN 'ACT_VIDEO'
+        WHEN 'IntroComposition' THEN 'ACT_INTRO'
+        WHEN 'Poster' THEN 'ACT_POSTER'
+        WHEN 'Generative' THEN 'ACT_GENERATIVE'
+        WHEN 'Generative_Audio' THEN 'ACT_GENERATIVE_AUDIO'
+        WHEN 'Generative_Video' THEN 'ACT_GENERATIVE_VIDEO'
+        WHEN 'Waiver' THEN 'ACT_WAIVER'
+        ELSE NULL
+    END;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION bridge_act_requirements_sync()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_policy_id UUID;
+    v_status TEXT;
+    v_mapped_code TEXT;
+    v_org_id UUID;
+BEGIN
+    v_mapped_code := map_legacy_act_requirement_code(COALESCE(NEW.requirement_type, OLD.requirement_type));
+
+    IF v_mapped_code IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    SELECT e.organization_id INTO v_org_id
+    FROM acts a
+    JOIN events e ON e.id = a.event_id
+    WHERE a.id = COALESCE(NEW.act_id, OLD.act_id);
+
+    SELECT rp.id INTO v_policy_id
+    FROM requirement_policies rp
+    WHERE rp.organization_id = v_org_id
+      AND rp.event_id IS NULL
+      AND rp.code = v_mapped_code
+      AND rp.subject_type = 'act'
+    LIMIT 1;
+
+    IF v_policy_id IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        UPDATE requirement_assignments
+        SET status = 'missing', updated_at = NOW()
+        WHERE policy_id = v_policy_id
+          AND act_id = OLD.act_id;
+        RETURN OLD;
+    END IF;
+
+    v_status := CASE WHEN NEW.fulfilled THEN 'approved' ELSE 'missing' END;
+
+    INSERT INTO requirement_assignments (policy_id, subject_type, act_id, status)
+    VALUES (v_policy_id, 'act', NEW.act_id, v_status)
+    ON CONFLICT (policy_id, act_id) DO UPDATE
+    SET status = EXCLUDED.status,
+        updated_at = NOW();
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'bridge_act_requirements_sync fault: %', SQLERRM;
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ==========================================
 
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "audit_logs_select_admins" ON audit_logs FOR SELECT USING (auth_is_super_admin());
+
+ALTER TABLE auth_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth_events_select_admins" ON auth_events FOR SELECT USING (
+    auth_is_super_admin()
+    OR (context_event_id IS NOT NULL AND can_manage_event_staff(context_event_id))
+);
+CREATE POLICY "auth_events_insert_self" ON auth_events FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+);
+
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "user_sessions_select_self_or_admins" ON user_sessions FOR SELECT USING (
+    auth.uid() = user_id
+    OR auth_is_super_admin()
+    OR (active_event_id IS NOT NULL AND can_manage_event_staff(active_event_id))
+);
+CREATE POLICY "user_sessions_insert_self" ON user_sessions FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+);
+CREATE POLICY "user_sessions_update_self" ON user_sessions FOR UPDATE USING (
+    auth.uid() = user_id
+) WITH CHECK (
+    auth.uid() = user_id
+);
+
+ALTER TABLE requirement_policies ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "requirement_policies_select" ON requirement_policies FOR SELECT USING (
+    auth_is_super_admin()
+    OR (organization_id IS NOT NULL AND auth_org_role(organization_id) IS NOT NULL)
+    OR (event_id IS NOT NULL AND auth_event_role(event_id) IS NOT NULL)
+);
+CREATE POLICY "requirement_policies_manage" ON requirement_policies FOR ALL USING (
+    auth_is_super_admin()
+    OR (organization_id IS NOT NULL AND auth_org_role(organization_id) IN ('Owner', 'Admin'))
+    OR (event_id IS NOT NULL AND auth_event_role(event_id) = 'EventAdmin')
+);
+
+ALTER TABLE requirement_assignments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "requirement_assignments_select" ON requirement_assignments FOR SELECT USING (
+    auth_is_super_admin()
+    OR (act_id IS NOT NULL AND auth_event_role(get_act_event_id(act_id)) IS NOT NULL)
+    OR (participant_id IS NOT NULL AND auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL)
+);
+CREATE POLICY "requirement_assignments_manage" ON requirement_assignments FOR ALL USING (
+    auth_is_super_admin()
+    OR (act_id IS NOT NULL AND auth_event_role(get_act_event_id(act_id)) = 'EventAdmin')
+    OR (participant_id IS NOT NULL AND auth_event_role(get_participant_event_id(participant_id)) = 'EventAdmin')
+);
 
 ALTER TABLE app_super_admins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "super_admins_select_self" ON app_super_admins FOR SELECT USING (auth.uid() = user_id OR auth_is_super_admin());
@@ -449,3 +666,13 @@ CREATE INDEX IF NOT EXISTS idx_act_readiness_items_status ON act_readiness_items
 CREATE INDEX IF NOT EXISTS idx_act_readiness_issues_act_id ON act_readiness_issues(act_id);
 CREATE INDEX IF NOT EXISTS idx_act_readiness_issues_status ON act_readiness_issues(status);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_table_record ON audit_logs(table_name, record_id);
+CREATE INDEX IF NOT EXISTS idx_auth_events_user_created_at ON auth_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auth_events_context_event_id ON auth_events(context_event_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active_event_id ON user_sessions(active_event_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_status_last_active ON user_sessions(status, last_active_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requirement_policies_org ON requirement_policies(organization_id) WHERE organization_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_policies_event ON requirement_policies(event_id) WHERE event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_assignments_act ON requirement_assignments(act_id) WHERE act_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_assignments_participant ON requirement_assignments(participant_id) WHERE participant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_requirement_assignments_status ON requirement_assignments(status);

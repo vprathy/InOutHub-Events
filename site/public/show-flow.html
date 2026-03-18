@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#020617",
+                        "accent-teal": "#0d9488", // Teal-600
+                    },
+                    fontFamily: {
+                        "display": ["Nunito", "sans-serif"],
+                        "sans": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glow-teal {
+            box-shadow: 0 0 15px rgba(13, 148, 136, 0.4);
+        }
+        .bg-radial-glow {
+            background: radial-gradient(circle at top right, rgba(13, 148, 136, 0.15), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(236, 91, 19, 0.05), transparent 40%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header / Global Shell -->
+<header class="sticky top-0 z-50 glass-card border-b border-white/5 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined text-2xl">rocket_launch</span>
+</div>
+<div>
+<h1 class="text-sm font-bold tracking-tight text-slate-100">InOutHub</h1>
+<p class="text-[10px] uppercase tracking-widest text-accent-teal font-extrabold">ZiffyVolve Edition</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex flex-col items-end mr-1">
+<p class="text-xs font-bold text-slate-100">Alex Rivers</p>
+<p class="text-[10px] text-slate-400">Show Director</p>
+</div>
+<div class="size-10 rounded-full border-2 border-accent-teal/50 p-0.5">
+<img alt="User Profile" class="w-full h-full rounded-full object-cover" data-alt="Close up portrait of a professional male director" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoB6xI1Rn_gLxQ7XpCznkNjXlbSrhCT-qy8mJOYLdFzPM4a4lSrpQRGLbz36SolhwWvNoQjYBmLP67oxD9NmsDihszIH7YsGzjSctblIRKoqXCv04vBbGww4K71zE1k0CfhXNn9_nQX-69ylHWKR7uoeVOWrPA4D0yeYximrzJqEO8ec8hkhWr-DS2oO-_dYunxYfUahBDnatQ01aeK4guSI308ql0HDV8jGtiKBylRmjoFATrD1qN08rEAG1JWRlK8TWK375iKoo"/>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto bg-radial-glow pb-24">
+<!-- Flow Navigator -->
+<div class="px-4 pt-6">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-accent-teal">reorder</span>
+                    Show Flow
+                </h2>
+<span class="px-3 py-1 rounded-full bg-accent-teal/10 border border-accent-teal/20 text-accent-teal text-[10px] font-bold tracking-widest uppercase animate-pulse">Live Tracking</span>
+</div>
+<div class="flex glass-card rounded-xl p-1 mb-6">
+<button class="flex-1 py-2 text-xs font-bold text-slate-400 rounded-lg hover:text-slate-200 transition-all">PREVIOUS</button>
+<button class="flex-1 py-2 text-xs font-bold text-white bg-accent-teal/20 border border-accent-teal/30 rounded-lg shadow-inner">CURRENT</button>
+<button class="flex-1 py-2 text-xs font-bold text-slate-400 rounded-lg hover:text-slate-200 transition-all">NEXT</button>
+</div>
+</div>
+<!-- Sequence List -->
+<div class="px-4 space-y-4">
+<!-- Completed Item -->
+<div class="glass-card rounded-xl p-4 opacity-60 border-l-4 border-slate-500 relative overflow-hidden">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">07:45 PM - COMPLETED</span>
+<h3 class="text-base font-bold text-slate-300">Pre-show Ambience</h3>
+</div>
+<span class="material-symbols-outlined text-slate-500">check_circle</span>
+</div>
+<p class="text-xs text-slate-500 italic">House lights at 20%, background playlist 'Jazz Fusion'</p>
+</div>
+<!-- Current Active Item: LOCKED & LOADED -->
+<div class="glass-card rounded-xl p-5 border-l-4 border-accent-teal glow-teal relative overflow-hidden bg-accent-teal/5">
+<div class="absolute top-0 right-0 p-3 opacity-10">
+<span class="material-symbols-outlined text-6xl">play_circle</span>
+</div>
+<div class="flex justify-between items-start mb-3">
+<div class="flex flex-col">
+<div class="flex items-center gap-2 mb-1">
+<span class="px-2 py-0.5 rounded bg-accent-teal text-white text-[9px] font-black tracking-widest uppercase">ACTIVE</span>
+<span class="text-[10px] font-bold text-accent-teal uppercase tracking-tighter">08:00 PM (SCHED) • 08:05 PM (ACTUAL)</span>
+</div>
+<h3 class="text-lg font-black text-white uppercase tracking-tight">Act 1: Opening Dance</h3>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3 mt-4">
+<div class="bg-white/5 rounded-lg p-2 border border-white/5">
+<p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Visual Ops</p>
+<p class="text-xs text-slate-200 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-accent-teal">keyboard_arrow_down</span>
+                            Lower main screen
+                        </p>
+</div>
+<div class="bg-white/5 rounded-lg p-2 border border-white/5">
+<p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Special FX</p>
+<p class="text-xs text-slate-200 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-accent-teal">celebration</span>
+                            Deploy confetti
+                        </p>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="size-6 rounded-full border border-background-dark bg-slate-800 flex items-center justify-center text-[10px] font-bold">L1</div>
+<div class="size-6 rounded-full border border-background-dark bg-slate-800 flex items-center justify-center text-[10px] font-bold">A2</div>
+<div class="size-6 rounded-full border border-background-dark bg-slate-800 flex items-center justify-center text-[10px] font-bold text-accent-teal">+4</div>
+</div>
+<button class="bg-accent-teal hover:bg-teal-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                        NEXT MOVE
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-2 py-2">
+<div class="h-[1px] flex-1 bg-white/10"></div>
+<p class="text-[10px] font-bold text-slate-500 tracking-[0.2em] uppercase">Upcoming Sequence</p>
+<div class="h-[1px] flex-1 bg-white/10"></div>
+</div>
+<!-- Next Item -->
+<div class="glass-card rounded-xl p-4 border-l-4 border-primary/40 relative overflow-hidden group hover:border-primary transition-all">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-primary uppercase tracking-tighter">08:20 PM - PENDING</span>
+<h3 class="text-base font-bold text-slate-100">Keynote: The Future Hub</h3>
+</div>
+<span class="material-symbols-outlined text-slate-600 group-hover:text-primary transition-colors">schedule</span>
+</div>
+<div class="flex items-center gap-2 mt-2">
+<span class="material-symbols-outlined text-sm text-slate-500">inventory_2</span>
+<p class="text-xs text-slate-400">Props: Wireless Mic 1, Podium</p>
+</div>
+</div>
+<!-- Next Item 2 -->
+<div class="glass-card rounded-xl p-4 border-l-4 border-white/10 opacity-80">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">08:45 PM</span>
+<h3 class="text-base font-bold text-slate-200">Interactive Q&amp;A Session</h3>
+</div>
+</div>
+<p class="text-xs text-slate-500">Activate Slido integration on side displays</p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 glass-card border-t border-white/10 px-2 pb-6 pt-2">
+<div class="flex items-center justify-around max-w-lg mx-auto">
+<a class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-medium">Dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px] font-medium">Roster</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">theater_comedy</span>
+<span class="text-[10px] font-medium">Acts</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-accent-teal relative" href="#">
+<div class="absolute -top-1 size-1 bg-accent-teal rounded-full glow-teal"></div>
+<span class="material-symbols-outlined fill-[1]">reorder</span>
+<span class="text-[10px] font-bold">Flow</span>
+</a>
+<a class="flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-slate-300" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="text-[10px] font-medium">Console</span>
+</a>
+</div>
+</nav>
+</body></html>

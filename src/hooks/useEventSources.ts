@@ -11,6 +11,11 @@ export type EventSource = {
         url?: string;
         fileName?: string;
         rowCount?: number;
+        inferredMapping?: Record<string, string | undefined>;
+        mappingGaps?: string[];
+        detectedHeaders?: string[];
+        mappingMode?: 'inferred' | 'locked';
+        mappingUpdatedAt?: string;
     };
     lastSyncedAt: string | null;
     createdAt: string;
@@ -79,10 +84,10 @@ export function useEventSources(eventId: string) {
     });
 
     const updateSourceSyncMutation = useMutation({
-        mutationFn: async ({ sourceId, lastSyncedAt }: { sourceId: string; lastSyncedAt: string }) => {
+        mutationFn: async ({ sourceId, lastSyncedAt, config }: { sourceId: string; lastSyncedAt: string; config?: EventSource['config'] }) => {
             const { error } = await (supabase as any)
                 .from('event_sources')
-                .update({ last_synced_at: lastSyncedAt })
+                .update({ last_synced_at: lastSyncedAt, ...(config ? { config } : {}) })
                 .eq('id', sourceId);
 
             if (error) throw error;

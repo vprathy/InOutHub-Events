@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import DashboardPage from '@/pages/DashboardPage';
 import ActsPage from '@/pages/ActsPage';
@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { isDevLoginEnabled } from '@/lib/authConfig';
 
 const ParticipantsPage = lazy(() => import('@/pages/ParticipantsPage'));
+const RequirementsPage = lazy(() => import('@/pages/RequirementsPage'));
 const ParticipantProfilePage = lazy(() => import('@/pages/ParticipantProfilePage').then((module) => ({ default: module.ParticipantProfilePage })));
 const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage').then((module) => ({ default: module.PerformanceProfilePage })));
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
@@ -30,6 +31,11 @@ function RouteLoader() {
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
     return <Suspense fallback={<RouteLoader />}>{children}</Suspense>;
+}
+
+function PerformanceAliasRedirect() {
+    const { actId } = useParams();
+    return <Navigate to={actId ? `/performances/${actId}` : '/performances'} replace />;
 }
 
 export const router = createBrowserRouter([
@@ -60,6 +66,14 @@ export const router = createBrowserRouter([
                 ),
             },
             {
+                path: 'requirements',
+                element: (
+                    <LazyRoute>
+                        <RequirementsPage />
+                    </LazyRoute>
+                ),
+            },
+            {
                 path: 'participants/:participantId',
                 element: (
                     <LazyRoute>
@@ -68,11 +82,11 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: 'acts',
+                path: 'performances',
                 element: <ActsPage />,
             },
             {
-                path: 'acts/:actId',
+                path: 'performances/:actId',
                 element: (
                     <LazyRoute>
                         <PerformanceProfilePage />
@@ -80,12 +94,24 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: 'lineup',
+                path: 'show-flow',
                 element: (
                     <LazyRoute>
                         <LineupPage />
                     </LazyRoute>
                 ),
+            },
+            {
+                path: 'acts',
+                element: <Navigate to="/performances" replace />,
+            },
+            {
+                path: 'acts/:actId',
+                element: <PerformanceAliasRedirect />,
+            },
+            {
+                path: 'lineup',
+                element: <Navigate to="/show-flow" replace />,
             },
             {
                 path: 'stage-console',
@@ -121,18 +147,28 @@ export const router = createBrowserRouter([
         path: '/select-org',
         element: (
             <AuthGuard>
-                <OrgSelectionPage />
+                <AppShell />
             </AuthGuard>
         ),
+        children: [
+            {
+                index: true,
+                element: <OrgSelectionPage />,
+            },
+        ],
     },
     {
         path: '/select-event',
         element: (
             <AuthGuard>
-                <SelectionGuard>
-                    <EventSelectionPage />
-                </SelectionGuard>
+                <AppShell />
             </AuthGuard>
         ),
+        children: [
+            {
+                index: true,
+                element: <EventSelectionPage />,
+            },
+        ],
     },
 ]);

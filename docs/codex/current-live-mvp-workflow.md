@@ -17,7 +17,7 @@ The current live version is a working operator workflow for elevated users who n
 1. sign in
 2. choose the right organization and event
 3. assess the event pulse
-4. work the roster
+4. work participants
 5. sync participants from live sources
 6. inspect participant detail
 7. scan and manage performances
@@ -39,8 +39,8 @@ The current app supports this full operator journey:
 1. Open the app and request a magic link
 2. Select the organization you are working under
 3. Select the event you are operating
-4. Land in the Control Panel and decide where attention is needed
-5. Go to Roster to place people, fix missing approvals, and chase minor safety gaps
+4. Land in the Dashboard and decide where attention is needed
+5. Go to Participants to place people, fix missing approvals, and chase minor safety gaps
 6. Open Sync Tools if you need to import or refresh participant data
 7. Open a participant if you need detail, uploads, source context, or audit history
 8. Go to Performances to scan which acts are blocked, under-cast, missing intro, or missing music
@@ -226,7 +226,7 @@ The bottom navigation is the mobile-first operator spine.
 #### Main destinations
 
 - `Dashboard`
-- `Roster`
+- `Participants`
 - `Performances`
 - `Show Flow`
 - `Console`
@@ -237,7 +237,7 @@ The bottom navigation is the mobile-first operator spine.
 
 ---
 
-## 5. Control Panel: decide what needs attention
+## 5. Dashboard: decide what needs attention
 
 ### Route
 
@@ -250,7 +250,7 @@ This is not just a stats page. It is the operator’s “where do I need to go r
 ### What the operator sees
 
 - title:
-  - `Control Panel`
+  - `Dashboard`
 - subtitle:
   - `Phone-first event pulse for placement, docs, and day-to-day manager follow-up.`
 - live chip:
@@ -262,7 +262,7 @@ This is not just a stats page. It is the operator’s “where do I need to go r
 - `Approvals`
 - `Safety`
 
-Each one is clickable and takes the operator into a focused roster state.
+Each one is clickable and takes the operator into a focused participant-work state.
 
 ### What each radar card means
 
@@ -277,7 +277,7 @@ Each one is clickable and takes the operator into a focused roster state.
 
 - `Checked In`
 - `On Deck`
-- `Roster`
+- `Participants`
 - `Approvals Pending`
 
 ### Operational links on the dashboard
@@ -289,14 +289,14 @@ Each one is clickable and takes the operator into a focused roster state.
 
 ### What an operator actually uses this for
 
-- checking whether roster work is more urgent than performance work
+- checking whether participant work is more urgent than performance work
 - spotting unresolved approvals before rehearsal or showtime
 - seeing whether minor safety issues still exist
 - jumping directly into the work screen that matters next
 
 ---
 
-## 6. Roster: the participant triage surface
+## 6. Participants: the participant triage surface
 
 ### Route
 
@@ -304,7 +304,7 @@ Each one is clickable and takes the operator into a focused roster state.
 
 ### Purpose in plain English
 
-This is the day-to-day roster working surface. It is where the operator scans people, sees who is missing something, places people into acts, and follows up on problems that would otherwise live in spreadsheets or messages.
+This is the day-to-day participant working surface. It is where the operator scans people, sees who is missing something, places people into acts, and follows up on problems that would otherwise live in spreadsheets or messages.
 
 ### Top-level actions
 
@@ -313,9 +313,9 @@ This is the day-to-day roster working surface. It is where the operator scans pe
 
 ### What is visible near the top
 
-The page shows roster-level attention blocks such as:
+The page shows participant-level attention blocks such as:
 
-- total roster count
+- total participant count
 - `Needs Placement`
 - `Clearance Risk`
 
@@ -324,7 +324,7 @@ These are clickable summary blocks, not just passive labels.
 ### Search and sorting
 
 - text field:
-  - `Find someone on the roster...`
+  - `Find a participant...`
 - sort dropdown with:
   - `Name`
   - `Age`
@@ -344,7 +344,7 @@ These are clickable summary blocks, not just passive labels.
 
 ### What each participant card shows
 
-At a glance, a roster card can show:
+At a glance, a participant card can show:
 
 - participant name
 - age if present
@@ -422,7 +422,7 @@ When the operator taps `Place`, the app opens a lightweight assignment modal:
 - action:
   - `Confirm Placement`
 
-This is intentionally lighter than leaving the roster and opening a full workspace.
+This is intentionally lighter than leaving the participants screen and opening a full workspace.
 
 ### Quick note modal
 
@@ -444,7 +444,7 @@ Actions:
 
 ### What this means operationally
 
-The roster is designed to be more useful than a spreadsheet for:
+The participants screen is designed to be more useful than a spreadsheet for:
 
 - finding who still needs placement
 - finding who is missing approvals
@@ -464,7 +464,7 @@ From `/participants` using:
 
 ### Purpose in plain English
 
-This is the operator/admin intake surface for refreshing roster data from source systems without leaving the main app.
+This is the operator/admin intake surface for refreshing participant data from source systems without leaving the main app.
 
 ### Header and navigation
 
@@ -541,7 +541,7 @@ This path is for a file-based source.
 
 Two important trust fixes now make this screen more believable to operators:
 
-1. the roster freshness signal is aligned with the same source-level timestamps the Sync Board updates
+1. the participant freshness signal is aligned with the same source-level timestamps the Sync Board updates
 2. `Sync All Sources` now updates per-source sync timestamps instead of leaving source cards looking stale
 
 ### What this means operationally
@@ -549,7 +549,7 @@ Two important trust fixes now make this screen more believable to operators:
 An operator can now:
 
 - connect a sheet
-- upload a roster spreadsheet
+- upload a participant spreadsheet
 - sync one source
 - sync all sources
 - trust the app a bit more when it says the source was refreshed
@@ -564,19 +564,18 @@ An operator can now:
 
 ### Purpose in plain English
 
-This is the participant workspace. The roster is for triage; this screen is for detailed coordination and record handling.
+This is the participant workspace. The participants screen is for triage; this screen is for detailed coordination and record handling.
 
 ### Top-level tabs
 
-- `Overview`
-- `Acts`
+- `Workspace`
 - `Assets`
-- `Source`
-- `Audit`
+
+Administrative traceability is still available, but it now sits behind a secondary history/options action instead of living in the primary tab rail.
 
 ### Common operator actions on this page
 
-- go back to the roster
+- go back to participants
 - edit participant
 - add notes
 - resolve notes
@@ -586,28 +585,18 @@ This is the participant workspace. The roster is for triage; this screen is for 
 - review source history
 - review audit history
 
-### Overview tab
+### Workspace tab
 
-This is the main summary view of the person.
+This is now the main operator lane for the person.
 
-The operator can use it to inspect:
+The operator can use it to inspect and act on:
 
 - basic participant identity
-- arrival or readiness context
 - guardian and minor status
-- assignment summary
-- internal notes
-- AI-assisted suggestion output when applicable
-
-### Acts tab
-
-This is the act-assignment view for the participant.
-
-The operator can:
-
-- see which acts the person belongs to
-- assign them to an act
-- remove them from an act if needed
+- active coordination notes and special requests
+- current act assignments
+- quick act assignment / removal
+- AI-assisted poster generation when applicable
 
 ### Assets tab
 
@@ -646,28 +635,35 @@ Actions:
 - `Cancel`
 - `Upload Asset`
 
-### Source tab
+### History tab
 
-This gives the operator context about how the participant record entered the system.
+This combines the old source and audit views into one calmer lane.
 
-### Audit tab
+The operator can use it to inspect:
 
-This gives the operator record-level history for changes over time.
+- source traceability
+- sync context
+- raw imported metadata
+- record-level audit history
 
 ### What this means operationally
 
-The participant profile is where the operator goes when the roster card is not enough and they need:
+The participant profile is where the operator goes when the participant card is not enough and they need:
 
 - exact guardian context
 - exact approval/document handling
-- source history
-- audit visibility
+- assignment changes
+- source and audit visibility without bouncing between extra tabs
 
 ---
 
 ## 9. Performances: the acts triage surface
 
 ### Route
+
+`/performances`
+
+Legacy alias:
 
 `/acts`
 
@@ -768,6 +764,10 @@ This is the screen an operator uses to decide:
 
 ### Route
 
+`/performances/:actId`
+
+Legacy alias:
+
 `/acts/:actId`
 
 ### Purpose in plain English
@@ -778,10 +778,8 @@ Important wording note:
 
 - `Performance Workspace` is our operator/developer shorthand in this document
 - in the live UI, the screen is identified primarily by the act name plus the visible tabs:
-  - `Overview`
-  - `Readiness`
+  - `Workspace`
   - `Team`
-  - `Activity`
   - `Media & Intro`
 
 ### Top-of-screen controls
@@ -833,30 +831,26 @@ There is also a direct jump action:
 
 ### Top-level tabs
 
-- `Overview`
-- `Readiness`
+- `Workspace`
 - `Team`
-- `Activity`
 - `Media & Intro`
 
 ---
 
-### 10A. Overview tab
+### 10A. Workspace tab
 
-This is the quick summary for the act.
+This is now the main working lane for the act.
+
+It combines what used to be split between overview and readiness so the operator does not have to choose between two similar top-level tabs.
 
 The operator uses it to confirm:
 
-- which act they are in
-- how many cast members are assigned
-- whether the act is in draft or closer to operational
-- whether core dependencies look complete or missing
-
----
-
-### 10B. Readiness tab
-
-This is the structured preparation area for the act.
+- core requirement gates
+- next practice details
+- checklist work
+- open issues and escalations
+- director notes
+- duration and setup timing
 
 #### Summary blocks
 
@@ -914,7 +908,7 @@ It lets the operator track:
 
 ---
 
-### 10C. Team tab
+### 10B. Team tab
 
 This is the cast and team coordination area.
 
@@ -929,20 +923,7 @@ This is the main place to correct “who is actually in this act?”
 
 ---
 
-### 10D. Activity tab
-
-This is the act-level change history surface.
-
-It gives the operator:
-
-- a feed of recent act-related changes
-- a quick sense of what has already been done and by whom
-
-This matters when multiple people are coordinating the same act.
-
----
-
-### 10E. Media & Intro tab
+### 10C. Media & Intro tab
 
 This is the act-level media and stage-requirements area.
 
@@ -950,11 +931,14 @@ This is the act-level media and stage-requirements area.
 
 - `Music & Audio`
 - `Stage Requirements`
+- `Prepare Performance Intro`
 
 #### Main actions
 
 - `Add Record`
-- `Review`
+- `Prepare`
+- `Preview`
+- `Approve for Stage`
 
 #### What this tab is for
 
@@ -963,6 +947,21 @@ The operator uses it to answer questions like:
 - do we have a music record at all?
 - do we know the stage requirements?
 - is the intro still missing, pending, or approved?
+- can I prepare the stage intro in one pass instead of walking a wizard?
+
+#### Intro workflow
+
+The intro surface is now autopilot-first:
+
+- `Prepare Performance Intro`
+  - auto-selects approved cast photos
+  - curates frame order
+  - links the uploaded performance music
+  - generates the backdrop draft
+- `Preview`
+- `Approve for Stage`
+
+Advanced controls still exist, but they are hidden by default.
 
 ### Add act asset record modal
 
@@ -985,7 +984,7 @@ Important operational note:
 
 - this creates an act asset record
 - it does not upload a media file blob
-- participant-level actual file uploads still live in the participant workspace
+- uploaded performance audio for intros is read from the act `Audio` requirement file, not a generated voice track
 
 ### What this means operationally
 
@@ -1003,6 +1002,10 @@ The operator can now use this workspace to coordinate the act as a real piece of
 ## 11. Show Flow: build and adjust the run of show
 
 ### Route
+
+`/show-flow`
+
+Legacy alias:
 
 `/lineup`
 
@@ -1109,7 +1112,7 @@ The operator chooses which stage they are controlling.
 If critical risks are detected, the console can show:
 
 - a risk banner
-- `Fix in Lineup`
+- `Fix in Show Flow`
 
 This gives the operator a quick escape back to Show Flow to repair problems.
 
@@ -1118,7 +1121,7 @@ This gives the operator a quick escape back to Show Flow to repair problems.
 The console can show recovery warnings such as:
 
 - `Recovered Live Position`
-- `Stage State Drift`
+- `Lineup Out of Sync`
 
 These are important trust signals during refresh or reconnect scenarios.
 
@@ -1215,8 +1218,8 @@ If you are running an event in the current live version, you can do the followin
 
 - sign in with a magic link
 - choose the right organization and event
-- use a dashboard to decide whether roster, approvals, safety, acts, show flow, or console needs attention first
-- work the roster with search, sort, and operational filters
+- use a dashboard to decide whether participants, approvals, safety, acts, show flow, or console needs attention first
+- work participants with search, sort, and operational filters
 - place unassigned participants into performances
 - capture quick operational notes
 - inspect participant details, source context, audit history, and participant uploads
@@ -1250,7 +1253,7 @@ It does not overclaim the following:
 
 So the most accurate plain-English summary is:
 
-The current live version is a substantially working elevated-operator event workflow that can carry a real event from login through roster management, act coordination, lineup building, and live console execution, with noticeably better continuity and trust than the earlier unstable state.
+The current live version is a substantially working elevated-operator event workflow that can carry a real event from login through participant management, act coordination, lineup building, and live console execution, with noticeably better continuity and trust than the earlier unstable state.
 
 ---
 
@@ -1262,18 +1265,20 @@ This section maps the plain-English workflow terms used in this document to the 
 
 - `Dashboard`
   - bottom-nav label for `/dashboard`
-- `Roster`
+- `Participants`
   - bottom-nav label for `/participants`
 - `Performances`
-  - bottom-nav label for `/acts`
+  - bottom-nav label for `/performances`
+  - `/acts` still works as a legacy alias
 - `Show Flow`
-  - bottom-nav label for `/lineup`
+  - bottom-nav label for `/show-flow`
+  - `/lineup` still works as a legacy alias
 - `Console`
   - bottom-nav label for `/stage-console`
 
 ### Screen-title mapping
 
-- `Control Panel`
+- `Dashboard`
   - the page title shown on `/dashboard`
 - `Select Organization`
   - the page title shown on `/select-org`
@@ -1286,39 +1291,36 @@ This section maps the plain-English workflow terms used in this document to the 
 
 ### Operator shorthand used in this document
 
-- `Roster`
+- `Participants`
   - what operators see in bottom navigation for `/participants`
 - `Participant profile`
   - this document’s shorthand for the participant detail screen at `/participants/:participantId`
   - in the live UI, the screen is identified more by the participant name and tabs:
-    - `Overview`
-    - `Acts`
-    - `Assets`
-    - `Source`
-    - `Audit`
+    - `Workspace`
+    - `Docs & Assets`
+  - source traceability and audit history are available from the secondary history/options action
 - `Performance Workspace`
-  - this document’s shorthand for the act detail screen at `/acts/:actId`
+  - this document’s shorthand for the act detail screen at `/performances/:actId`
+  - `/acts/:actId` still works as a legacy alias
   - in the live UI, the screen is identified more by the act name and tabs:
-    - `Overview`
-    - `Readiness`
-    - `Team`
-    - `Activity`
-    - `Media & Intro`
+    - `Readiness & Prep`
+    - `Cast & Team`
+    - `Media & Tech`
 
 ### Readiness and status language
 
 - `Needs Placement`
-  - appears on roster summary surfaces and means the participant is not yet assigned to an act
+  - appears on participant summary surfaces and means the participant is not yet assigned to an act
 - `Approvals Pending`
-  - roster filter label for missing or pending participant approval/doc work
+  - participant filter label for missing or pending participant approval/doc work
 - `Clearance Risk`
-  - roster top summary label for participants needing clearance or safety follow-up
+  - participant top summary label for participants needing clearance or safety follow-up
 - `Cleared`
-  - participant-level roster status meaning the person is in a healthier approval state
+  - participant-level status meaning the person is in a healthier approval state
 - `Requires Work`
-  - participant-level roster status meaning approval or follow-up work remains
+  - participant-level status meaning approval or follow-up work remains
 - `Pending`
-  - participant-level roster status used when the participant is neither clearly cleared nor flagged as requires-work
+  - participant-level status used when the participant is neither clearly cleared nor flagged as requires-work
 - `On Deck`
   - used in acts, dashboard, lineup, and console contexts for near-stage readiness
 - `Operational`
@@ -1331,7 +1333,7 @@ This section maps the plain-English workflow terms used in this document to the 
 ### Counts that need careful interpretation
 
 - `Missing Items`
-  - on the acts list and in the `Readiness` tab, this currently means readiness items marked `missing`
+  - on the acts list and in the performance `Workspace` tab, this currently means readiness items marked `missing`
   - it does not mean every incomplete prep task, every custom checklist entry, or every unresolved coordination gap in the act
 - `Open Issues`
   - count of readiness issues that are not resolved
@@ -1358,9 +1360,9 @@ Important distinction:
 
 - `Recovered Live Position`
   - banner shown when the console restores the live run after refresh or reconnect
-- `Stage State Drift`
-  - banner shown when the saved live pointer no longer cleanly matched the lineup and the console had to recover
-- `Fix in Lineup`
+- `Lineup Out of Sync`
+  - banner shown when the saved live pointer no longer cleanly matched the show order and the console had to recover
+- `Fix in Show Flow`
   - action that sends the operator back to `Show Flow` to repair scheduling issues
 
 ### Why this glossary exists

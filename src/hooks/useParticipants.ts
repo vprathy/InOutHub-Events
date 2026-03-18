@@ -1,6 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Participant, ParticipantDetail } from '@/types/domain';
+import { inferParticipantImportProfile, mapImportedParticipantRow } from '@/lib/participantImportMapping';
+
+function mapRequirementAssignments(rows: any[] | null | undefined) {
+    return (rows || []).map((assignment: any) => ({
+        id: assignment.id,
+        status: assignment.status,
+        notes: assignment.notes,
+        evidenceSummary: assignment.evidence_summary,
+        policyCode: assignment.policy?.code,
+        policyLabel: assignment.policy?.label,
+        inputType: assignment.policy?.input_type,
+        reviewMode: assignment.policy?.review_mode,
+        blockingLevel: assignment.policy?.blocking_level,
+    }));
+}
 
 export function useParticipantsQuery(eventId: string) {
     return useQuery({
@@ -11,43 +26,77 @@ export function useParticipantsQuery(eventId: string) {
                 .select(`
                     *,
                     act_participants(count),
-                    participant_assets(status)
+                    participant_assets(status),
+                    participant_notes(category, is_resolved),
+                    requirement_assignments(
+                        id,
+                        status,
+                        notes,
+                        evidence_summary,
+                        policy:requirement_policies(code, label, input_type, review_mode, blocking_level)
+                    )
                 `)
                 .eq('event_id', eventId)
                 .order('last_name', { ascending: true });
 
             if (error) throw error;
 
-            return (data as any[]).map((row): Participant => ({
-                id: row.id,
-                eventId: row.event_id,
-                firstName: row.first_name,
-                lastName: row.last_name,
-                age: (row as any).age,
-                isMinor: !!row.is_minor,
-                guardianName: row.guardian_name,
-                guardianPhone: row.guardian_phone,
-                guardianRelationship: row.guardian_relationship,
-                notes: row.notes,
-                hasSpecialRequests: !!row.has_special_requests,
-                specialRequestRaw: row.special_request_raw,
-                sourceSystem: row.source_system,
-                sourceInstance: row.source_instance,
-                sourceAnchorType: row.source_anchor_type,
-                sourceAnchorValue: row.source_anchor_value,
-                sourceImportedAt: row.source_imported_at,
-                sourceLastSeenAt: row.source_last_seen_at,
-                status: (row.status || 'active') as Participant['status'],
-                srcRaw: row.src_raw,
-                // These will be populated by the extended select if available
-                actCount: (row as any).act_participants?.[0]?.count || 0,
-                assetStats: {
+            return (data as any[]).map((row): Participant => {
+                const assetStats = {
                     total: (row as any).participant_assets?.length || 0,
                     approved: (row as any).participant_assets?.filter((a: any) => a.status === 'approved').length || 0,
                     pending: (row as any).participant_assets?.filter((a: any) => a.status === 'pending_review' || a.status === 'uploaded').length || 0,
-                    missing: (row as any).participant_assets?.filter((a: any) => a.status === 'rejected' || !a.status).length || 0
-                }
-            }));
+                    missing: (row as any).participant_assets?.filter((a: any) => a.status === 'rejected' || !a.status).length || 0,
+                };
+                const requirementAssignments = mapRequirementAssignments((row as any).requirement_assignments);
+                const hasDocsBridge = assetStats.total > 0;
+
+                return {
+                    id: row.id,
+                    eventId: row.event_id,
+                    firstName: row.first_name,
+                    lastName: row.last_name,
+                    age: (row as any).age,
+                    isMinor: !!row.is_minor,
+                    guardianName: row.guardian_name,
+                    guardianPhone: row.guardian_phone,
+                    guardianRelationship: row.guardian_relationship,
+                    notes: row.notes,
+                    hasSpecialRequests: !!row.has_special_requests,
+                    specialRequestRaw: row.special_request_raw,
+                    sourceSystem: row.source_system,
+                    sourceInstance: row.source_instance,
+                    sourceAnchorType: row.source_anchor_type,
+                    sourceAnchorValue: row.source_anchor_value,
+                    sourceImportedAt: row.source_imported_at,
+                    sourceLastSeenAt: row.source_last_seen_at,
+                    status: (row.status || 'active') as Participant['status'],
+                    srcRaw: row.src_raw,
+                    actCount: (row as any).act_participants?.[0]?.count || 0,
+                    assetStats,
+                    requirementAssignments: [
+                        ...requirementAssignments,
+                        ...(hasDocsBridge ? [{
+                            id: `bridge-docs-${row.id}`,
+                            status: assetStats.missing > 0
+                                ? 'missing'
+                                : assetStats.pending > 0
+                                    ? 'pending_review'
+                                    : assetStats.approved === assetStats.total
+                                        ? 'approved'
+                                        : 'missing',
+                            notes: null,
+                            evidenceSummary: assetStats,
+                            policyCode: 'participant_docs_clear',
+                            policyLabel: 'Approvals',
+                            inputType: 'file_upload',
+                            reviewMode: 'review_required',
+                            blockingLevel: 'blocking',
+                            source: 'bridge' as const,
+                        }] : []),
+                    ],
+                };
+            });
         },
         enabled: !!eventId,
     });
@@ -59,29 +108,35 @@ export function useImportParticipants(eventId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ file, sourceId }: { file: File, sourceId?: string }) => {
+        mutationFn: async ({
+            file,
+            sourceId,
+            savedMapping,
+        }: {
+            file: File;
+            sourceId?: string;
+            savedMapping?: Record<string, string | undefined>;
+        }) => {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
+            const headers = rows.length > 0 ? Object.keys(rows[0] || {}) : [];
+            const { profile, gaps } = inferParticipantImportProfile(headers, rows, savedMapping);
 
-            const participants = rows.map(rowObj => {
-                const sourceInstance = sourceId || file.name;
-                return {
-                    event_id: eventId,
-                    first_name: rowObj.FirstName || rowObj['First Name'] || rowObj['first_name'] || '',
-                    last_name: rowObj.LastName || rowObj['Last Name'] || rowObj['last_name'] || '',
-                    guardian_name: rowObj.Guardian || rowObj['Guardian Name'] || null,
-                    guardian_phone: rowObj.Phone || rowObj['Guardian Phone'] || null,
-                    notes: rowObj.Notes || null,
-                    source_system: 'spreadsheet-upload',
-                    source_instance: sourceInstance,
-                    source_anchor_type: 'natural',
-                    source_anchor_value: `${(rowObj.FirstName || '').toLowerCase()}:${(rowObj.LastName || '').toLowerCase()}`,
-                    src_raw: rowObj
-                };
-            });
+            const sourceInstance = sourceId || file.name;
+            const participants = rows
+                .map((rowObj) =>
+                    mapImportedParticipantRow({
+                        eventId,
+                        sourceSystem: 'spreadsheet-upload',
+                        sourceInstance,
+                        row: rowObj,
+                        profile,
+                    })
+                )
+                .filter((participant) => participant.first_name !== 'Unknown' || participant.last_name !== 'Participant');
 
             const { error } = await supabase
                 .from('participants')
@@ -90,6 +145,17 @@ export function useImportParticipants(eventId: string) {
                 });
 
             if (error) throw error;
+            return {
+                stats: {
+                    total: participants.length,
+                    new: participants.length,
+                    updated: 0,
+                    missing: 0,
+                },
+                mapping: profile,
+                gaps,
+                headers,
+            };
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participants', eventId] });
@@ -101,9 +167,17 @@ export function useSyncGoogleSheet(eventId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ sheetId, dryRun = false }: { sheetId: string; dryRun?: boolean }) => {
+        mutationFn: async ({
+            sheetId,
+            dryRun = false,
+            savedMapping,
+        }: {
+            sheetId: string;
+            dryRun?: boolean;
+            savedMapping?: Record<string, string | undefined>;
+        }) => {
             const { data, error } = await supabase.functions.invoke('import-participants', {
-                body: { sheetId, eventId, dryRun }
+                body: { sheetId, eventId, dryRun, savedMapping }
             });
 
             if (error) throw error;
@@ -122,7 +196,16 @@ export function useParticipantDetail(participantId: string) {
             // 1. Fetch participant core record
             const { data: p, error: pError } = await supabase
                 .from('participants')
-                .select('*')
+                .select(`
+                    *,
+                    requirement_assignments(
+                        id,
+                        status,
+                        notes,
+                        evidence_summary,
+                        policy:requirement_policies(code, label, input_type, review_mode, blocking_level)
+                    )
+                `)
                 .eq('id', participantId)
                 .single();
 
@@ -234,26 +317,7 @@ export function useParticipantDetail(participantId: string) {
 
             if (noteError) throw noteError;
             
-            // 8.5 Fetch Act Requirements (including AI Posters)
-            let actRequirements: any[] = [];
-            if (actIds.length > 0) {
-                const { data: requirements, error: reqError } = await supabase
-                    .from('act_requirements')
-                    .select('*')
-                    .in('act_id', actIds);
-                
-                if (reqError) throw reqError;
-                actRequirements = (requirements || []).map((r: any) => ({
-                    id: r.id,
-                    actId: r.act_id,
-                    requirementType: r.requirement_type,
-                    description: r.description,
-                    fileUrl: r.file_url,
-                    fulfilled: r.fulfilled
-                }));
-            }
-
-            // 9. Fetch audit logs (Accountability)
+            // 8.5 Fetch audit logs (Accountability)
             const { data: logs, error: lError } = await (supabase as any)
                 .from('audit_logs')
                 .select('*')
@@ -290,6 +354,34 @@ export function useParticipantDetail(participantId: string) {
                     diff
                 };
             });
+
+            const requirementAssignments = [
+                ...mapRequirementAssignments((p as any).requirement_assignments),
+                ...templatedAssets.map(({ template, fulfillment }: any) => ({
+                    id: `bridge-template-${template.id}`,
+                    status: fulfillment?.status === 'approved'
+                        ? 'approved'
+                        : fulfillment?.status === 'pending_review'
+                            ? 'pending_review'
+                            : fulfillment?.status === 'uploaded'
+                                ? 'submitted'
+                                : fulfillment?.status === 'rejected'
+                                    ? 'rejected'
+                                    : 'missing',
+                    notes: fulfillment?.reviewNotes || template.description || null,
+                    evidenceSummary: {
+                        template_id: template.id,
+                        fulfillment_id: fulfillment?.id || null,
+                        asset_type: template.assetType,
+                    },
+                    policyCode: `template_${template.id}`,
+                    policyLabel: template.name,
+                    inputType: 'file_upload',
+                    reviewMode: 'review_required',
+                    blockingLevel: template.isRequired ? 'blocking' : 'warning',
+                    source: 'bridge' as const,
+                })),
+            ];
 
             return {
                 id: p.id,
@@ -349,8 +441,8 @@ export function useParticipantDetail(participantId: string) {
                     resolvedBy: n.resolved_by,
                     createdAt: n.created_at
                 })),
+                requirementAssignments,
                 auditLogs: mappedLogs,
-                actRequirements
             };
         },
         enabled: !!participantId,

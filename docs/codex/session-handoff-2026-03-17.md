@@ -13,6 +13,191 @@ This version is intentionally exhaustive enough that the next chat should not ne
 
 ---
 
+## 0. Late-Session Update - 2026-03-17 23:31:59 EDT
+
+This section supersedes older parts of this document where the repo state changed later in the session.
+
+### Current operating split between user, Codex, and Gemini
+
+- user sets product direction, workflow priorities, and acceptance bar
+- Codex owns repo implementation, verification, and git hygiene
+- Gemini is **not** a coding agent for this repo
+- Gemini may be used only for:
+  - Supabase MCP inspection / live DB-side execution when needed
+  - browser-based UI/UX validation when backend or code inspection is insufficient
+
+Rule going forward:
+- Codex writes repo code
+- Gemini may inspect or validate
+- Gemini should not make repo app changes
+
+### Current local working tree after the later prototype and backend passes
+
+Modified real-app files now include:
+- [database_schema.sql](/Users/vinay/dev/InOutHub-Events/database_schema.sql)
+- [src/components/acts/ActCard.tsx](/Users/vinay/dev/InOutHub-Events/src/components/acts/ActCard.tsx)
+- [src/components/console/LivePerformanceController.tsx](/Users/vinay/dev/InOutHub-Events/src/components/console/LivePerformanceController.tsx)
+- [src/components/layout/AppShell.tsx](/Users/vinay/dev/InOutHub-Events/src/components/layout/AppShell.tsx)
+- [src/components/layout/Header.tsx](/Users/vinay/dev/InOutHub-Events/src/components/layout/Header.tsx)
+- [src/components/lineup/LineupItemCard.tsx](/Users/vinay/dev/InOutHub-Events/src/components/lineup/LineupItemCard.tsx)
+- [src/components/selection/SelectionGuard.tsx](/Users/vinay/dev/InOutHub-Events/src/components/selection/SelectionGuard.tsx)
+- [src/context/AuthContext.tsx](/Users/vinay/dev/InOutHub-Events/src/context/AuthContext.tsx)
+- [src/hooks/useAppSignOut.ts](/Users/vinay/dev/InOutHub-Events/src/hooks/useAppSignOut.ts)
+- [src/lib/supabase.ts](/Users/vinay/dev/InOutHub-Events/src/lib/supabase.ts)
+- [src/pages/ActsPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/ActsPage.tsx)
+- [src/pages/DashboardPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/DashboardPage.tsx)
+- [src/pages/LineupPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/LineupPage.tsx)
+- [src/pages/ParticipantsPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/ParticipantsPage.tsx)
+- [src/pages/PerformanceProfilePage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/PerformanceProfilePage.tsx)
+- [src/pages/StageConsolePage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/StageConsolePage.tsx)
+- [src/pages/auth/AuthCompletePage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/auth/AuthCompletePage.tsx)
+- [src/pages/auth/LoginPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/auth/LoginPage.tsx)
+- [src/types/database.types.ts](/Users/vinay/dev/InOutHub-Events/src/types/database.types.ts)
+
+Untracked but real/working docs or code:
+- [docs/codex/db-contract-v1-proposal.md](/Users/vinay/dev/InOutHub-Events/docs/codex/db-contract-v1-proposal.md)
+- [src/lib/authTelemetry.ts](/Users/vinay/dev/InOutHub-Events/src/lib/authTelemetry.ts)
+- [supabase/migrations/20260317_add_auth_profiles_and_sessions.sql](/Users/vinay/dev/InOutHub-Events/supabase/migrations/20260317_add_auth_profiles_and_sessions.sql)
+
+Exploratory/reference-only lane remains:
+- [SITE.md](/Users/vinay/dev/InOutHub-Events/SITE.md)
+- [next-prompt.md](/Users/vinay/dev/InOutHub-Events/next-prompt.md)
+- `queue/`
+- `site/`
+
+### Real app changes completed after the earlier handoff draft
+
+#### Cross-app workflow simplification prototype
+
+The following surfaces were simplified locally and are reviewable in the real app:
+- [src/pages/DashboardPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/DashboardPage.tsx)
+- [src/pages/ParticipantsPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/ParticipantsPage.tsx)
+- [src/pages/LineupPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/LineupPage.tsx)
+- [src/pages/StageConsolePage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/StageConsolePage.tsx)
+- [src/components/console/LivePerformanceController.tsx](/Users/vinay/dev/InOutHub-Events/src/components/console/LivePerformanceController.tsx)
+- [src/components/lineup/LineupItemCard.tsx](/Users/vinay/dev/InOutHub-Events/src/components/lineup/LineupItemCard.tsx)
+- [src/components/layout/AppShell.tsx](/Users/vinay/dev/InOutHub-Events/src/components/layout/AppShell.tsx)
+
+Direction taken:
+- calmer, workflow-first surfaces
+- summary metrics demoted
+- orientation/context blocks added where useful
+- hero surface is the working area, not a grid of mini dashboards
+
+#### Dashboard-specific changes
+
+Current local dashboard direction in [src/pages/DashboardPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/DashboardPage.tsx):
+- page identity aligned to `Dashboard`
+- `Active Ops` removed
+- `Show Snapshot` pulled above the priority cards
+- primary attention area centered on:
+  - `Needs Placement`
+  - `Approvals`
+  - `Safety`
+- duplicate approvals reporting removed from snapshot
+- lower area reframed as a lighter navigation surface
+- signed-in user context moved into the header account control
+
+Open dashboard note:
+- the color system still needs central semantic token cleanup in shared styles instead of per-screen tuning
+
+#### Header / account / access changes
+
+Current local header behavior in [src/components/layout/Header.tsx](/Users/vinay/dev/InOutHub-Events/src/components/layout/Header.tsx):
+- compact initials-only account button on the right
+- dropdown with:
+  - `Profile`
+  - `Log Out`
+  - `Manage Org Access` when applicable
+  - `Manage Event Access` when applicable
+- older neutral palette restored for the header control
+
+#### Selection flow streamlining
+
+[src/components/selection/SelectionGuard.tsx](/Users/vinay/dev/InOutHub-Events/src/components/selection/SelectionGuard.tsx) now:
+- restores last valid org/event when available
+- auto-selects the org when exactly one org is accessible
+- auto-selects the event when exactly one event is available in context
+- only shows selection screens when there is an actual choice to make
+
+#### Session behavior changes already wired in app code
+
+- auth persistence uses `sessionStorage` in [src/lib/supabase.ts](/Users/vinay/dev/InOutHub-Events/src/lib/supabase.ts)
+- session clears on browser close
+- idle timeout is 30 minutes in [src/context/AuthContext.tsx](/Users/vinay/dev/InOutHub-Events/src/context/AuthContext.tsx)
+
+### Backend auth/profile/session slice now implemented in repo
+
+Repo-side backend contract is now in:
+- [database_schema.sql](/Users/vinay/dev/InOutHub-Events/database_schema.sql)
+- [supabase/migrations/20260317_add_auth_profiles_and_sessions.sql](/Users/vinay/dev/InOutHub-Events/supabase/migrations/20260317_add_auth_profiles_and_sessions.sql)
+- [src/types/database.types.ts](/Users/vinay/dev/InOutHub-Events/src/types/database.types.ts)
+
+What was added:
+- `user_profiles.phone_number`
+- `user_profiles.timezone_pref`
+- `user_profiles.metadata`
+- `auth_events`
+- `user_sessions`
+- `can_manage_event_staff(uuid)`
+- RLS + indexes for the new tables
+
+### Auth/session logging is now wired in the app
+
+[src/lib/authTelemetry.ts](/Users/vinay/dev/InOutHub-Events/src/lib/authTelemetry.ts) was added and the flow is wired as follows:
+
+- [src/pages/auth/LoginPage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/auth/LoginPage.tsx)
+  - stores pending `magic_link_requested` intent in session storage after successful OTP request
+- [src/pages/auth/AuthCompletePage.tsx](/Users/vinay/dev/InOutHub-Events/src/pages/auth/AuthCompletePage.tsx)
+  - flushes `magic_link_requested`
+  - records `login_completed`
+- [src/context/AuthContext.tsx](/Users/vinay/dev/InOutHub-Events/src/context/AuthContext.tsx)
+  - creates/touches `user_sessions`
+  - records `session_timeout` on idle sign-out
+- [src/hooks/useAppSignOut.ts](/Users/vinay/dev/InOutHub-Events/src/hooks/useAppSignOut.ts)
+  - records `logout`
+  - ends the active user session
+
+Important limitation:
+- browser-close behavior clears local auth because of `sessionStorage`
+- a `user_sessions` row may stay `active` until a stale-session cleanup path is added
+
+### Live Supabase status
+
+Important:
+- Codex changed repo schema/migrations and app wiring only
+- Codex did **not** apply the migration to the live Supabase project in this session
+- Gemini should be used for the live Supabase step because Gemini has Supabase MCP access
+
+Pending external step before real end-to-end validation:
+- inspect live Supabase for drift
+- if safe, apply [supabase/migrations/20260317_add_auth_profiles_and_sessions.sql](/Users/vinay/dev/InOutHub-Events/supabase/migrations/20260317_add_auth_profiles_and_sessions.sql)
+- verify resulting live tables, policies, function, and indexes
+
+Prompt already prepared for Gemini:
+
+`Please handle the live Supabase side for the new auth/profile telemetry slice. Read AGENTS.md, database_schema.sql, and supabase/migrations/20260317_add_auth_profiles_and_sessions.sql. Inspect the live project for the new columns, auth_events, user_sessions, can_manage_event_staff(uuid), and related policies. Compare live state against the repo migration and database_schema.sql. If there is no blocking conflict, apply the migration. Then verify the tables, function, policies, and indexes, and report exactly what already existed, what changed, and any drift Codex should know before further testing.`
+
+### Verification state
+
+- local `npm run build` passed after the UI prototype changes
+- local `npm run build` also passed after the backend auth/session slice and app wiring
+
+### Recommended immediate next action in the next chat
+
+1. Read this handoff and inspect `git status`
+2. Preserve the exploratory lane as reference only
+3. Use Gemini for the pending live Supabase migration/apply step
+4. Then resume app workflow cleanup and real validation from the updated prototype state
+
+### Suggested continuation prompt for the next chat
+
+Use this:
+
+`Read /Users/vinay/dev/InOutHub-Events/docs/codex/session-handoff-2026-03-17.md first, especially the late-session update at the top. Then inspect git status, preserve the unsynced /acts work and exploratory SITE.md/next-prompt.md/queue/site lane, and continue execution from the current prototype + backend state. The immediate external dependency is the live Supabase migration step via Gemini MCP before full auth/session validation.`
+
+---
+
 ## 1. Current Repo Truth
 
 ### Branches

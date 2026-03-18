@@ -12,7 +12,6 @@ interface EditParticipantModalProps {
         lastName: string;
         isMinor?: boolean;
         status?: string;
-        identityVerified?: boolean;
         guardianName?: string | null;
         guardianPhone?: string | null;
         guardianRelationship?: string | null;
@@ -25,7 +24,6 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
     const [lastName, setLastName] = useState(participant.lastName);
     const [isMinor, setIsMinor] = useState(!!participant.isMinor);
     const [status, setStatus] = useState(participant.status || 'active');
-    const [identityVerified, setIdentityVerified] = useState(!!participant.identityVerified);
     const [guardianName, setGuardianName] = useState(participant.guardianName || '');
     const [guardianPhone, setGuardianPhone] = useState(participant.guardianPhone || '');
     const [guardianRelationship, setGuardianRelationship] = useState(participant.guardianRelationship || '');
@@ -40,7 +38,6 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
         setLastName(participant.lastName);
         setIsMinor(!!participant.isMinor);
         setStatus(participant.status || 'active');
-        setIdentityVerified(!!participant.identityVerified);
         setGuardianName(participant.guardianName || '');
         setGuardianPhone(participant.guardianPhone || '');
         setGuardianRelationship(participant.guardianRelationship || '');
@@ -57,7 +54,6 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
                 lastName,
                 isMinor,
                 status: status as any,
-                identityVerified,
                 guardianName: guardianName || null,
                 guardianPhone: guardianPhone || null,
                 guardianRelationship: guardianRelationship || null,
@@ -98,7 +94,7 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-xl border border-border/50">
+                <div className="p-4 bg-muted/20 rounded-xl border border-border/50">
                     <div>
                         <label className={labelClass}>Participant Status</label>
                         <select
@@ -112,17 +108,6 @@ export function EditParticipantModal({ isOpen, onClose, participant }: EditParti
                             <option value="refunded">Refunded</option>
                             <option value="missing_from_source">Missing (Source)</option>
                         </select>
-                    </div>
-                    <div className="flex flex-col justify-end pb-1.5">
-                        <label className="flex items-center space-x-3 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={identityVerified}
-                                onChange={(e) => setIdentityVerified(e.target.checked)}
-                                className="w-5 h-5 rounded border-2 border-border/60 text-primary focus:ring-primary/20 transition-all cursor-pointer"
-                            />
-                            <span className="text-[11px] font-black uppercase tracking-tight text-muted-foreground group-hover:text-primary transition-colors">Identity Verified</span>
-                        </label>
                     </div>
                 </div>
 

@@ -35,6 +35,7 @@ export function deriveActReadinessSummary({
     const nextPractice = getNextPractice(practices);
     const openIssues = issues.filter((issue) => issue.status !== 'resolved');
     const missingChecklistCount = items.filter((item) => item.status === 'missing').length;
+    const incompleteChecklistCount = items.filter((item) => item.status !== 'ready').length;
     const blockingIssueCount = openIssues.filter((issue) => issue.severity === 'high' || issue.status === 'blocked').length;
     const blockingDependencyCount =
         (participantCount === 0 ? 1 : 0) +
@@ -59,6 +60,7 @@ export function deriveActReadinessSummary({
         nextPractice,
         openIssueCount: openIssues.length,
         missingChecklistCount,
+        incompleteChecklistCount,
     };
 }
 

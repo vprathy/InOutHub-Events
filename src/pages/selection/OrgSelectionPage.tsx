@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Landmark, Plus, Loader2, ChevronRight, LogOut, Edit2, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Landmark, Plus, Loader2, ChevronRight, Edit2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
 import { CreateOrgModal } from '@/components/selection/CreateOrgModal';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
 import { ShieldAlert } from 'lucide-react';
-import { BrandMark } from '@/components/branding/BrandMark';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { useAppSignOut } from '@/hooks/useAppSignOut';
 import { isDevLoginEnabled } from '@/lib/authConfig';
+import { OperationalMetricCard } from '@/components/ui/OperationalCards';
 
 export default function OrgSelectionPage() {
     const [orgs, setOrgs] = useState<any[]>([]);
@@ -22,7 +21,6 @@ export default function OrgSelectionPage() {
     const { setOrganizationId } = useSelection();
     const navigate = useNavigate();
     const location = useLocation();
-    const signOut = useAppSignOut();
 
     useEffect(() => {
         fetchOrgs();
@@ -87,34 +85,33 @@ export default function OrgSelectionPage() {
         }
     };
 
-    const handleLogout = async () => {
-        await signOut();
-    };
-
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 pb-24 md:pb-6">
-            <div className="w-full max-w-4xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center space-y-2">
-                    <div className="flex justify-center">
-                        <BrandMark size="md" showLabel className="justify-center" />
-                    </div>
-                    <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-2">
-                        <Landmark className="w-7 h-7" />
-                    </div>
-                    <PageHeader
-                        title="Select Organization"
-                        subtitle="Choose an organization to manage events"
-                        align="center"
-                    />
-                </div>
+        <div className="space-y-5 pb-12">
+            <PageHeader
+                title="Select Organization"
+                subtitle="Choose the organization you want to work in."
+            />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <OperationalMetricCard label="Organizations" value={isLoading ? '...' : orgs.length} icon={Landmark} tone="default" />
+                <OperationalMetricCard label="Access" value={isSuperAdmin ? 'Admin' : 'Member'} icon={ShieldAlert} tone={isSuperAdmin ? 'info' : 'default'} />
+            </div>
+
+            <div className="surface-panel rounded-[1.35rem] p-4">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Access Context</p>
+                    <h2 className="text-lg font-black tracking-tight text-foreground">Choose the organization tied to the events you need to manage.</h2>
+                    <p className="text-sm text-muted-foreground">If you only work with one organization, this should usually be quick.</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {isLoading ? (
-                        <div className="col-span-full flex justify-center py-12">
+                        <div className="surface-panel col-span-full flex justify-center rounded-[2rem] py-12">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         </div>
                     ) : orgs.length === 0 ? (
-                        <div className="col-span-full rounded-[2rem] border border-border bg-card p-8 text-center shadow-sm">
+                        <div className="surface-panel col-span-full rounded-[2rem] p-8 text-center">
                             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                                 <Landmark className="h-7 w-7" />
                             </div>
@@ -122,18 +119,16 @@ export default function OrgSelectionPage() {
                             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
                                 {isSuperAdmin
                                     ? 'No organizations exist yet for this environment. Create one to continue.'
-                                    : 'This account is signed in, but does not have organization access yet. Ask an administrator to grant access and then refresh this screen.'}
+                                    : 'This account signed in successfully, but it does not have organization access yet. Ask an administrator to add access, then refresh this screen or try a different account.'}
                             </p>
                             <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
-                                {isDevLoginEnabled ? (
-                                    <button
-                                        onClick={() => navigate('/dev/login')}
-                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                                    >
-                                        <ArrowLeft className="h-4 w-4" />
-                                        <span>Back to Dev Login</span>
-                                    </button>
-                                ) : null}
+                                <button
+                                    onClick={() => navigate('/login', { replace: true })}
+                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                                >
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span>{isDevLoginEnabled ? 'Use Another Account' : 'Back to Sign In'}</span>
+                                </button>
                                 <button
                                     onClick={() => void fetchOrgs()}
                                     className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary-foreground transition-opacity hover:opacity-90"
@@ -161,7 +156,7 @@ export default function OrgSelectionPage() {
                                     tabIndex={0}
                                     onClick={() => handleSelect(org.id)}
                                     onKeyDown={(event) => handleCardKeyDown(event, org.id)}
-                                    className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
+                                    className="group surface-panel flex items-center justify-between p-6 rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                 >
                                     <div className="flex items-center space-x-5">
                                         <div className="p-4 rounded-2xl bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -204,24 +199,13 @@ export default function OrgSelectionPage() {
 
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="flex items-center justify-center space-x-3 p-6 border-4 border-dashed border-muted rounded-[2rem] text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all font-black uppercase tracking-widest text-xs min-h-[44px]"
+                                className="surface-panel flex items-center justify-center space-x-3 rounded-[2rem] border-2 border-dashed border-muted p-6 text-xs font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary min-h-[44px]"
                             >
                                 <Plus className="w-6 h-6" />
                                 <span>Create New Organization</span>
                             </button>
                         </>
                     )}
-                </div>
-
-                <div className="pt-8 border-t border-border flex justify-center">
-                    <button
-                        onClick={handleLogout}
-                        className="h-12 px-8 flex items-center justify-center space-x-3 text-sm font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-red-500 transition-colors"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        <span>Sign Out</span>
-                    </button>
-                </div>
             </div>
 
             <CreateOrgModal

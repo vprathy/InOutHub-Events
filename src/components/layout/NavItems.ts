@@ -15,9 +15,9 @@ export interface NavItem {
 
 export const PRIMARY_NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Roster', href: '/participants', icon: Users },
-    { label: 'Performances', href: '/acts', icon: ListOrdered },
-    { label: 'Show Flow', href: '/lineup', icon: Calendar },
+    { label: 'Participants', href: '/participants', icon: Users },
+    { label: 'Performances', href: '/performances', icon: ListOrdered },
+    { label: 'Show Flow', href: '/show-flow', icon: Calendar },
     { label: 'Console', href: '/stage-console', icon: MonitorPlay },
 ];
 

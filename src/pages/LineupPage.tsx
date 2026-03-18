@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Timer, Clock as ClockIcon, Sparkles } from 'lucide-react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
 import {
@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { formatEventTime } from '@/lib/eventTime';
+import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 function SortableLineupItem({
     slot,
@@ -216,7 +217,7 @@ export default function LineupPage() {
         <div className="space-y-6">
             <PageHeader
                 title="Show Flow"
-                subtitle="Schedule and organize performances across stages."
+                subtitle="Set the running order, review conflicts, and keep the future queue clean."
                 actions={
                     <div className="flex flex-col gap-2 sm:flex-row md:w-auto">
                         {lineup && lineup.length > 0 && (
@@ -241,69 +242,71 @@ export default function LineupPage() {
                 }
             />
 
-            {/* Stage Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {isLoadingStages ? (
-                    <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
-                ) : (
-                    stages?.map(stage => (
-                        <Button
-                            key={stage.id}
-                            variant={selectedStageId === stage.id ? 'default' : 'outline'}
-                            onClick={() => setSelectedStageId(stage.id)}
-                            className={`h-11 shrink-0 ${selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <LayoutGrid size={16} className="mr-2" />
-                            {stage.name}
-                        </Button>
-                    ))
-                )}
+            {criticalRisks > 0 ? (
+                <OperationalResponseCard
+                    label="Flow Review"
+                    detail="The current order has timing or readiness conflicts that should be checked before the show locks in."
+                    count={criticalRisks}
+                    tone="critical"
+                    action={showReview ? 'Hide review details' : 'Open review details'}
+                    onClick={() => setShowReview(!showReview)}
+                />
+            ) : (
+                <OperationalEmptyResponse
+                    title="No Escalations"
+                    detail="Nothing urgent is demanding a lineup change right now."
+                />
+            )}
+
+            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+                <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
+                        <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune right now.</p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        onClick={() => selectedStageId && setIsAddModalOpen(true)}
+                        disabled={!selectedStageId}
+                        className="min-h-11 gap-2 rounded-2xl border-primary/20 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/15"
+                    >
+                        Add To Flow
+                        <ArrowUpRight size={16} />
+                    </Button>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {isLoadingStages ? (
+                        <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
+                    ) : (
+                        stages?.map(stage => (
+                            <Button
+                                key={stage.id}
+                                variant={selectedStageId === stage.id ? 'default' : 'outline'}
+                                onClick={() => setSelectedStageId(stage.id)}
+                                className={`h-11 shrink-0 rounded-2xl ${selectedStageId === stage.id ? 'shadow-lg shadow-primary/20' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                            >
+                                <LayoutGrid size={16} className="mr-2" />
+                                {stage.name}
+                            </Button>
+                        ))
+                    )}
+                </div>
             </div>
 
-            {/* Program Duration Dashboard */}
             {lineup && lineup.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    <Card className="p-4 bg-card/60 border-border/50 flex items-center space-x-3 min-h-[110px]">
-                        <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                            <ListOrdered size={24} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Scheduled Acts</p>
-                            <h2 className="text-xl sm:text-2xl font-black text-foreground">{lineup.length}</h2>
-                        </div>
-                    </Card>
-                    <Card className="p-4 bg-primary/5 border-primary/10 flex items-center space-x-3 min-h-[110px]">
-                        <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                            <Timer size={24} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Total Stage Duration</p>
-                            <h2 className="text-xl sm:text-2xl font-black text-primary">{totalDuration} <span className="text-sm font-medium">mins</span></h2>
-                        </div>
-                    </Card>
-                    <Card className="p-4 bg-emerald-500/5 border-emerald-500/10 flex items-center space-x-3 min-h-[110px]">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-600">
-                            <Sparkles size={24} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70">Ready To Run</p>
-                            <h2 className="text-xl sm:text-2xl font-black text-emerald-600">{readyCount}</h2>
-                        </div>
-                    </Card>
-                    <Card className={`p-4 border-border/50 flex items-center space-x-3 min-h-[110px] ${criticalRisks > 0 ? 'bg-rose-500/5 border-rose-500/20 col-span-2 xl:col-span-1' : 'bg-muted/30'}`}>
-                        <div className="p-3 bg-muted rounded-xl text-muted-foreground">
-                            <ClockIcon size={24} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                {criticalRisks > 0 ? 'Critical Conflicts' : 'Estimated End Time'}
-                            </p>
-                            <h2 className={`text-xl sm:text-2xl font-black ${criticalRisks > 0 ? 'text-rose-600' : 'text-foreground'}`}>
-                                {criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
-                                {criticalRisks > 0 ? <span className="ml-2 text-sm font-medium">High Alert</span> : null}
-                            </h2>
-                        </div>
-                    </Card>
+                <div className="surface-panel rounded-[1.35rem] p-3">
+                    <div className="space-y-1 px-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Run Snapshot</p>
+                        <p className="text-sm font-semibold text-foreground">
+                            Current plan ends around {formatEventTime(estimatedEndTime.toISOString(), undefined, true)}.
+                        </p>
+                    </div>
+                    <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" />
+                        <OperationalMetricCard label="Stage Minutes" value={totalDuration} icon={Sparkles} tone="info" />
+                        <OperationalMetricCard label="Ready To Run" value={readyCount} icon={Sparkles} tone="good" />
+                        <OperationalMetricCard label={criticalRisks > 0 ? 'Conflicts' : 'Estimated End'} value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)} icon={Calendar} tone={criticalRisks > 0 ? 'critical' : 'default'} />
+                    </div>
                 </div>
             )}
 
@@ -316,7 +319,7 @@ export default function LineupPage() {
                                 {stages?.find((stage) => stage.id === selectedStageId)?.name || 'Selected Stage'}
                             </h2>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                             <p className="text-xs font-medium text-muted-foreground">
                                 {isLiveRun ? 'Only the future queue can be reordered while the show is live.' : 'Drag from the numbered handle to reorder this stage lineup.'}
                             </p>

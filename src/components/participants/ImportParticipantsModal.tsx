@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useImportParticipants, useSyncGoogleSheet } from '@/hooks/useParticipants';
-import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, Clock, Plus, ArrowLeft } from 'lucide-react';
+import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, Clock, Plus, ArrowLeft, SlidersHorizontal, LockKeyhole, Sparkles } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useEventSources, type EventSource } from '@/hooks/useEventSources';
 import { ActionMenu } from '@/components/ui/ActionMenu';
+import type { ParticipantImportField, ParticipantImportProfile } from '@/lib/participantImportMapping';
 
 interface ImportParticipantsModalProps {
     eventId: string;
@@ -15,15 +16,33 @@ interface ImportParticipantsModalProps {
     onClose: () => void;
 }
 
+const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper: string }> = [
+    { key: 'firstName', label: 'First Name', helper: 'Participant first-name column' },
+    { key: 'lastName', label: 'Last Name', helper: 'Participant last-name column' },
+    { key: 'fullName', label: 'Full Name', helper: 'Use when names arrive in one column' },
+    { key: 'guardianName', label: 'Guardian Name', helper: 'Parent or guardian full name' },
+    { key: 'phone', label: 'Phone', helper: 'Primary family or guardian phone' },
+    { key: 'email', label: 'Email', helper: 'Family or participant email' },
+    { key: 'age', label: 'Age', helper: 'Numeric age column' },
+    { key: 'studentId', label: 'Student ID', helper: 'Stable participant identifier' },
+    { key: 'submissionId', label: 'Submission ID', helper: 'Form timestamp, order, or submission id' },
+    { key: 'products', label: 'Products / Group', helper: 'Class, package, or group labels' },
+    { key: 'specialRequest', label: 'Special Request', helper: 'Accommodation or placement request text' },
+    { key: 'notes', label: 'Notes', helper: 'Freeform notes to preserve during import' },
+];
+
 export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportParticipantsModalProps) {
     const [urlInput, setUrlInput] = useState('');
     const [spreadsheetId, setSpreadsheetId] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [sourceName, setSourceName] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [uiMode, setUiMode] = useState<'dashboard' | 'add_source_select' | 'link_sheet' | 'upload_spreadsheet'>('dashboard');
+    const [uiMode, setUiMode] = useState<'dashboard' | 'add_source_select' | 'link_sheet' | 'upload_spreadsheet' | 'mapping_review'>('dashboard');
     const [errorMessage, setErrorMessage] = useState('');
     const [syncStats, setSyncStats] = useState<{ new: number; updated: number; missing: number } | null>(null);
+    const [syncGaps, setSyncGaps] = useState<string[]>([]);
+    const [mappingSource, setMappingSource] = useState<EventSource | null>(null);
+    const [draftMapping, setDraftMapping] = useState<ParticipantImportProfile>({});
     const [showTechnicalSetup, setShowTechnicalSetup] = useState(false);
     const [serviceAccountEmail] = useState('inouthub-importer@inouthub-events.iam.gserviceaccount.com');
 
@@ -51,14 +70,48 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
             setUiMode('dashboard');
             setErrorMessage('');
             setSyncStats(null);
+            setSyncGaps([]);
+            setMappingSource(null);
+            setDraftMapping({});
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
+    const buildSourceConfig = (source: EventSource | { config?: EventSource['config'] }, result: { mapping?: Record<string, string | undefined>; gaps?: string[]; headers?: string[] }) => ({
+        ...(source.config || {}),
+        inferredMapping: result.mapping,
+        mappingGaps: result.gaps || [],
+        detectedHeaders: result.headers || [],
+        mappingMode: source.config?.mappingMode || 'inferred',
+        mappingUpdatedAt: new Date().toISOString(),
+    });
+
+    const openMappingReview = (source: EventSource) => {
+        setMappingSource(source);
+        setDraftMapping(source.config?.inferredMapping || {});
+        setUiMode('mapping_review');
+    };
+
+    const handleSaveMapping = async () => {
+        if (!mappingSource) return;
+        await updateSourceSyncStatus({
+            sourceId: mappingSource.id,
+            lastSyncedAt: mappingSource.lastSyncedAt || new Date().toISOString(),
+            config: {
+                ...mappingSource.config,
+                inferredMapping: draftMapping,
+                mappingMode: 'locked',
+                mappingUpdatedAt: new Date().toISOString(),
+            },
+        });
+        setUiMode('dashboard');
+    };
+
     const handleLinkSheet = async () => {
         if (!spreadsheetId || !sourceName) return;
         setStatus('loading');
+        setSyncGaps([]);
         try {
             const newSource = await addSource({
                 eventId,
@@ -67,10 +120,15 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                 config: { sheetId: spreadsheetId, url: urlInput }
             });
 
-            const result = await syncSheet({ sheetId: spreadsheetId });
-            await updateSourceSyncStatus({ sourceId: newSource.id, lastSyncedAt: new Date().toISOString() });
+            const result = await syncSheet({ sheetId: spreadsheetId, savedMapping: newSource.config?.inferredMapping });
+            await updateSourceSyncStatus({
+                sourceId: newSource.id,
+                lastSyncedAt: new Date().toISOString(),
+                config: buildSourceConfig(newSource, result),
+            });
 
             setSyncStats(result.stats);
+            setSyncGaps(result.gaps || []);
             setStatus('success');
             setTimeout(() => {
                 setUiMode('dashboard');
@@ -85,6 +143,7 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
     const handleUploadSpreadsheet = async () => {
         if (!file || !sourceName) return;
         setStatus('loading');
+        setSyncGaps([]);
         try {
             const newSource = await addSource({
                 eventId,
@@ -93,9 +152,15 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                 config: { fileName: file.name }
             });
 
-            await importSpreadsheet({ file, sourceId: newSource.id });
-            await updateSourceSyncStatus({ sourceId: newSource.id, lastSyncedAt: new Date().toISOString() });
+            const result = await importSpreadsheet({ file, sourceId: newSource.id, savedMapping: newSource.config?.inferredMapping });
+            await updateSourceSyncStatus({
+                sourceId: newSource.id,
+                lastSyncedAt: new Date().toISOString(),
+                config: buildSourceConfig(newSource, result),
+            });
 
+            setSyncStats(result.stats || null);
+            setSyncGaps(result.gaps || []);
             setStatus('success');
             setTimeout(() => {
                 setUiMode('dashboard');
@@ -111,16 +176,24 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
     const handleSyncAll = async () => {
         if (sources.length === 0) return;
         setStatus('loading');
+        setSyncGaps([]);
         const combinedStats = { new: 0, updated: 0, missing: 0 };
 
         try {
             for (const source of sources) {
                 if (source.type === 'google_sheet' && source.config.sheetId) {
-                    const result = await syncSheet({ sheetId: source.config.sheetId });
-                    await updateSourceSyncStatus({ sourceId: source.id, lastSyncedAt: new Date().toISOString() });
+                    const result = await syncSheet({ sheetId: source.config.sheetId, savedMapping: source.config.inferredMapping });
+                    await updateSourceSyncStatus({
+                        sourceId: source.id,
+                        lastSyncedAt: new Date().toISOString(),
+                        config: buildSourceConfig(source, result),
+                    });
                     combinedStats.new += result.stats.new;
                     combinedStats.updated += result.stats.updated;
                     combinedStats.missing += result.stats.missing;
+                    if (Array.isArray(result.gaps) && result.gaps.length > 0) {
+                        setSyncGaps((current) => Array.from(new Set([...current, ...result.gaps])));
+                    }
                 }
             }
 
@@ -135,11 +208,17 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
 
     const handleSyncSingleSource = async (source: EventSource) => {
         setStatus('loading');
+        setSyncGaps([]);
         try {
             if (source.type === 'google_sheet' && source.config.sheetId) {
-                const result = await syncSheet({ sheetId: source.config.sheetId });
-                await updateSourceSyncStatus({ sourceId: source.id, lastSyncedAt: new Date().toISOString() });
+                const result = await syncSheet({ sheetId: source.config.sheetId, savedMapping: source.config.inferredMapping });
+                await updateSourceSyncStatus({
+                    sourceId: source.id,
+                    lastSyncedAt: new Date().toISOString(),
+                    config: buildSourceConfig(source, result),
+                });
                 setSyncStats(result.stats);
+                setSyncGaps(result.gaps || []);
             }
             setStatus('success');
             setTimeout(() => setStatus('idle'), 1500);
@@ -195,6 +274,16 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                     </div>
                                 </div>
                             )}
+                            {syncGaps.length > 0 && (
+                                <div className="w-full rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-left dark:bg-amber-950/20">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Mapping Review</p>
+                                    <div className="mt-2 space-y-1">
+                                        {syncGaps.map((gap) => (
+                                            <p key={gap} className="text-xs font-medium text-amber-800 dark:text-amber-100">{gap}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : status === 'loading' ? (
                         <div className="flex flex-col items-center justify-center py-16 space-y-6">
@@ -236,6 +325,26 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                                         </>
                                                     )}
                                                 </div>
+                                                {(source.config.mappingGaps?.length || source.config.mappingMode === 'locked') && (
+                                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                        {source.config.mappingMode === 'locked' ? (
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
+                                                                <LockKeyhole className="h-3 w-3" />
+                                                                Mapping Locked
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">
+                                                                <Sparkles className="h-3 w-3" />
+                                                                Inferred Mapping
+                                                            </span>
+                                                        )}
+                                                        {(source.config.mappingGaps?.length || 0) > 0 && (
+                                                            <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                                                                {source.config.mappingGaps?.length} gap{(source.config.mappingGaps?.length || 0) > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex items-center space-x-1">
                                                 {source.type === 'google_sheet' && (
@@ -247,6 +356,7 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                                     </button>
                                                 )}
                                                 <ActionMenu options={[
+                                                    { label: 'Review Mapping', icon: <SlidersHorizontal className="w-4 h-4" />, onClick: () => openMappingReview(source) },
                                                     { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
                                                 ]} />
                                             </div>
@@ -271,6 +381,67 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                         <span>{errorMessage}</span>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    ) : uiMode === 'mapping_review' ? (
+                        <div className="space-y-5 animate-in slide-in-from-right-4 duration-300 text-left">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-black tracking-tight text-foreground">Review Mapping</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    {mappingSource?.name || 'Source'} should land in the right participant fields before operators trust the sync.
+                                </p>
+                            </div>
+                            {mappingSource?.config.mappingGaps && mappingSource.config.mappingGaps.length > 0 && (
+                                <div className="rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 dark:bg-amber-950/20">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Needs Confirmation</p>
+                                    <div className="mt-2 space-y-1">
+                                        {mappingSource.config.mappingGaps.map((gap) => (
+                                            <p key={gap} className="text-xs font-medium text-amber-800 dark:text-amber-100">{gap}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+                                {MAPPING_FIELDS.map((field) => {
+                                    const headers = mappingSource?.config.detectedHeaders || [];
+                                    const selectedValue = draftMapping[field.key] || '';
+                                    return (
+                                        <div key={field.key} className="rounded-2xl border border-border/70 bg-accent/15 p-3.5">
+                                            <div className="mb-2">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{field.label}</p>
+                                                <p className="mt-1 text-xs text-muted-foreground">{field.helper}</p>
+                                            </div>
+                                            <select
+                                                value={selectedValue}
+                                                onChange={(event) => setDraftMapping((current) => ({
+                                                    ...current,
+                                                    [field.key]: event.target.value || undefined,
+                                                }))}
+                                                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                                            >
+                                                <option value="">Not mapped</option>
+                                                {headers.map((header) => (
+                                                    <option key={header} value={header}>{header}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setUiMode('dashboard')}
+                                    className="h-12 rounded-2xl"
+                                >
+                                    Back
+                                </Button>
+                                <Button
+                                    onClick={handleSaveMapping}
+                                    className="h-12 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                                >
+                                    Save Mapping
+                                </Button>
                             </div>
                         </div>
                     ) : uiMode === 'add_source_select' ? (

@@ -1,5 +1,4 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import {
     useParticipantDetail,
     useAddParticipantNote,
@@ -21,7 +20,6 @@ import {
     AlertCircle,
     Phone,
     FileText,
-    Clock,
     UserCircle,
     ChevronRight,
     Edit,
@@ -31,23 +29,21 @@ import {
     Plus,
     Trash2,
     Upload,
-    ShieldCheck,
-    ShieldAlert,
     Activity,
-    Sparkles,
-    X,
-    Loader2
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { supabase } from '@/lib/supabase';
+import { ActionMenu } from '@/components/ui/ActionMenu';
+import { buildParticipantRequirementRows, getRequirementStatusMeta } from '@/lib/requirementsPrototype';
+import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
 
-type Tab = 'overview' | 'acts' | 'assets' | 'source' | 'audit';
+type Tab = 'workspace' | 'assets';
 
 // Helper functions for audit log
 const getActionDescription = (log: any) => {
@@ -93,11 +89,15 @@ const formatDate = (dateString: any) => {
     });
 };
 
+function getParticipantRequirementTarget(rowKey: string): 'workspace' | 'assets' {
+    if (rowKey === 'special-request' || rowKey === 'guardian-contact') return 'workspace';
+    return 'assets';
+}
+
 export function ParticipantProfilePage() {
     const { participantId } = useParams<{ participantId: string }>();
     const navigate = useNavigate();
-    const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<Tab>('overview');
+    const [activeTab, setActiveTab] = useState<Tab>('workspace');
 
     // Form and Action state
     const [showNoteForm, setShowNoteForm] = useState(false);
@@ -106,12 +106,9 @@ export function ParticipantProfilePage() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedActId, setSelectedActId] = useState('');
     const [showEditModal, setShowEditModal] = useState(false);
-    const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
-    const [aiSuggestResult, setAiSuggestResult] = useState<string | null>(null);
     const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
-    const [previewLoading, setPreviewLoading] = useState(false);
-    const [headerThumbnailUrl, setHeaderThumbnailUrl] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [uploadTarget, setUploadTarget] = useState<{ templateId?: string | null; replaceAssetId?: string | null; type: 'waiver' | 'photo' | 'intro_media' | 'other'; title: string } | null>(null);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadName, setUploadName] = useState('');
@@ -120,79 +117,6 @@ export function ParticipantProfilePage() {
     const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
-
-    const generativeAsset = participant?.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled);
-
-    // Fetch signed URL for header thumbnail
-    useEffect(() => {
-        if (generativeAsset?.fileUrl) {
-            (async () => {
-                try {
-                    const urlObj = new URL(generativeAsset.fileUrl!);
-                    const pathParts = urlObj.pathname.split('/v1/object/public/');
-                    const bucketAndPath = pathParts.length > 1 ? pathParts[1] : null;
-                    const filePath = bucketAndPath?.replace('participant-assets/', '') || null;
-
-                    if (filePath) {
-                        const { data } = await supabase.storage
-                            .from('participant-assets')
-                            .createSignedUrl(filePath, 3600);
-                        if (data?.signedUrl) setHeaderThumbnailUrl(data.signedUrl);
-                    } else {
-                        setHeaderThumbnailUrl(generativeAsset.fileUrl!);
-                    }
-                } catch (e) {
-                    setHeaderThumbnailUrl(generativeAsset.fileUrl!);
-                }
-            })();
-        } else {
-            setHeaderThumbnailUrl(null);
-        }
-    }, [generativeAsset?.fileUrl]);
-
-    const handlePreviewAsset = async (fileUrl: string, assetType?: string) => {
-        if (!fileUrl) return;
-        
-        // Skip signed URL logic for non-poster assets to prevent undefined/bucket errors
-        if (assetType && assetType !== 'POSTER' && assetType !== 'Generative') {
-            console.log(`[Handshake] Skipping signed URL for asset type: ${assetType}`);
-            setSelectedAssetUrl(fileUrl);
-            return;
-        }
-
-        setPreviewLoading(true);
-        try {
-            // Extract path robustly
-            let filePath = null;
-            if (fileUrl.includes('supabase.co/storage/v1/object/public/')) {
-                const parts = fileUrl.split('/public/')[1]?.split('/');
-                if (parts && parts.length > 1) {
-                    // Skip the bucket name (parts[0])
-                    filePath = parts.slice(1).join('/');
-                }
-            } else if (!fileUrl.startsWith('http')) {
-                // Assume it's already a path
-                filePath = fileUrl;
-            }
-
-            if (filePath) {
-                const { data, error } = await supabase.storage
-                    .from('participant-assets')
-                    .createSignedUrl(filePath, 3600); // 1 hour
-
-                if (error) throw error;
-                setSelectedAssetUrl(data.signedUrl);
-            } else {
-                // Fallback to direct URL
-                setSelectedAssetUrl(fileUrl);
-            }
-        } catch (err) {
-            console.error('Error generating signed URL:', err);
-            setSelectedAssetUrl(fileUrl); // Final fallback
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
 
     // Available acts for assignment
     const { data: allActs } = useActsQuery(participant?.eventId || '');
@@ -206,8 +130,6 @@ export function ParticipantProfilePage() {
     const resolveNote = useResolveNote(participantId || '');
     const deleteAsset = useDeleteAsset(participantId || '');
     const uploadAsset = useUploadParticipantAsset(participantId || '');
-    const hasAssignedActs = Boolean(participant?.acts && participant.acts.length > 0);
-
     const openUploadModal = ({
         templateId = null,
         replaceAssetId = null,
@@ -258,59 +180,6 @@ export function ParticipantProfilePage() {
         }
     };
 
-    const handleAiSuggest = async () => {
-        if (!participant?.acts || participant.acts.length === 0) {
-            setShowAssignModal(true);
-            return;
-        }
-        const existingPoster = participant.actRequirements?.find(r => r.requirementType === 'Generative' && r.fulfilled);
-        
-        if (existingPoster) {
-            const confirmRegen = window.confirm(
-                "A cinematic poster already exists for this act. Regenerating will use additional AI credits. Do you want to continue?"
-            );
-            if (!confirmRegen) return;
-        }
-
-        setAiSuggestLoading(true);
-        // Keep previous result visible until new one arrives to avoid "flicker/vanishing"
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-act-assets`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-                        'x-inouthub-trust': 'inouthub-internal-2026-v16'
-                    },
-                    body: JSON.stringify({ actId: participant.acts[0].id, bucket: 'participant-assets', testOnly: false }),
-                }
-            );
-            const result = await res.json();
-            if (result.error) {
-                setAiSuggestResult(`Error: ${result.error}`);
-            } else if (result.isPending) {
-                // Handle Silent Failure / Brand Safety Review gracefully for Demo
-                setAiSuggestResult(result.message || 'Poster generation is under review');
-                // Don't auto-dismiss immediately so the user can see it
-                setTimeout(() => setAiSuggestResult(null), 8000);
-            } else {
-                setAiSuggestResult('Poster updated');
-                // Refresh data to show the new asset in the Assets tab
-                queryClient.invalidateQueries({ queryKey: ['participant', participantId] });
-                // Auto-dismiss success status after 5s
-                setTimeout(() => setAiSuggestResult(null), 5000);
-            }
-        } catch (err: any) {
-            setAiSuggestResult(`Network error: ${err.message}`);
-        } finally {
-            setAiSuggestLoading(false);
-        }
-    };
-
     const handleAddNote = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!noteContent.trim()) return;
@@ -324,15 +193,6 @@ export function ParticipantProfilePage() {
         await assignToAct.mutateAsync({ actId: selectedActId });
         setShowAssignModal(false);
         setSelectedActId('');
-    };
-
-    const statusColors: Record<string, string> = {
-        'Identity Confirmed': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-        'Verification Required': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-        'ready': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-        'missing_assets': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-        'Needs Placement': 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
-        'In Review': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
     };
 
     if (isLoading) {
@@ -362,28 +222,18 @@ export function ParticipantProfilePage() {
     const subtitleParts = [
         assignedActCount === 1 ? '1 performance assigned' : `${assignedActCount} performances assigned`,
         totalAssetCount > 0 ? `${approvedAssetCount}/${totalAssetCount} requirements approved` : 'No required assets',
-        participant.identityVerified ? 'identity verified' : 'manual verification needed',
     ];
+    const requirementRows = buildParticipantRequirementRows(participant);
+    const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
+    const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
+
+    const handleRequirementAction = (rowKey: string) => {
+        const target = getParticipantRequirementTarget(rowKey);
+        setActiveTab(target);
+    };
 
     return (
         <div className="relative">
-            {/* Non-intrusive Notification Toast */}
-            {aiSuggestResult && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-none">
-                    <div className={`px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md border flex items-center space-x-3 pointer-events-auto ${
-                        aiSuggestResult.startsWith('Error') 
-                        ? 'bg-destructive/90 border-destructive/20 text-white' 
-                        : 'bg-emerald-600/90 border-emerald-500/20 text-white'
-                    }`}>
-                        {aiSuggestResult.startsWith('Error') ? <AlertCircle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-                        <span className="text-sm font-bold tracking-tight">{aiSuggestResult}</span>
-                        <button onClick={() => setAiSuggestResult(null)} className="ml-4 hover:opacity-70">
-                            <Plus className="w-4 h-4 rotate-45" />
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {assetNotice && (
                 <div className="fixed top-36 left-1/2 z-[60] w-[min(92vw,36rem)] -translate-x-1/2 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-md ${
@@ -406,28 +256,14 @@ export function ParticipantProfilePage() {
                     className="inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Back to Roster
+                    Back to Participants
                 </button>
 
                 <PageHeader
                     title={`${participant.firstName} ${participant.lastName}`}
                     subtitle={subtitleParts.join(' • ')}
                     actions={
-                        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="min-h-11 rounded-xl border border-primary/10 bg-primary/5 px-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary hover:bg-primary/10"
-                                onClick={handleAiSuggest}
-                                disabled={aiSuggestLoading}
-                            >
-                                {aiSuggestLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                                {aiSuggestLoading
-                                    ? 'Generating...'
-                                    : !hasAssignedActs
-                                        ? 'Assign to Performance'
-                                        : (participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) ? 'Regenerate Poster' : 'Generate Poster')}
-                            </Button>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                             <Button
                                 className="min-h-11 rounded-xl border border-border/50 px-4 text-[10px] font-bold uppercase tracking-[0.18em]"
                                 variant="outline"
@@ -436,6 +272,17 @@ export function ParticipantProfilePage() {
                                 <Edit className="mr-1.5 h-3.5 w-3.5" />
                                 Edit Profile
                             </Button>
+                            <div className="col-span-2 flex justify-end sm:col-span-1">
+                                <ActionMenu
+                                    options={[
+                                        {
+                                            label: 'View Record History',
+                                            onClick: () => setShowHistoryModal(true),
+                                            icon: <HistoryIcon className="h-4 w-4" />,
+                                        },
+                                    ]}
+                                />
+                            </div>
                         </div>
                     }
                     status={
@@ -457,11 +304,6 @@ export function ParticipantProfilePage() {
                                 <option value="missing_from_source">Missing (Source)</option>
                             </select>
 
-                            <Badge variant="outline" className={`min-h-11 rounded-xl border-none px-3 text-[10px] font-black uppercase tracking-[0.18em] ${statusColors[participant.identityVerified ? 'Identity Confirmed' : 'Verification Required']}`}>
-                                {participant.identityVerified ? <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> : <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />}
-                                {participant.identityVerified ? 'Verified' : 'Unverified'}
-                            </Badge>
-
                             {participant.age ? (
                                 <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-muted/50 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                                     Age {participant.age}
@@ -476,56 +318,58 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-primary/5 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                                {participant.eventId ? 'Event Registered' : 'Draft Roster'}
+                                {participant.eventId ? 'Event Registered' : 'Draft Participant'}
                             </Badge>
-
-                            {generativeAsset ? (
-                                <button
-                                    onClick={() => generativeAsset.fileUrl && handlePreviewAsset(generativeAsset.fileUrl, 'Generative')}
-                                    className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary transition-all hover:bg-primary/20"
-                                >
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                    Poster Ready
-                                    <span className="relative h-8 w-8 overflow-hidden rounded-lg border border-primary/30 bg-black">
-                                        {headerThumbnailUrl ? (
-                                            <img src={headerThumbnailUrl} alt="Poster preview" className="h-full w-full object-cover" />
-                                        ) : (
-                                            <span className="flex h-full w-full items-center justify-center">
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                            </span>
-                                        )}
-                                    </span>
-                                </button>
-                            ) : null}
                         </div>
                     }
                 />
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-border/50 bg-card px-4 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Performances</p>
-                        <div className="mt-1 flex items-end justify-between gap-3">
-                            <p className="text-xl font-black tracking-tight text-foreground">{assignedActCount}</p>
-                            <p className="text-[11px] font-semibold text-muted-foreground">
-                                {assignedActCount > 0 ? 'Assignments active' : 'Needs placement'}
+                    <OperationalMetricCard label="Performances" value={assignedActCount} icon={Users} tone={assignedActCount > 0 ? 'default' : 'warning'} detail={assignedActCount > 0 ? 'Assignments active' : 'Needs placement'} />
+                    <OperationalMetricCard label="Assets" value={`${approvedAssetCount}/${totalAssetCount}`} icon={Upload} tone={stageReadinessPercent === 100 ? 'good' : 'info'} detail={`${stageReadinessPercent}% ready`} />
+                    <OperationalMetricCard label="Follow-Up" value={unresolvedNoteCount} icon={FileText} tone={unresolvedNoteCount > 0 ? 'warning' : 'good'} detail={unresolvedNoteCount > 0 ? 'Open notes' : 'Clear'} />
+                </div>
+
+                <div className="surface-panel rounded-[1.2rem] p-3.5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Required Items</p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">
+                                {unresolvedRequirementRows.length > 0
+                                    ? `${unresolvedRequirementRows.length} items still need work`
+                                    : 'Everything in the current requirement strip is clear'}
                             </p>
+                            {nextRequirementRow ? (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Next up: {nextRequirementRow.label}
+                                </p>
+                            ) : null}
                         </div>
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.18em]"
+                            onClick={() => nextRequirementRow && handleRequirementAction(nextRequirementRow.key)}
+                            disabled={!nextRequirementRow}
+                        >
+                            {nextRequirementRow ? nextRequirementRow.actionLabel : 'Clear'}
+                        </Button>
                     </div>
-                    <div className="rounded-2xl border border-border/50 bg-card px-4 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Assets</p>
-                        <div className="mt-1 flex items-end justify-between gap-3">
-                            <p className="text-xl font-black tracking-tight text-foreground">{approvedAssetCount}/{totalAssetCount}</p>
-                            <p className="text-[11px] font-semibold text-muted-foreground">{stageReadinessPercent}% ready</p>
-                        </div>
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-card px-4 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Follow-Up</p>
-                        <div className="mt-1 flex items-end justify-between gap-3">
-                            <p className="text-xl font-black tracking-tight text-foreground">{unresolvedNoteCount}</p>
-                            <p className="text-[11px] font-semibold text-muted-foreground">
-                                {unresolvedNoteCount > 0 ? 'Open notes' : 'Clear'}
-                            </p>
-                        </div>
+
+                    <div className="mt-3 space-y-2">
+                        {requirementRows.slice(0, 3).map((row) => {
+                            const meta = getRequirementStatusMeta(row.status as any);
+                            return (
+                                <OperationalResponseCard
+                                    key={`summary-${row.key}`}
+                                    label={row.label}
+                                    detail={row.detail}
+                                    count={meta.label}
+                                    tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
+                                    action={row.actionLabel}
+                                    onClick={() => handleRequirementAction(row.key)}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -534,219 +378,193 @@ export function ParticipantProfilePage() {
                     <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 rounded-r-2xl bg-gradient-to-l from-background via-background/90 to-transparent sm:hidden" />
                     <div className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-border/40 bg-muted/20 p-1 shadow-inner scrollbar-hide">
                         <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'overview' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                            onClick={() => setActiveTab('workspace')}
+                            className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'workspace' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Info size={14} />
-                            Overview
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('acts')}
-                            className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'acts' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <Sparkles size={14} />
-                            Performances
+                            Workspace
                         </button>
                         <button
                             onClick={() => setActiveTab('assets')}
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'assets' ? 'border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Plus size={14} />
-                            Assets
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('source')}
-                            className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'source' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <Shield size={14} />
-                            Data Origin
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('audit')}
-                            className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'audit' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <HistoryIcon size={14} />
-                            Audit Log
+                            Docs & Assets
                         </button>
                     </div>
                 </div>
 
             {/* Content Area */}
             <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
-                {activeTab === 'overview' && (
-                    <div className="divide-y divide-border/50 animate-in fade-in duration-300">
-                        {/* Status Alert Banner */}
-                        {participant.hasSpecialRequests && (
-                            <div className="p-4 bg-amber-500/5 border-b border-amber-500/10 flex items-start space-x-3">
-                                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <h4 className="text-sm font-bold text-amber-500 uppercase tracking-tighter">
-                                        <span className="text-xs font-bold text-amber-500 uppercase">Review Required</span>
-                                    </h4>
-                                    <p className="text-xs text-amber-500/80 font-medium">
-                                        "{participant.specialRequestRaw}"
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                {activeTab === 'workspace' && (
+                    <div className="animate-in fade-in space-y-4 p-4 sm:p-5 duration-300">
+                        {participant.hasSpecialRequests ? (
+                            <OperationalResponseCard
+                                label="Special Request Review"
+                                detail={participant.specialRequestRaw || 'A participant request still needs review before final show-day clearance.'}
+                                tone="warning"
+                                action="Open coordination notes"
+                                onClick={() => {
+                                    setNoteCategory('special_request');
+                                    setShowNoteForm(true);
+                                }}
+                            />
+                        ) : null}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50">
-                            {/* Contact & Identity */}
-                            <div className="p-4 sm:p-5 space-y-5">
-                                <div className="space-y-3">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center antialiased">
-                                        <UserCircle className="w-3.5 h-3.5 mr-2 text-primary" />
-                                        Identity & Contact
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <div className="group">
-                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 antialiased">Guardian Name</p>
-                                            <p className="text-sm font-bold text-foreground antialiased">{participant.guardianName || 'Unknown'}</p>
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr,1.05fr]">
+                            <div className="space-y-4">
+                                <div className="surface-panel rounded-[1.2rem] p-4">
+                                    <div className="flex items-center gap-2">
+                                        <UserCircle className="h-4 w-4 text-primary" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity & Contact</h3>
+                                    </div>
+                                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Name</p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</p>
                                         </div>
-                                        <div className="group">
-                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 antialiased">Guardian Phone</p>
-                                            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/40 p-3">
-                                                <p className="text-base font-bold text-foreground font-mono antialiased">{participant.guardianPhone || 'No Phone'}</p>
-                                                {participant.guardianPhone && (
-                                                    <a href={`tel:${participant.guardianPhone}`} className="inline-flex min-h-11 items-center rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground transition-all hover:brightness-110 antialiased">
-                                                        <Phone className="w-3 h-3 mr-1.5" />
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</p>
+                                                    <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</p>
+                                                </div>
+                                                {participant.guardianPhone ? (
+                                                    <a
+                                                        href={`tel:${participant.guardianPhone}`}
+                                                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                                    >
+                                                        <Phone className="mr-1.5 h-3.5 w-3.5" />
                                                         Call
                                                     </a>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </div>
-                                        {participant.notes && (
-                                            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                                                <div className="flex items-center space-x-2 mb-2 text-muted-foreground">
-                                                    <Info className="w-3 h-3" />
-                                                    <p className="text-[10px] font-bold uppercase tracking-wider antialiased">Internal Bio / Notes</p>
-                                                </div>
-                                                <p className="text-xs font-medium text-foreground leading-relaxed italic border-l-2 border-primary/30 pl-3 antialiased">
-                                                    "{participant.notes}"
-                                                </p>
-                                            </div>
-                                        )}
-                                        {participant.siblings && participant.siblings.length > 0 && (
-                                            <div className="group border-t border-border/50 pt-3">
-                                                <div className="flex items-center justify-between mb-3 text-emerald-600">
-                                                    <h4 className="text-[10px] font-black uppercase tracking-widest">Family & Group Linkage</h4>
-                                                    <Users className="w-4 h-4" />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {participant.siblings.map(s => (
-                                                        <Link
-                                                            key={s.id}
-                                                            to={`/participants/${s.id}`}
-                                                            className="flex items-center justify-between p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl hover:bg-emerald-500/10 transition-colors group/sib"
-                                                        >
-                                                            <div className="flex items-center">
-                                                                <div className="w-2 h-2 rounded-full bg-emerald-500 mr-3" />
-                                                                <span className="text-sm font-bold">{s.firstName} {s.lastName}</span>
-                                                            </div>
-                                                            <div className="flex items-center text-[10px] font-black uppercase text-emerald-600/60 group-hover/sib:text-emerald-600 transition-colors">
-                                                                View Profile
-                                                                <ChevronRight className="w-3 h-3 ml-1" />
-                                                            </div>
-                                                        </Link>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
+                                    {participant.notes ? (
+                                        <div className="mt-3 rounded-xl border border-border/50 bg-muted/15 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Internal Note</p>
+                                            <p className="mt-1 text-sm leading-6 text-foreground/80">{participant.notes}</p>
+                                        </div>
+                                    ) : null}
                                 </div>
+
+                                {participant.siblings && participant.siblings.length > 0 ? (
+                                    <div className="surface-panel rounded-[1.2rem] p-4">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Users className="h-4 w-4 text-primary" />
+                                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Family Links</h3>
+                                            </div>
+                                            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.16em]">
+                                                {participant.siblings.length}
+                                            </Badge>
+                                        </div>
+                                        <div className="mt-3 space-y-2">
+                                            {participant.siblings.map((s) => (
+                                                <Link
+                                                    key={s.id}
+                                                    to={`/participants/${s.id}`}
+                                                    className="flex min-h-[44px] items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-3 transition-colors hover:bg-accent/20"
+                                                >
+                                                    <span className="text-sm font-bold text-foreground">{s.firstName} {s.lastName}</span>
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
                             </div>
 
-                            {/* Coordination & Risks */}
-                            <div className="bg-muted/5 p-4 sm:p-5 space-y-5">
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center">
-                                            <FileText className="w-3.5 h-3.5 mr-2 text-primary" />
-                                            Active Coordination
-                                        </h3>
+                            <div className="space-y-4">
+                                <div className="surface-panel rounded-[1.2rem] p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-primary" />
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active Coordination</h3>
+                                        </div>
                                         <Button
-                                            variant="ghost"
+                                            variant={showNoteForm ? 'ghost' : 'outline'}
                                             size="sm"
-                                            className={`h-6 px-2 text-[10px] font-bold uppercase tracking-tighter ${showNoteForm ? 'text-destructive' : ''}`}
+                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
                                             onClick={() => setShowNoteForm(!showNoteForm)}
                                         >
                                             {showNoteForm ? 'Cancel' : 'Add Note'}
                                         </Button>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        {showNoteForm && (
-                                            <form onSubmit={handleAddNote} className="animate-in slide-in-from-top-2 space-y-3 rounded-xl border-2 border-primary/20 bg-background p-4">
-                                                <div className="flex items-center space-x-2">
-                                                    {(['operational', 'internal', 'special_request'] as const).map(cat => (
-                                                        <button
-                                                            key={cat}
-                                                            type="button"
-                                                            onClick={() => setNoteCategory(cat)}
-                                                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-all ${noteCategory === cat ? 'bg-primary text-white border-primary' : 'bg-muted text-muted-foreground border-border'}`}
-                                                        >
-                                                            {cat}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                                <textarea
-                                                    autoFocus
-                                                    value={noteContent}
-                                                    onChange={(e) => setNoteContent(e.target.value)}
-                                                    placeholder="Enter coordination note or risk flag..."
-                                                    className="w-full h-20 text-xs bg-muted/30 border-none focus:ring-1 focus:ring-primary rounded-lg p-2 resize-none"
-                                                />
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center space-x-2">
-                                                        <input type="checkbox" className="w-3.5 h-3.5 rounded border-border" id="internal-note" />
-                                                        <label htmlFor="internal-note" className="text-xs font-medium text-muted-foreground">Mark as Confidential (Staff Only)</label>
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        type="submit"
-                                                        className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest"
-                                                        disabled={addNote.isPending || !noteContent.trim()}
+                                    {showNoteForm ? (
+                                        <form onSubmit={handleAddNote} className="mt-4 space-y-3 rounded-xl border border-primary/20 bg-background/80 p-4">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {(['operational', 'internal', 'special_request'] as const).map((cat) => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => setNoteCategory(cat)}
+                                                        className={`min-h-11 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${noteCategory === cat ? 'bg-primary text-primary-foreground' : 'surface-metric text-muted-foreground'}`}
                                                     >
-                                                        {addNote.isPending ? 'Saving...' : 'Save Note'}
-                                                    </Button>
-                                                </div>
-                                            </form>
-                                        )}
+                                                        {cat.replace('_', ' ')}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea
+                                                autoFocus
+                                                value={noteContent}
+                                                onChange={(e) => setNoteContent(e.target.value)}
+                                                placeholder="Enter the follow-up or risk note that matters right now..."
+                                                className="min-h-[112px] w-full rounded-xl border border-border bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                            />
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    type="submit"
+                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                    disabled={addNote.isPending || !noteContent.trim()}
+                                                >
+                                                    {addNote.isPending ? 'Saving...' : 'Save Note'}
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    ) : null}
 
+                                    <div className="mt-4 space-y-2">
                                         {participant.operationalNotes && participant.operationalNotes.length > 0 ? (
-                                            participant.operationalNotes.map((note) => (
-                                                <div key={note.id} className={`p-4 rounded-xl border transition-all ${note.isResolved ? 'bg-muted/30 border-border opacity-60' : 'bg-background border-primary/20 shadow-sm italic'}`}>
-                                                    <div className="flex items-start justify-between mb-2">
-                                                        <Badge variant="outline" className={`text-[9px] h-4 px-1 font-bold uppercase tracking-tighter ${note.category === 'special_request' ? 'border-amber-500 text-amber-500' : ''}`}>
-                                                            {note.category}
-                                                        </Badge>
-                                                        {!note.isResolved && (
-                                                            <button
-                                                                className="text-[9px] font-bold text-primary hover:underline uppercase tracking-tighter"
+                                            participant.operationalNotes.slice(0, 4).map((note) => (
+                                                <div key={note.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-[0.16em]">
+                                                                    {note.category.replace('_', ' ')}
+                                                                </Badge>
+                                                                {note.isResolved ? (
+                                                                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Resolved</span>
+                                                                ) : null}
+                                                            </div>
+                                                            <p className="mt-2 text-sm leading-6 text-foreground/80">{note.content}</p>
+                                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                                                                {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}
+                                                            </p>
+                                                        </div>
+                                                        {!note.isResolved ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="min-h-11 shrink-0 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
                                                                 onClick={() => resolveNote.mutate(note.id)}
                                                                 disabled={resolveNote.isPending}
                                                             >
-                                                                {resolveNote.isPending ? 'Resolving...' : 'Resolve'}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs leading-relaxed font-medium">
-                                                        {note.content}
-                                                    </p>
-                                                    <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">
-                                                        <span>{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}</span>
-                                                        {note.isResolved && <span className="text-emerald-500 flex items-center font-bold"><Info className="w-2.5 h-2.5 mr-1" /> Resolved</span>}
+                                                                Resolve
+                                                            </Button>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             ))
-                                        ) : (
-                                            !showNoteForm && (
-                                                <div className="rounded-xl border border-dashed border-border/50 bg-muted/30 py-6 text-center">
-                                                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">No active flags</p>
-                                                    <p className="text-[10px] text-muted-foreground/60">Risk assessment clean</p>
-                                                </div>
-                                            )
-                                        )}
+                                        ) : !showNoteForm ? (
+                                            <OperationalEmptyResponse
+                                                title="No Escalations"
+                                                detail="No active coordination notes are demanding attention right now."
+                                            />
+                                        ) : null}
                                     </div>
                                 </div>
                             </div>
@@ -756,195 +574,104 @@ export function ParticipantProfilePage() {
 
                 {activeTab === 'assets' && (
                     <div className="animate-in fade-in space-y-8 p-4 sm:p-5 duration-300">
-                        {/* Generative AI Media Section */}
-                        {participant.actRequirements?.some(r => r.requirementType === 'Generative' && r.fulfilled) && (
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center">
-                                        <Sparkles className="w-4 h-4 mr-2" />
-                                        Generative Experience Assets
-                                    </h3>
-                                    <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-bold uppercase tracking-tight">AI Generated</Badge>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6">
-                                    {participant.actRequirements
-                                        .filter(r => r.requirementType === 'Generative' && r.fulfilled)
-                                        .map((asset) => (
-                                            <div 
-                                                                className="relative aspect-[2/3] bg-black rounded-lg overflow-hidden border border-border/50 group cursor-zoom-in"
-                                                                 onClick={() => asset.fileUrl && handlePreviewAsset(asset.fileUrl, 'POSTER')}
-                                                            >
-                                                <div className="aspect-[16/9] w-full overflow-hidden">
-                                                    <img 
-                                                        src={asset.fileUrl || ''} 
-                                                        alt="AI Generated Poster" 
-                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
-                                                </div>
-                                                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <h4 className="text-xl font-black tracking-tight">Cinematic Performance Poster</h4>
-                                                        <Badge className="bg-emerald-500/90 text-white border-none text-[10px] font-bold uppercase">Ready</Badge>
-                                                    </div>
-                                                    <p className="text-sm text-white/70 font-medium mb-4">Dynamically generated based on act composition & performers</p>
-                                                    <div className="flex items-center space-x-3">
-                                                        <Button variant="secondary" size="sm" className="bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-md text-[10px] font-bold uppercase" asChild>
-                                                            <a href={asset.fileUrl || ''} target="_blank" rel="noopener noreferrer">View Original</a>
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" className="text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-bold uppercase">Download</Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Readiness Indicator */}
-                        <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <Shield className="w-5 h-5 text-primary" />
-                                </div>
+                        {/* Templated Assets Section */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <h4 className="text-sm font-black uppercase tracking-tight">Stage Readiness</h4>
-                                    <p className="text-xs text-muted-foreground font-medium">
-                                        {participant.templatedAssets?.every(a => a.fulfillment?.status === 'approved') ? 'All clear for stage performance' : 'Critical documents or media pending'}
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
+                                        <CheckCircle className="w-4 h-4 mr-2 text-primary" />
+                                        Required Artifacts
+                                    </h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Uploads, approvals, and review notes live here without repeating the workspace lane.
                                     </p>
                                 </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-lg font-black tabular-nums">
-                                    {Math.round((participant.templatedAssets?.filter(a => a.fulfillment?.status === 'approved').length || 0) / (participant.templatedAssets?.length || 1) * 100)}%
-                                </p>
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter">Ready Score</p>
-                            </div>
-                        </div>
-
-                        {/* Templated Assets Section */}
-                        <div className="space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
-                                    <CheckCircle className="w-4 h-4 mr-2 text-primary" />
-                                    Required Tasks & Artifacts
-                                </h3>
                                 <Badge variant="outline" className="text-[10px] font-bold uppercase tabular-nums">
                                     {participant.templatedAssets?.filter(a => !!a.fulfillment).length || 0} / {participant.templatedAssets?.length || 0} Complete
                                 </Badge>
                             </div>
 
                             {participant.templatedAssets && participant.templatedAssets.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
                                     {participant.templatedAssets.map(({ template, fulfillment }) => (
                                         <div
                                             key={template.id}
-                                            className={`p-5 rounded-2xl border-2 transition-all relative overflow-hidden group ${fulfillment?.status === 'approved'
-                                                ? 'bg-emerald-500/5 border-emerald-500/20'
+                                            className={`rounded-[1.15rem] border px-3.5 py-3 transition-all ${fulfillment?.status === 'approved'
+                                                ? 'surface-good'
                                                 : fulfillment?.status === 'rejected'
-                                                    ? 'bg-destructive/5 border-destructive/20'
+                                                    ? 'surface-critical'
                                                     : fulfillment
-                                                        ? 'bg-primary/5 border-primary/20'
-                                                        : 'bg-muted/10 border-border/50 grayscale opacity-60'
+                                                        ? 'surface-info'
+                                                        : 'surface-panel'
                                                 }`}
                                         >
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className="text-lg font-black tracking-tight">{template.name}</span>
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                                                <div className="min-w-0 flex-1 space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-foreground">{template.name}</span>
                                                         {template.isRequired && (
                                                             <Badge className="bg-destructive/10 text-destructive border-none text-[8px] font-black uppercase h-4 px-1">Required</Badge>
                                                         )}
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground font-medium">{template.description || 'Mandatory operational artifact'}</p>
-                                                </div>
-                                                <div className="shrink-0">
-                                                    {fulfillment?.status === 'approved' ? (
-                                                        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                                            <CheckCircle className="w-5 h-5 text-white" />
-                                                        </div>
-                                                    ) : fulfillment ? (
-                                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                                                            <Clock className="w-4 h-4 text-white" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="w-8 h-8 rounded-full bg-muted border-2 border-border/50 border-dashed" />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-col space-y-3 pt-2 border-t border-border/10">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center space-x-2">
                                                         <Badge variant="outline" className="text-[9px] font-bold uppercase h-5">
-                                                            Scope: {template.actId ? 'Act' : template.eventId ? 'Event' : 'Org'}
+                                                            {template.actId ? 'Act' : template.eventId ? 'Event' : 'Org'}
                                                         </Badge>
-                                                        {fulfillment && (
-                                                            <Badge className={`${fulfillment.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/10 text-primary'} border-none text-[9px] font-bold uppercase h-5`}>
+                                                        {fulfillment ? (
+                                                            <Badge className={`${fulfillment.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'} border-none text-[9px] font-bold uppercase h-5`}>
                                                                 {fulfillment.status.replace(/_/g, ' ')}
                                                             </Badge>
-                                                        )}
+                                                        ) : null}
                                                     </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        {fulfillment && fulfillment.status !== 'approved' && (
-                                                            <Button
-                                                                size="sm"
-                                                                className="h-7 px-2 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
-                                                                onClick={() => updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'approved' })}
-                                                                disabled={updateAssetStatus.isPending}
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                        )}
+                                                    <p className="text-sm text-foreground/80">{template.description || 'Mandatory operational artifact'}</p>
+                                                    {fulfillment?.reviewNotes ? (
+                                                        <p className="text-xs text-destructive">{fulfillment.reviewNotes}</p>
+                                                    ) : null}
+                                                </div>
+                                                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:self-center">
+                                                    {fulfillment && fulfillment.status !== 'approved' && (
                                                         <Button
                                                             size="sm"
-                                                            variant={fulfillment ? "ghost" : "default"}
-                                                            className="h-7 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg"
-                                                            onClick={() => openUploadModal({
-                                                                templateId: template.id,
-                                                                replaceAssetId: fulfillment?.id || null,
-                                                                type: template.assetType || 'other',
-                                                                title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
-                                                                suggestedName: template.name,
-                                                            })}
-                                                            disabled={uploadAsset.isPending}
+                                                            className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
+                                                            onClick={() => updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'approved' })}
+                                                            disabled={updateAssetStatus.isPending}
                                                         >
-                                                            {fulfillment ? 'Replace Upload' : 'Upload'}
+                                                            Approve
                                                         </Button>
-                                                    </div>
-                                                </div>
-
-                                                {fulfillment && fulfillment.status === 'pending_review' && (
-                                                    <div className="flex items-center space-x-2">
+                                                    )}
+                                                    <Button
+                                                        size="sm"
+                                                        variant={fulfillment ? 'ghost' : 'default'}
+                                                        className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
+                                                        onClick={() => openUploadModal({
+                                                            templateId: template.id,
+                                                            replaceAssetId: fulfillment?.id || null,
+                                                            type: template.assetType || 'other',
+                                                            title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
+                                                            suggestedName: template.name,
+                                                        })}
+                                                        disabled={uploadAsset.isPending}
+                                                    >
+                                                        {fulfillment ? 'Replace' : 'Upload'}
+                                                    </Button>
+                                                    {fulfillment && fulfillment.status === 'pending_review' ? (
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="h-7 px-2 text-[9px] font-bold uppercase text-destructive border-destructive/20 hover:bg-destructive/10"
+                                                            className="min-h-11 rounded-xl px-3 text-[9px] font-bold uppercase text-destructive border-destructive/20 hover:bg-destructive/10"
                                                             onClick={() => {
                                                                 const notes = prompt('Enter rejection reason:');
                                                                 if (notes) updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'rejected', reviewNotes: notes });
                                                             }}
                                                         >
-                                                            Reject with feedback
+                                                            Reject
                                                         </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {fulfillment?.reviewNotes && (
-                                                <div className="mt-3 p-3 bg-background/50 rounded-xl border border-destructive/10">
-                                                    <p className="text-[10px] text-destructive font-bold uppercase tracking-tighter mb-1 flex items-center">
-                                                        <AlertCircle className="w-2.5 h-2.5 mr-1" /> Rejection Note
-                                                    </p>
-                                                    <p className="text-[11px] italic leading-tight">{fulfillment.reviewNotes}</p>
+                                                    ) : null}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="py-12 text-center bg-muted/10 rounded-3xl border-2 border-dashed border-border/50">
-                                    <Shield className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
+                                <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-5 text-center">
                                     <h4 className="text-sm font-black text-foreground mb-1 uppercase tracking-widest">No Templated Tasks</h4>
                                     <p className="text-xs text-muted-foreground/60 max-w-[280px] mx-auto">
                                         This event hasn't defined any global requirements for participants yet.
@@ -955,7 +682,7 @@ export function ParticipantProfilePage() {
 
                         {/* Ad-hoc / Other Uploads */}
                         <div className="space-y-6 pt-6 border-t border-border/50">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
                                     <Plus className="w-4 h-4 mr-2 text-primary" />
                                     Other Participant Assets
@@ -963,7 +690,7 @@ export function ParticipantProfilePage() {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2"
+                                    className="min-h-11 rounded-xl px-3 text-[10px] font-bold uppercase tracking-wider border-2"
                                     onClick={() => openUploadModal({
                                         type: 'other',
                                         title: 'Upload Participant Asset',
@@ -979,11 +706,9 @@ export function ParticipantProfilePage() {
                                     {participant.assets.filter(a => !a.templateId).map((asset) => (
                                         <div 
                                             key={asset.id} 
-                                            className="p-4 border-2 border-border/50 rounded-2xl bg-muted/5 group hover:border-primary/20 transition-all cursor-zoom-in"
-                                            onClick={async () => {
+                                            className="surface-panel group cursor-zoom-in rounded-2xl border p-4 transition-all hover:border-primary/20"
+                                            onClick={() => {
                                                 if (asset.fileUrl) {
-                                                    // Generate Signed URL for secure mobile viewing if needed, 
-                                                    // but for now we'll just use the public URL if it's already there
                                                     setSelectedAssetUrl(asset.fileUrl);
                                                 }
                                             }}
@@ -1016,75 +741,70 @@ export function ParticipantProfilePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="py-12 text-center bg-muted/5 rounded-3xl border-2 border-dashed border-border/30">
-                                    <p className="text-[11px] text-muted-foreground font-black uppercase tracking-[0.2em]">Zero ad-hoc assets</p>
-                                    <p className="text-[10px] text-muted-foreground/40 mt-1">Manual uploads appear here</p>
-                                </div>
+                                <OperationalEmptyResponse title="No Other Assets" detail="Manual uploads will appear here once they are added." />
                             )}
                         </div>
                     </div>
                 )}
 
-                {activeTab === 'acts' && (
+                {activeTab === 'workspace' && (
                     <div className="animate-in fade-in space-y-6 p-4 sm:p-5 duration-300">
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                                <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center">
-                                    <Database className="w-4 h-4 mr-2 text-primary" />
-                                    Operational Assignments
-                                </h3>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Manage which acts this participant is performing in</p>
-                            </div>
-                            <Button size="sm" className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg" onClick={() => setShowAssignModal(true)}>
-                                Assign to Act
-                            </Button>
-                        </div>
-
-                        {participant.acts && participant.acts.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {participant.acts.map((act) => (
-                                    <div
-                                        key={act.id}
-                                        className="group relative flex items-center justify-between overflow-hidden rounded-2xl border-2 border-border/50 bg-muted/10 p-4"
-                                    >
-                                        <div className="space-y-1">
-                                            <div className="flex items-center space-x-2 mb-2">
-                                                <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
-                                                    {act.role || 'Performer'}
-                                                </Badge>
-                                                <Badge variant="outline" className="text-[9px] h-4 font-mono uppercase">
-                                                    {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
-                                                </Badge>
-                                            </div>
-                                            <p className="font-black text-lg tracking-tight">{act.name}</p>
-                                            <div className="flex items-center text-[10px] text-muted-foreground font-bold uppercase tracking-tighter pt-1">
-                                                <Clock className="w-3 h-3 mr-1" />
-                                                Requirement Impact: None
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => removeFromAct.mutate(act.id)}
-                                            className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground shadow-sm transition-all hover:border-destructive/20 hover:text-destructive group/trash"
-                                            title="Remove from act"
-                                            disabled={removeFromAct.isPending}
-                                        >
-                                            <Trash2 className="w-4 h-4 group-hover/trash:scale-110 transition-transform" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-16 text-center bg-muted/10 rounded-3xl border-2 border-dashed border-border/50">
-                                <Users className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-                                <h4 className="text-sm font-bold text-foreground mb-1 uppercase tracking-widest">No Active Assignments</h4>
-                                <p className="text-xs text-muted-foreground max-w-[240px] mx-auto mb-6">
-                                    This participant is currently on the roster but not assigned to any specific acts or groups.
-                                </p>
-                                <Button variant="outline" size="sm" className="h-9 px-6 font-bold uppercase tracking-widest text-[10px] rounded-xl border-2" onClick={() => setShowAssignModal(true)}>
-                                    Add Assignment
+                        <div className="surface-panel rounded-[1.2rem] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
+                                        <Database className="mr-2 h-4 w-4 text-primary" />
+                                        Performance Assignments
+                                    </h3>
+                                    <p className="text-sm font-semibold text-foreground">Manage which performances this participant is currently attached to.</p>
+                                </div>
+                                <Button
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => setShowAssignModal(true)}
+                                >
+                                    Assign to Performance
                                 </Button>
                             </div>
-                        )}
+
+                            {participant.acts && participant.acts.length > 0 ? (
+                                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {participant.acts.map((act) => (
+                                        <div
+                                            key={act.id}
+                                            className="rounded-xl border border-border/50 bg-background/70 p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
+                                                            {act.role || 'Performer'}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="text-[9px] h-5 font-black uppercase">
+                                                            {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="mt-2 text-lg font-black tracking-tight text-foreground">{act.name}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeFromAct.mutate(act.id)}
+                                                    className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
+                                                    title="Remove from performance"
+                                                    disabled={removeFromAct.isPending}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
+                                    <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                                    <p className="text-sm font-bold text-foreground">No active assignments yet.</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Place this participant into a performance when the lineup is ready.</p>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Assignment Modal */}
                         <Modal
@@ -1129,140 +849,6 @@ export function ParticipantProfilePage() {
                     </div>
                 )}
 
-                {activeTab === 'source' && (
-                    <div className="animate-in fade-in space-y-6 p-4 sm:p-5 duration-300">
-                        <div className="p-6 bg-primary/5 rounded-2xl border border-primary/20 space-y-2">
-                            <h4 className="text-sm font-black uppercase tracking-tight flex items-center">
-                                <Info className="w-4 h-4 mr-2" />
-                                Source Traceability
-                            </h4>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                This record was synchronized from <strong>{participant.sourceSystem || 'a direct manual entry'}</strong>.
-                                The identity anchor used for this connection is <strong>{participant.sourceAnchorType || 'record_id'}</strong>.
-                                Changes in the originating system will automatically propagate here during the next sync.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-4 bg-muted/20 border-border/50">
-                                <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-3">System Context</h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-muted-foreground block uppercase">Originating System</label>
-                                        <p className="text-sm font-medium">{participant.sourceSystem || 'Manual Entry'}</p>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-muted-foreground block uppercase">System ID (External)</label>
-                                        <p className="text-sm font-mono text-muted-foreground bg-black/5 p-1 rounded inline-block">{participant.sourceAnchorValue || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </Card>
-                            <div className="p-6 border-2 border-border/50 rounded-2xl bg-muted/5 space-y-3">
-                                <span className="text-[10px] uppercase font-black text-muted-foreground/60 tracking-[0.2em]">Sync Status</span>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
-                                        <RefreshCw className="w-4 h-4 text-primary" />
-                                        <span className="text-sm font-bold tabular-nums">
-                                            {participant.sourceLastSeenAt ? new Date(participant.sourceLastSeenAt).toLocaleDateString() : 'Active'}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-tighter">Healthy</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
-                                <FileText className="w-4 h-4 mr-2 text-primary" />
-                                Technical Origin Details
-                            </h3>
-                            <details className="group border-2 border-border/50 rounded-2xl bg-muted/30 overflow-hidden">
-                                <summary className="p-4 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-muted/50 transition-colors list-none flex items-center justify-between">
-                                    <span>View Raw Record Metadata</span>
-                                    <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
-                                </summary>
-                                <pre className="p-6 text-[11px] font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed border-t border-border/50 bg-background/50">
-                                    {JSON.stringify(participant.srcRaw, null, 2)}
-                                </pre>
-                            </details>
-                        </div>
-                        <Card className="md:col-span-2 p-4 bg-muted/20 border-border/50">
-                            <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-3">Original Submission Details</h4>
-                            <div className="bg-black/5 rounded-lg p-4 font-mono text-[10px] overflow-x-auto">
-                                <pre>{JSON.stringify(participant.srcRaw || {}, null, 2)}</pre>
-                            </div>
-                        </Card>
-                    </div>
-                )}
-
-                {activeTab === 'audit' && (
-                    <div className="animate-in fade-in space-y-6 p-4 sm:p-5 duration-300">
-                        <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center">
-                                    <HistoryIcon className="w-4 h-4 mr-2 text-primary" />
-                                    Operational Accountability
-                                </h3>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Human-readable history of all record transformations</p>
-                            </div>
-                            <div className="flex items-center bg-emerald-500/5 text-emerald-500 px-2 py-1 rounded border border-emerald-500/10 text-[9px] font-black uppercase">
-                                <Shield className="w-2.5 h-2.5 mr-1" />
-                                Audit Active
-                            </div>
-                        </div>
-
-                        <div className="relative space-y-6">
-                            {participant.auditLogs && participant.auditLogs.length > 0 ? (
-                                (participant.auditLogs as any[]).map((log) => {
-                                    const description = getActionDescription(log);
-                                    let operationLabel = log.operation;
-                                    let operationColor = 'bg-primary/10 text-primary';
-
-                                    if (log.operation === 'INSERT') {
-                                        operationLabel = 'Imported / Created';
-                                        operationColor = 'bg-emerald-500/10 text-emerald-500';
-                                    } else if (log.operation === 'UPDATE') {
-                                        operationLabel = 'Sync Update';
-                                        operationColor = 'bg-blue-500/10 text-blue-500';
-                                    }
-
-                                    return (
-                                        <div key={log.id} className="relative pl-8 pb-8 last:pb-0">
-                                            {/* Line */}
-                                            <div className="absolute left-[3px] top-2 bottom-0 w-[0.5px] bg-border last:hidden" />
-                                            {/* Dot */}
-                                            <div className={`absolute left-0 top-1.5 w-2 h-2 rounded-full border border-background shadow-sm ${operationColor.split(' ')[0]}`} />
-
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between">
-                                                    <Badge variant="outline" className={`text-[9px] font-bold uppercase tracking-wider px-1.5 h-5 border-none ${operationColor}`}>
-                                                        {operationLabel}
-                                                    </Badge>
-                                                    <time className="text-[10px] text-muted-foreground font-medium">{formatDate(log.changedAt || log.createdAt)}</time>
-                                                </div>
-                                                <div className="p-4 rounded-xl border border-border/50 bg-background/50 space-y-2">
-                                                    <p className="text-xs font-bold text-foreground">{description}</p>
-                                                    <div className="flex items-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest pt-1 border-t border-border/10">
-                                                        <UserCircle className="w-3 h-3 mr-1.5 text-primary/60" />
-                                                        Traceability ID: {log.id?.slice(0, 8) || 'AUTO'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="py-16 text-center bg-muted/10 rounded-3xl border-2 border-dashed border-border/50">
-                                    <div className="w-12 h-12 bg-background rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-border shadow-inner">
-                                        <Shield className="w-6 h-6 text-muted-foreground/20" />
-                                    </div>
-                                    <h4 className="text-sm font-black text-foreground mb-1 uppercase tracking-widest">No Integrity Logs</h4>
-                                    <p className="text-xs text-muted-foreground/60">System-level accountability is active and watching</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
 
@@ -1359,48 +945,152 @@ export function ParticipantProfilePage() {
                 </div>
             </Modal>
 
-        {/* Poster Lightbox/Full-screen View */}
-            {selectedAssetUrl && (
-                <div 
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4 md:p-12 cursor-zoom-out"
-                    onClick={() => setSelectedAssetUrl(null)}
-                >
-                    <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center space-y-4">
-                        <button 
-                            className="absolute top-0 right-0 p-3 text-white/60 hover:text-white transition-colors"
-                            onClick={() => setSelectedAssetUrl(null)}
-                        >
-                            <X className="w-8 h-8" />
-                        </button>
-                        
-                        {previewLoading ? (
-                            <div className="flex flex-col items-center justify-center space-y-4">
-                                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                                <p className="text-white/60 font-black uppercase tracking-widest text-xs">Decrypting Signed Asset...</p>
-                            </div>
-                        ) : (
-                            <>
-                                <img 
-                                    src={selectedAssetUrl} 
-                                    alt="AI Generated Poster Full View" 
-                                    className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
-                                />
-                                <div className="text-center space-y-1">
-                                    <h2 className="text-xl font-black text-white tracking-tight uppercase">
-                                        {selectedAssetUrl?.includes('POSTER') || selectedAssetUrl?.includes('pout_') ? 'Cinematic Preview' : 'Asset Verification'}
-                                    </h2>
-                                    {selectedAssetUrl?.includes('token=') && (
-                                        <p className="text-sm text-white/60 font-medium animate-pulse">Verified via Secure Signed URL</p>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </div>
+            <Modal
+                isOpen={showHistoryModal}
+                onClose={() => setShowHistoryModal(false)}
+                title="Record History"
+            >
+                <div className="max-h-[72vh] overflow-y-auto pr-1">
+                    <ParticipantHistoryContent participant={participant} />
                 </div>
-            )}
+            </Modal>
+
+            <AssetPreviewModal
+                isOpen={!!selectedAssetUrl}
+                onClose={() => setSelectedAssetUrl(null)}
+                url={selectedAssetUrl}
+                title="Participant Asset"
+            />
             </div>
         </div>
     );
 }
 
 export default ParticipantProfilePage;
+
+function ParticipantHistoryContent({ participant }: { participant: any }) {
+    return (
+        <div className="space-y-6 pt-2">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-2">
+                <h4 className="text-sm font-black uppercase tracking-tight flex items-center">
+                    <Info className="w-4 h-4 mr-2" />
+                    Source Traceability
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    This record was synchronized from <strong>{participant.sourceSystem || 'a direct manual entry'}</strong>.
+                    The identity anchor used for this connection is <strong>{participant.sourceAnchorType || 'record_id'}</strong>.
+                    Changes in the originating system will automatically propagate here during the next sync.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Card className="p-4 bg-muted/20 border-border/50">
+                    <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">System Context</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase text-muted-foreground">Originating System</label>
+                            <p className="text-sm font-medium">{participant.sourceSystem || 'Manual Entry'}</p>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase text-muted-foreground">System ID (External)</label>
+                            <p className="inline-block rounded bg-foreground/5 p-1 text-sm font-mono text-muted-foreground">{participant.sourceAnchorValue || 'N/A'}</p>
+                        </div>
+                    </div>
+                </Card>
+                <div className="space-y-3 rounded-2xl border-2 border-border/50 bg-muted/5 p-5">
+                    <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/60">Sync Status</span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                            <RefreshCw className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-bold tabular-nums">
+                                {participant.sourceLastSeenAt ? new Date(participant.sourceLastSeenAt).toLocaleDateString() : 'Active'}
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-tighter text-muted-foreground/60">Healthy</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="flex items-center text-sm font-black uppercase tracking-widest text-muted-foreground/60">
+                    <FileText className="w-4 h-4 mr-2 text-primary" />
+                    Raw Source Metadata
+                </h3>
+                <details className="group overflow-hidden rounded-2xl border-2 border-border/50 bg-muted/30">
+                    <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[10px] font-black uppercase tracking-widest transition-colors hover:bg-muted/50">
+                        <span>View Raw Record Metadata</span>
+                        <ChevronRight className="w-4 h-4 transition-transform group-open:rotate-90" />
+                    </summary>
+                    <pre className="overflow-x-auto whitespace-pre-wrap border-t border-border/50 bg-background/50 p-6 text-[11px] font-mono leading-relaxed">
+                        {JSON.stringify(participant.srcRaw, null, 2)}
+                    </pre>
+                </details>
+            </div>
+
+            <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                        <h3 className="flex items-center text-sm font-black uppercase tracking-widest text-muted-foreground">
+                            <HistoryIcon className="w-4 h-4 mr-2 text-primary" />
+                            Operational Accountability
+                        </h3>
+                        <p className="text-[10px] font-medium uppercase tracking-tighter text-muted-foreground">Human-readable history of record changes</p>
+                    </div>
+                    <div className="flex items-center rounded border border-emerald-500/10 bg-emerald-500/5 px-2 py-1 text-[9px] font-black uppercase text-emerald-500">
+                        <Shield className="w-2.5 h-2.5 mr-1" />
+                        Audit Active
+                    </div>
+                </div>
+
+                <div className="relative space-y-6">
+                    {participant.auditLogs && participant.auditLogs.length > 0 ? (
+                        (participant.auditLogs as any[]).map((log) => {
+                            const description = getActionDescription(log);
+                            let operationLabel = log.operation;
+                            let operationColor = 'bg-primary/10 text-primary';
+
+                            if (log.operation === 'INSERT') {
+                                operationLabel = 'Imported / Created';
+                                operationColor = 'bg-emerald-500/10 text-emerald-500';
+                            } else if (log.operation === 'UPDATE') {
+                                operationLabel = 'Sync Update';
+                                operationColor = 'bg-blue-500/10 text-blue-500';
+                            }
+
+                            return (
+                                <div key={log.id} className="relative pl-8 pb-8 last:pb-0">
+                                    <div className="absolute left-[3px] top-2 bottom-0 w-[0.5px] bg-border last:hidden" />
+                                    <div className={`absolute left-0 top-1.5 h-2 w-2 rounded-full border border-background shadow-sm ${operationColor.split(' ')[0]}`} />
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Badge variant="outline" className={`h-5 border-none px-1.5 text-[9px] font-bold uppercase tracking-wider ${operationColor}`}>
+                                                {operationLabel}
+                                            </Badge>
+                                            <time className="text-[10px] font-medium text-muted-foreground">{formatDate(log.changedAt || log.createdAt)}</time>
+                                        </div>
+                                        <div className="space-y-2 rounded-xl border border-border/50 bg-background/50 p-4">
+                                            <p className="text-xs font-bold text-foreground">{description}</p>
+                                            <div className="flex items-center border-t border-border/10 pt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                                <UserCircle className="w-3 h-3 mr-1.5 text-primary/60" />
+                                                Traceability ID: {log.id?.slice(0, 8) || 'AUTO'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="rounded-3xl border-2 border-dashed border-border/50 bg-muted/10 py-16 text-center">
+                            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border-2 border-border bg-background shadow-inner">
+                                <Shield className="w-6 h-6 text-muted-foreground/20" />
+                            </div>
+                            <h4 className="mb-1 text-sm font-black uppercase tracking-widest text-foreground">No Integrity Logs</h4>
+                            <p className="text-xs text-muted-foreground/60">System-level accountability is active and watching</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}

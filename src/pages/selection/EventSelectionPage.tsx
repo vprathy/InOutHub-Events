@@ -7,8 +7,8 @@ import { CreateEventModal } from '@/components/selection/CreateEventModal';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
 import { ShieldAlert } from 'lucide-react';
-import { BrandMark } from '@/components/branding/BrandMark';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { OperationalMetricCard } from '@/components/ui/OperationalCards';
 
 export default function EventSelectionPage() {
     const [events, setEvents] = useState<any[]>([]);
@@ -69,24 +69,27 @@ export default function EventSelectionPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 pb-24 md:pb-6">
-            <div className="w-full max-w-4xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center space-y-2">
-                    <div className="flex justify-center">
-                        <BrandMark size="md" showLabel className="justify-center" />
-                    </div>
-                    <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-2">
-                        <Calendar className="w-7 h-7" />
-                    </div>
-                    <PageHeader
-                        title="Select Event"
-                        subtitle="Select an event to manage"
-                        align="center"
-                    />
-                </div>
+        <div className="space-y-5 pb-12">
+            <PageHeader
+                title="Select Event"
+                subtitle="Choose the event you want to operate."
+            />
 
-                <div className="w-full">
-                    <div className="flex items-center justify-between mb-3 px-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <OperationalMetricCard label="Events" value={isLoading ? '...' : events.length} icon={Calendar} tone="default" />
+                <OperationalMetricCard label="Context" value="Active" icon={RefreshCw} tone="info" />
+            </div>
+
+            <div className="surface-panel rounded-[1.35rem] p-4">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Event Context</p>
+                    <h2 className="text-lg font-black tracking-tight text-foreground">Choose the event you are actively working on right now.</h2>
+                    <p className="text-sm text-muted-foreground">You can switch events later from the header if you move to a different show.</p>
+                </div>
+            </div>
+
+            <div className="w-full">
+                <div className="flex items-center justify-between mb-3 px-2">
                         <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                             Available Events
                         </span>
@@ -99,19 +102,19 @@ export default function EventSelectionPage() {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {isLoading ? (
-                            <div className="col-span-full flex justify-center py-12">
+                            <div className="surface-panel col-span-full flex justify-center rounded-[2rem] py-12">
                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                             </div>
                         ) : events.length === 0 ? (
-                            <div className="col-span-full rounded-[2rem] border border-border bg-card p-8 text-center shadow-sm">
+                            <div className="surface-panel col-span-full rounded-[2rem] p-8 text-center">
                                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                                     <Calendar className="h-7 w-7" />
                                 </div>
                                 <h2 className="text-xl font-black text-foreground">No events available</h2>
                                 <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-                                    This account is signed in, but there are no accessible events in the selected organization yet. Ask an admin for event access or refresh after access is granted.
+                                    This account is signed in, but there are no accessible events in the selected organization yet. Ask an admin for event access, then refresh this screen.
                                 </p>
                                 <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
                                     <button
@@ -137,9 +140,9 @@ export default function EventSelectionPage() {
                                         key={event.id}
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => handleSelect(event.id, event.timezone)}
-                                        onKeyDown={(keyboardEvent) => handleCardKeyDown(keyboardEvent, event.id)}
-                                        className="group flex items-center justify-between p-6 bg-card border border-border rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
+                                    onClick={() => handleSelect(event.id, event.timezone)}
+                                    onKeyDown={(keyboardEvent) => handleCardKeyDown(keyboardEvent, event.id)}
+                                        className="group surface-panel flex items-center justify-between p-6 rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
                                     >
                                         <div className="flex items-center space-x-5">
                                             <div className="p-4 rounded-2xl bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -186,7 +189,7 @@ export default function EventSelectionPage() {
                                         setEditingEvent(null);
                                         setIsCreateModalOpen(true);
                                     }}
-                                    className="flex items-center justify-center space-x-3 p-6 border-4 border-dashed border-muted rounded-[2rem] text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-all font-black uppercase tracking-widest text-xs min-h-[44px]"
+                                    className="surface-panel flex items-center justify-center space-x-3 rounded-[2rem] border-2 border-dashed border-muted p-6 text-xs font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary min-h-[44px]"
                                 >
                                     <Plus className="w-6 h-6" />
                                     <span>Create New Event</span>
@@ -195,46 +198,45 @@ export default function EventSelectionPage() {
                         )}
                     </div>
 
-                    <div className="pt-8 border-t border-border flex justify-center">
-                        <button
-                            onClick={handleBack}
-                            className="h-12 px-8 flex items-center justify-center space-x-3 text-sm font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-colors"
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                            <span>Switch Organization</span>
-                        </button>
-                    </div>
+                <div className="pt-2 flex justify-start">
+                    <button
+                        onClick={handleBack}
+                        className="h-11 px-4 flex items-center justify-center space-x-2 rounded-2xl border border-border text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Switch Organization</span>
+                    </button>
                 </div>
+            </div>
 
-                {organizationId && (
-                    <CreateEventModal
-                        organizationId={organizationId}
-                        isOpen={isCreateModalOpen}
-                        initialData={editingEvent}
-                        onClose={() => {
+            {organizationId && (
+                <CreateEventModal
+                    organizationId={organizationId}
+                    isOpen={isCreateModalOpen}
+                    initialData={editingEvent}
+                    onClose={() => {
+                        setIsCreateModalOpen(false);
+                        setEditingEvent(null);
+                    }}
+                    onSuccess={({ id, timezone }) => {
+                        if (editingEvent) {
+                            fetchEvents();
                             setIsCreateModalOpen(false);
                             setEditingEvent(null);
-                        }}
-                        onSuccess={({ id, timezone }) => {
-                            if (editingEvent) {
-                                fetchEvents();
-                                setIsCreateModalOpen(false);
-                                setEditingEvent(null);
-                            } else {
-                                handleSelect(id, timezone);
-                            }
-                        }}
-                    />
-                )}
-
-                <ManageEventAccessModal
-                    isOpen={isManageAccessOpen}
-                    onClose={() => {
-                        setIsManageAccessOpen(false);
-                        setEventId(null);
+                        } else {
+                            handleSelect(id, timezone);
+                        }
                     }}
                 />
-            </div>
+            )}
+
+            <ManageEventAccessModal
+                isOpen={isManageAccessOpen}
+                onClose={() => {
+                    setIsManageAccessOpen(false);
+                    setEventId(null);
+                }}
+            />
         </div>
     );
 }

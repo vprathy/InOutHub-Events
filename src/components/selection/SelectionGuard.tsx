@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSelection } from '@/context/SelectionContext';
 import { Loader2 } from 'lucide-react';
@@ -10,8 +10,67 @@ interface SelectionGuardProps {
 }
 
 export function SelectionGuard({ children }: SelectionGuardProps) {
-    const { organizationId, eventId, setEventId, isLoading: contextLoading } = useSelection();
+    const { organizationId, eventId, setOrganizationId, setEventId, isLoading: contextLoading } = useSelection();
     const location = useLocation();
+
+    const { data: autoOrg, isLoading: autoOrgLoading } = useQuery({
+        queryKey: ['auto-select-org'],
+        queryFn: async () => {
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (!user) return null;
+
+            const { data: superAdminRows, error: superAdminError } = await supabase
+                .from('app_super_admins')
+                .select('user_id')
+                .eq('user_id', user.id)
+                .limit(1);
+
+            if (superAdminError) throw superAdminError;
+
+            const isSuperAdmin = Boolean(superAdminRows?.length);
+            const orgQuery = isSuperAdmin
+                ? supabase.from('organizations').select('id, name').order('name')
+                : supabase
+                    .from('organizations')
+                    .select(`
+                        id,
+                        name,
+                        organization_members!inner (
+                            role
+                        )
+                    `)
+                    .order('name');
+
+            const { data, error } = await orgQuery;
+            if (error) throw error;
+
+            return data && data.length === 1 ? data[0] : null;
+        },
+        enabled: !contextLoading && !organizationId,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const { data: autoEvent, isLoading: autoEventLoading } = useQuery({
+        queryKey: ['auto-select-event', organizationId],
+        queryFn: async () => {
+            if (!organizationId) return null;
+
+            const { data, error } = await supabase
+                .from('events')
+                .select('id, timezone')
+                .eq('organization_id', organizationId)
+                .order('start_date', { ascending: false });
+
+            if (error) throw error;
+
+            return data && data.length === 1 ? data[0] : null;
+        },
+        enabled: !contextLoading && !!organizationId && !eventId,
+        staleTime: 1000 * 60 * 5,
+    });
 
     // Verify Hierarchy: Does the event actually belong to the org?
     const { isLoading: verificationLoading } = useQuery({
@@ -36,7 +95,29 @@ export function SelectionGuard({ children }: SelectionGuardProps) {
         staleTime: 1000 * 60 * 5 // 5 minutes
     });
 
-    if (contextLoading || (organizationId && eventId && verificationLoading)) {
+    const shouldAutoSelectOrg = !organizationId && !!autoOrg?.id;
+    const shouldAutoSelectEvent = !!organizationId && !eventId && !!autoEvent?.id;
+
+    useEffect(() => {
+        if (shouldAutoSelectOrg && autoOrg?.id) {
+            setOrganizationId(autoOrg.id);
+        }
+    }, [autoOrg?.id, setOrganizationId, shouldAutoSelectOrg]);
+
+    useEffect(() => {
+        if (shouldAutoSelectEvent && autoEvent?.id) {
+            setEventId(autoEvent.id, autoEvent.timezone);
+        }
+    }, [autoEvent?.id, autoEvent?.timezone, setEventId, shouldAutoSelectEvent]);
+
+    if (
+        contextLoading ||
+        (!organizationId && autoOrgLoading) ||
+        (organizationId && !eventId && autoEventLoading) ||
+        shouldAutoSelectOrg ||
+        shouldAutoSelectEvent ||
+        (organizationId && eventId && verificationLoading)
+    ) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />

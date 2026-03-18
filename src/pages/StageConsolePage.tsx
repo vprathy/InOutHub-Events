@@ -1,4 +1,4 @@
-import { MonitorPlay, LayoutGrid, Loader2, ShieldAlert, RefreshCw, WifiOff } from 'lucide-react';
+import { MonitorPlay, LayoutGrid, Loader2, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
@@ -10,6 +10,7 @@ import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { OperationalEmptyResponse, OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
 
@@ -77,7 +78,7 @@ export default function StageConsolePage() {
         <div className="space-y-6">
             <PageHeader
                 title="Live Console"
-                subtitle="Real-time show execution and stage control."
+                subtitle="Run the show, keep the next cue visible, and protect the live position."
                 status={criticalRisks > 0 ? (
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 animate-in fade-in slide-in-from-top-2">
                         <ShieldAlert size={16} className="text-rose-600" />
@@ -86,31 +87,57 @@ export default function StageConsolePage() {
                             variant="ghost"
                             size="sm"
                             className="h-9 text-[10px] uppercase font-black px-3 hover:bg-rose-100 text-rose-800"
-                            onClick={() => navigate('/lineup')}
+                            onClick={() => navigate('/show-flow')}
                         >
-                            Fix in Lineup
+                            Fix in Show Flow
                         </Button>
                     </div>
                 ) : null}
             />
 
-            {/* Stage Selector */}
-            <div className="flex flex-wrap gap-2 pb-2">
-                {isLoadingStages ? (
-                    <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
-                ) : (
-                    stages?.map(stage => (
-                        <Button
-                            key={stage.id}
-                            variant={selectedStageId === stage.id ? 'default' : 'outline'}
-                            onClick={() => setSelectedStageId(stage.id)}
-                            className={`h-11 rounded-xl px-4 text-sm font-bold ${selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <LayoutGrid size={16} className="mr-2" />
-                            {stage.name}
-                        </Button>
-                    ))
-                )}
+            {selectedStageId && !isLoading && currentLineupPointerMissing ? (
+                <OperationalResponseCard
+                    label="Lineup Out of Sync"
+                    detail="The saved live pointer no longer matched the show order. The console recovered so the stage lead can keep moving."
+                    tone="critical"
+                    action="Review show flow"
+                    onClick={() => navigate('/show-flow')}
+                />
+            ) : hasRecoveredCurrent ? (
+                <OperationalResponseCard
+                    label="Recovered Live Position"
+                    detail="The console restored the current act after a refresh or reconnect."
+                    tone="info"
+                />
+            ) : (
+                <OperationalEmptyResponse
+                    title="Console Ready"
+                    detail="Current act, next cue, and safe controls are the only things that should compete for attention here."
+                />
+            )}
+
+            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+                <div className="px-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
+                    <p className="text-sm font-semibold text-foreground">Pick the stage you are actively calling.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {isLoadingStages ? (
+                        <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
+                    ) : (
+                        stages?.map(stage => (
+                            <Button
+                                key={stage.id}
+                                variant={selectedStageId === stage.id ? 'default' : 'outline'}
+                                onClick={() => setSelectedStageId(stage.id)}
+                                className={`h-11 rounded-xl px-4 text-sm font-bold ${selectedStageId === stage.id ? '' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                            >
+                                <LayoutGrid size={16} className="mr-2" />
+                                {stage.name}
+                            </Button>
+                        ))
+                    )}
+                </div>
             </div>
 
             {selectedStageId && !isLoading && !hasLineup ? (
@@ -120,29 +147,9 @@ export default function StageConsolePage() {
                     icon={MonitorPlay}
                     action={{
                         label: 'Open Show Flow',
-                        onClick: () => navigate('/lineup'),
+                        onClick: () => navigate('/show-flow'),
                     }}
                 />
-            ) : null}
-
-            {selectedStageId && !isLoading && hasRecoveredCurrent ? (
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-amber-800">
-                    <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Recovered Live Position</p>
-                        <p className="text-sm font-medium">The console restored the live run from the current lineup after a refresh or reconnect.</p>
-                    </div>
-                </div>
-            ) : null}
-
-            {selectedStageId && !isLoading && currentLineupPointerMissing ? (
-                <div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-rose-800">
-                    <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Stage State Drift</p>
-                        <p className="text-sm font-medium">The saved live pointer no longer matched the lineup. The console recovered to keep rehearsal moving.</p>
-                    </div>
-                </div>
             ) : null}
 
             {isLoading ? (

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useParticipantsQuery } from '@/hooks/useParticipants';
 import { useAddParticipantToAct } from '@/hooks/useActs';
+import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { Search, UserPlus, Loader2 } from 'lucide-react';
 
 interface AddParticipantToActModalProps {
@@ -13,6 +14,7 @@ interface AddParticipantToActModalProps {
     actName: string;
     eventId: string;
     role?: string;
+    roleOptions?: string[];
     title?: string;
 }
 
@@ -23,20 +25,24 @@ export function AddParticipantToActModal({
     actName,
     eventId,
     role = 'Performer',
+    roleOptions,
     title,
 }: AddParticipantToActModalProps) {
     const { data: participants, isLoading } = useParticipantsQuery(eventId);
     const addParticipant = useAddParticipantToAct(actId, eventId);
     const [searchQuery, setSearchQuery] = useState('');
+    const selectableRoles = roleOptions && roleOptions.length > 0 ? roleOptions : [role];
+    const [selectedRole, setSelectedRole] = useState(selectableRoles[0] || role);
 
     const filteredParticipants = participants?.filter(p =>
-        p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.lastName.toLowerCase().includes(searchQuery.toLowerCase())
+        isOperationalParticipantStatus(p.status) &&
+        (p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.lastName.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     const handleAdd = async (participantId: string) => {
         try {
-            await addParticipant.mutateAsync({ participantId, role });
+            await addParticipant.mutateAsync({ participantId, role: selectedRole });
             // We don't close immediately so they can add multiple
         } catch (error) {
             console.error('Failed to add participant:', error);
@@ -46,10 +52,30 @@ export function AddParticipantToActModal({
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title || `Add to: ${actName}`}>
             <div className="space-y-4 pt-4">
+                {selectableRoles.length > 1 ? (
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Team Role</p>
+                        <div className="grid grid-cols-3 gap-2 rounded-[1rem] bg-muted/35 p-1.5">
+                            {selectableRoles.map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => setSelectedRole(option)}
+                                    className={`min-h-[44px] rounded-xl px-2 text-[10px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                        selectedRole === option ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
+                                    }`}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search roster..."
+                        placeholder="Search participants..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10 bg-muted/30 border-border/50"
@@ -78,7 +104,7 @@ export function AddParticipantToActModal({
                                     <div>
                                         <p className="text-sm font-bold">{p.firstName} {p.lastName}</p>
                                         <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
-                                            {p.status}
+                                            {selectedRole}
                                         </p>
                                     </div>
                                 </div>

@@ -8,7 +8,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import {
     Users,
     RefreshCw,
-    AlertCircle,
     Search,
     User,
     Loader2,
@@ -30,6 +29,9 @@ import { useActsQuery } from '@/hooks/useActs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useEventSources } from '@/hooks/useEventSources';
+import { isOperationalParticipantStatus } from '@/lib/participantStatus';
+import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
+import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
@@ -38,7 +40,7 @@ export default function ParticipantsPage() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'identity_pending' | 'at_risk'>('all');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'at_risk'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const { data: participants, isLoading, error } = useParticipantsQuery(eventId || '');
@@ -63,7 +65,7 @@ export default function ParticipantsPage() {
         const filterParam = searchParams.get('filter');
         const actionParam = searchParams.get('action');
 
-        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'identity_pending', 'at_risk'].includes(filterParam)) {
+        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'at_risk'].includes(filterParam)) {
             setActiveFilter(filterParam as typeof activeFilter);
         }
 
@@ -98,40 +100,72 @@ export default function ParticipantsPage() {
         setNoteContent('');
     };
 
-    const isParticipantReady = (participant: any) => {
-        const totalAssets = participant.assetStats?.total || 0;
-        const approvedAssets = participant.assetStats?.approved || 0;
-        return totalAssets > 0 && approvedAssets === totalAssets && (participant.actCount || 0) > 0;
-    };
+    const isParticipantReady = (participant: any) => buildParticipantReadinessSummary(participant).status === 'cleared';
 
     const getReadinessScore = (p: any) => {
-        if (!p.assetStats?.total) return p.actCount ? 0.5 : 0;
-        const assetScore = (p.assetStats.approved || 0) / p.assetStats.total;
-        const actScore = p.actCount ? 1 : 0;
-        return (assetScore + actScore) / 2;
+        const summary = buildParticipantReadinessSummary(p);
+        if (summary.status === 'cleared') return 1;
+        if (summary.status === 'on_track') return 0.65;
+        return p.actCount ? 0.35 : 0;
     };
 
+    const operationalParticipants = useMemo(
+        () => (participants || []).filter((participant) => isOperationalParticipantStatus(participant.status)),
+        [participants]
+    );
     const stats = {
-        total: participants?.length || 0,
-        assigned: participants?.filter(p => (p.actCount || 0) > 0).length || 0,
-        ready: participants?.filter((participant) => isParticipantReady(participant)).length || 0,
-        missing: participants?.filter(p => ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0)).length || 0,
-        unassigned: participants?.filter(p => !p.actCount).length || 0,
-        special: participants?.filter(p => p.hasSpecialRequests).length || 0,
-        atRisk: participants?.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
+        total: operationalParticipants.length || 0,
+        assigned: operationalParticipants.filter(p => (p.actCount || 0) > 0).length || 0,
+        ready: operationalParticipants.filter((participant) => isParticipantReady(participant)).length || 0,
+        missing: operationalParticipants.filter(p => ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0)).length || 0,
+        unassigned: operationalParticipants.filter(p => !p.actCount).length || 0,
+        special: operationalParticipants.filter(p => p.hasSpecialRequests).length || 0,
+        atRisk: operationalParticipants.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
     };
-    const clearanceRisk = stats.missing + stats.atRisk;
-
+    const participantResponseItems = [
+        {
+            key: 'at_risk' as const,
+            label: 'Minor Safety Follow-Up',
+            detail: 'Guardian name and phone still need to be completed before these participants are clear.',
+            count: stats.atRisk,
+            tone: 'critical' as const,
+            action: 'Open safety follow-up',
+        },
+        {
+            key: 'missing' as const,
+            label: 'Approvals Pending',
+            detail: 'Uploaded docs or evidence still need review before clearance is fully in place.',
+            count: stats.missing,
+            tone: 'warning' as const,
+            action: 'Review approvals',
+        },
+        {
+            key: 'unassigned' as const,
+            label: 'Needs Placement',
+            detail: 'These participants have not been assigned into a performance yet.',
+            count: stats.unassigned,
+            tone: 'warning' as const,
+            action: 'Place participants',
+        },
+        {
+            key: 'special' as const,
+            label: 'Special Requests',
+            detail: 'Review these requests before final scheduling and show-day clearance.',
+            count: stats.special,
+            tone: 'info' as const,
+            action: 'Review requests',
+        },
+    ].filter((item) => item.count > 0).slice(0, 3);
     const filteredParticipants = participants?.filter(p => {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
+        if (activeFilter !== 'all' && !isOperationalParticipantStatus(p.status)) return false;
         if (activeFilter === 'missing') return ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0);
         if (activeFilter === 'unassigned') return !p.actCount;
         if (activeFilter === 'special') return p.hasSpecialRequests;
         if (activeFilter === 'ready') return isParticipantReady(p);
         if (activeFilter === 'no_phone') return !p.guardianPhone;
-        if (activeFilter === 'identity_pending') return !p.identityVerified;
         if (activeFilter === 'at_risk') return p.isMinor && (!p.guardianName || !p.guardianPhone);
 
         return true;
@@ -154,7 +188,7 @@ export default function ParticipantsPage() {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                <p className="text-muted-foreground font-medium">Loading roster...</p>
+                <p className="text-muted-foreground font-medium">Loading participants...</p>
             </div>
         );
     }
@@ -191,8 +225,8 @@ export default function ParticipantsPage() {
             <div className="flex flex-col space-y-5">
             <div className="space-y-3">
                 <PageHeader
-                    title="Event Roster"
-                    subtitle={`${stats.total} people, ${stats.unassigned} still need placement`}
+                    title="Participants"
+                    subtitle={`${stats.total} in play • ${stats.unassigned} need placement • ${stats.missing} approvals open`}
                     actions={
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <button
@@ -231,36 +265,46 @@ export default function ParticipantsPage() {
                     </p>
                 ) : null}
 
-                <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl border border-border bg-card px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Roster</p>
-                        <p className="mt-1 text-xl font-black tracking-tight text-foreground">{stats.total}</p>
-                    </div>
-                    <button
-                        onClick={() => updateFilter('unassigned')}
-                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'unassigned' ? 'border-indigo-500 bg-indigo-500/5' : 'border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40'}`}
-                    >
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700">Needs Placement</p>
-                        <p className="mt-1 text-xl font-black tracking-tight text-indigo-700">{stats.unassigned}</p>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('at_risk')}
-                        className={`rounded-2xl border px-3 py-2.5 text-left transition-all ${activeFilter === 'at_risk' ? 'border-rose-600 bg-rose-600/5' : 'border-amber-500/20 bg-amber-500/5 hover:border-amber-500/40'}`}
-                    >
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Clearance Risk</p>
-                        <p className="mt-1 text-xl font-black tracking-tight text-amber-700">{clearanceRisk}</p>
-                    </button>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <OperationalMetricCard label="Participants" value={stats.total} icon={Users} tone="default" onClick={() => updateFilter('all')} />
+                    <OperationalMetricCard label="Needs Placement" value={stats.unassigned} icon={User} tone="warning" onClick={() => updateFilter('unassigned')} />
+                    <OperationalMetricCard label="Approvals" value={stats.missing} icon={Clock} tone="warning" onClick={() => updateFilter('missing')} />
+                    <OperationalMetricCard label="Safety" value={stats.atRisk} icon={AlertTriangle} tone={stats.atRisk > 0 ? 'critical' : 'good'} onClick={() => updateFilter('at_risk')} />
+                </div>
+
+                <div className="space-y-2">
+                    <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Needs Response</p>
+                    {participantResponseItems.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {participantResponseItems.map((item) => (
+                                <OperationalResponseCard
+                                    key={item.key}
+                                    label={item.label}
+                                    detail={item.detail}
+                                    count={item.count}
+                                    tone={item.tone}
+                                    action={item.action}
+                                    onClick={() => updateFilter(item.key)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <OperationalEmptyResponse
+                            title="No Escalations"
+                            detail="Nothing urgent is demanding a participant follow-up right now."
+                        />
+                    )}
                 </div>
             </div>
 
             {/* Search, Sort and Quick Filters */}
-            <div className="space-y-3">
+            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Find someone on the roster..."
+                            placeholder="Find a participant..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-10 pr-4 h-10 bg-card border border-border rounded-lg text-sm focus:outline-none transition-all font-medium antialiased"
@@ -281,25 +325,17 @@ export default function ParticipantsPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center space-x-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                     <button
                         onClick={() => updateFilter('all')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+                        className={`min-h-11 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         All
                         <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'all' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.total}</span>
                     </button>
                     <button
-                        onClick={() => updateFilter('ready')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'ready' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
-                    >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Cleared</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'ready' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.ready}</span>
-                    </button>
-                    <button
                         onClick={() => updateFilter('missing')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'missing' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+                        className={`flex min-h-11 items-center space-x-1.5 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'missing' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         <Clock className="w-3.5 h-3.5" />
                         <span>Approvals Pending</span>
@@ -307,42 +343,33 @@ export default function ParticipantsPage() {
                     </button>
                     <button
                         onClick={() => updateFilter('unassigned')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'unassigned' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+                        className={`flex min-h-11 items-center space-x-1.5 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'unassigned' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         <User className="w-3.5 h-3.5" />
                         <span>Needs Placement</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'unassigned' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.unassigned}</span>
                     </button>
                     <button
-                        onClick={() => updateFilter('special')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'special' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
-                    >
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Special Requests</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'special' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.special}</span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('no_phone')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'no_phone' ? 'bg-slate-700 text-white shadow-md shadow-slate-700/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
-                    >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>No Phone</span>
-                    </button>
-                    <button
-                        onClick={() => updateFilter('identity_pending')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'identity_pending' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
-                    >
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>Identity Verification Needed</span>
-                    </button>
-                    <button
                         onClick={() => updateFilter('at_risk')}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${activeFilter === 'at_risk' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20 scale-105' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+                        className={`flex min-h-11 items-center space-x-1.5 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'at_risk' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>Minor Info Missing</span>
+                        <span>At Risk</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'at_risk' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.atRisk}</span>
                     </button>
+                    <div className="relative shrink-0">
+                        <select
+                            value={['special', 'ready', 'no_phone'].includes(activeFilter) ? activeFilter : ''}
+                            onChange={(e) => updateFilter((e.target.value || 'all') as typeof activeFilter)}
+                            className="min-h-11 appearance-none rounded-full border border-border bg-card pl-4 pr-9 text-xs font-bold uppercase tracking-wider text-muted-foreground focus:outline-none"
+                        >
+                            <option value="">More Filters</option>
+                            <option value="special">Special Requests ({stats.special})</option>
+                            <option value="no_phone">Missing Guardian Phone</option>
+                            <option value="ready">Cleared</option>
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                 </div>
             </div>
 
@@ -372,8 +399,9 @@ export default function ParticipantsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredParticipants?.map((participant) => {
                         const isExpanded = expandedId === participant.id;
-                        const isReady = isParticipantReady(participant);
-                        const hasDocsPending = ((participant.assetStats?.missing || 0) > 0) || ((participant.assetStats?.pending || 0) > 0);
+                        const readiness = buildParticipantReadinessSummary(participant);
+                        const isReady = readiness.status === 'cleared';
+                        const approvalsPendingCount = (participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0);
 
                         return (
                             <div
@@ -412,15 +440,15 @@ export default function ParticipantsPage() {
                                         <div className="flex flex-col items-end gap-1.5">
                                             {isReady ? (
                                                 <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    Cleared
+                                                    {readiness.badgeLabel}
                                                 </Badge>
-                                            ) : hasDocsPending ? (
+                                            ) : readiness.status === 'attention' ? (
                                                 <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    Requires Work
+                                                    {readiness.badgeLabel}
                                                 </Badge>
                                             ) : (
                                                 <Badge className="bg-muted text-muted-foreground border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    Pending
+                                                    {readiness.badgeLabel}
                                                 </Badge>
                                             )}
                                             <button
@@ -437,41 +465,15 @@ export default function ParticipantsPage() {
                                     </div>
 
                                     <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                        <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 px-2.5 py-2">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-700">Placement</p>
-                                            <p className="mt-1 text-xs font-bold text-foreground">
-                                                {participant.actCount ? `${participant.actCount} act${participant.actCount > 1 ? 's' : ''}` : 'Needs placement'}
-                                            </p>
+                                        <div className={`sm:col-span-2 rounded-xl border px-3 py-2.5 ${readiness.followUpTone}`}>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em]">Primary Follow-Up</p>
+                                            <p className="mt-1 text-xs font-bold">{readiness.followUpLabel}</p>
+                                            <p className="mt-1 text-xs leading-5 text-foreground/80">{readiness.followUpDetail}</p>
                                         </div>
-                                        <div className={`rounded-xl border px-2.5 py-2 ${hasDocsPending ? 'border-amber-500/25 bg-amber-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
-                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${hasDocsPending ? 'text-amber-700' : 'text-emerald-700'}`}>Approvals</p>
-                                            <p className="mt-1 text-xs font-bold text-foreground">
-                                                {hasDocsPending
-                                                    ? `${(participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)} pending`
-                                                    : `${participant.assetStats?.approved || 0} approved`}
-                                            </p>
-                                        </div>
-                                        <div className={`rounded-xl border px-2.5 py-2 ${participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
-                                            ? 'border-rose-600/25 bg-rose-600/5'
-                                            : participant.hasSpecialRequests
-                                                ? 'border-rose-500/25 bg-rose-500/5'
-                                                : 'border-border bg-background/60'
-                                            }`}>
-                                            <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
-                                                ? 'text-rose-700'
-                                                : participant.hasSpecialRequests
-                                                    ? 'text-rose-600'
-                                                    : 'text-muted-foreground'
-                                                }`}>Follow-Up</p>
-                                            <p className="mt-1 text-xs font-bold text-foreground">
-                                                {participant.isMinor && (!participant.guardianName || !participant.guardianPhone)
-                                                    ? 'Minor safety'
-                                                    : participant.hasSpecialRequests
-                                                        ? 'Review requests'
-                                                        : !participant.guardianPhone && !participant.isMinor
-                                                            ? 'No phone'
-                                                            : 'Clear'}
-                                            </p>
+                                        <div className="rounded-xl border border-border bg-background/60 px-3 py-2.5">
+                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Read</p>
+                                            <p className="mt-1 text-xs font-bold text-foreground">{readiness.quickReadLabel}</p>
+                                            <p className="mt-1 text-xs text-muted-foreground">{readiness.quickReadDetail}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -561,8 +563,8 @@ export default function ParticipantsPage() {
                                                         <span className="text-xs font-bold">{participant.assetStats?.approved || 0} Approved</span>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${hasDocsPending ? 'bg-amber-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{(participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)} Approvals Pending</span>
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${approvalsPendingCount > 0 ? 'bg-amber-500' : 'bg-muted'}`} />
+                                                        <span className="text-xs font-bold">{approvalsPendingCount} Approvals Pending</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -576,7 +578,7 @@ export default function ParticipantsPage() {
 
                                             {/* Internal Note Summary */}
                                             {participant.notes && (
-                                                <div className="p-3 rounded-lg bg-white/50 border border-border/50 mt-2">
+                                                <div className="mt-2 rounded-lg border border-border/50 bg-background/70 p-3">
                                                     <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Last Internal Note</p>
                                                     <p className="text-xs text-muted-foreground line-clamp-2">{participant.notes}</p>
                                                 </div>
@@ -668,7 +670,7 @@ export default function ParticipantsPage() {
                             <button
                                 key={cat}
                                 onClick={() => setNoteCategory(cat)}
-                                className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase transition-all ${noteCategory === cat ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase transition-all ${noteCategory === cat ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                             >
                                 {cat.replace('_', ' ')}
                             </button>

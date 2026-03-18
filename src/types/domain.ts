@@ -121,6 +121,17 @@ export interface ActDetails extends Act {
     participants?: ActParticipantDetail[];
     assets?: ActAsset[];
     requirements?: ActRequirement[];
+    requirementAssignments?: Array<{
+        id: string;
+        status: string;
+        notes?: string | null;
+        evidenceSummary?: any;
+        policyCode?: string | null;
+        policyLabel?: string | null;
+        inputType?: string | null;
+        reviewMode?: string | null;
+        blockingLevel?: string | null;
+    }>;
     readinessPractices?: ActPracticeSession[];
     readinessItems?: ActReadinessItem[];
     readinessIssues?: ActReadinessIssue[];
@@ -140,6 +151,17 @@ export interface ActWithCounts extends Act {
     hasMusicTrack: boolean;
     hasIntroRequirement: boolean;
     hasApprovedIntro: boolean;
+    requirementAssignments?: Array<{
+        id: string;
+        status: string;
+        notes?: string | null;
+        evidenceSummary?: any;
+        policyCode?: string | null;
+        policyLabel?: string | null;
+        inputType?: string | null;
+        reviewMode?: string | null;
+        blockingLevel?: string | null;
+    }>;
     introBackgroundUrl?: string | null;
     // Operational readiness
     missingAssetCount: number;
@@ -237,6 +259,7 @@ export interface ActReadinessSummary {
     nextPractice: ActPracticeSession | null;
     openIssueCount: number;
     missingChecklistCount: number;
+    incompleteChecklistCount: number;
 }
 
 export interface IntroCurationItem {
@@ -288,6 +311,18 @@ export interface Participant {
         pending: number;
         missing: number;
     };
+    requirementAssignments?: Array<{
+        id: string;
+        status: string;
+        notes?: string | null;
+        evidenceSummary?: any;
+        policyCode?: string | null;
+        policyLabel?: string | null;
+        inputType?: string | null;
+        reviewMode?: string | null;
+        blockingLevel?: string | null;
+        source?: 'bridge';
+    }>;
     // Trust-First Source Tracking
     sourceSystem: string | null;
     sourceInstance: string | null;
@@ -366,7 +401,6 @@ export interface ParticipantDetail extends Participant {
     }[];
     operationalNotes: ParticipantNote[];
     auditLogs: any[];
-    actRequirements?: ActRequirement[];
 }
 
 /**
