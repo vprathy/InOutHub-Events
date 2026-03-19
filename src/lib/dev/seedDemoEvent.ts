@@ -16,6 +16,35 @@ function createSvgPhotoDataUrl(label: string, accent: string) {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function createTextDataUrl(content: string, mimeType = 'text/plain') {
+    const encodeBase64 = typeof btoa === 'function'
+        ? btoa(content)
+        : Buffer.from(content, 'utf-8').toString('base64');
+    return `data:${mimeType};base64,${encodeBase64}`;
+}
+
+function createSilentAudioDataUrl() {
+    const base64 =
+        'UklGRqQMAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YYAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+    return `data:audio/wav;base64,${base64}`;
+}
+
+function createSeedAssetUrl(type: string, label: string) {
+    if (type === 'photo') {
+        return createSvgPhotoDataUrl(label, '#38bdf8');
+    }
+
+    if (type === 'document') {
+        return createTextDataUrl(`Demo document for ${label}.`, 'text/plain');
+    }
+
+    if (type === 'video') {
+        return createTextDataUrl(`Demo video placeholder for ${label}.`, 'text/plain');
+    }
+
+    return createTextDataUrl(`Demo asset placeholder for ${label}.`, 'text/plain');
+}
+
 export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     // 4. Create Event
     console.log('📅 Creating Event...');
@@ -23,7 +52,7 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         .from('events')
         .insert({
             organization_id: orgId,
-            name: 'ZiffyVolve Talent Showcase MVP 2026',
+            name: 'Demo Event',
             start_date: new Date().toISOString().split('T')[0],
             end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
         })
@@ -153,12 +182,28 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
                 notes: 'Deterministic seed record for intro validation'
             });
 
-            await supabase.from('act_requirements').insert({
-                act_id: act.id,
-                requirement_type: 'Microphone',
-                description: '1 wireless mic needed',
-                fulfilled: true
-            });
+            await supabase.from('act_requirements').insert([
+                {
+                    act_id: act.id,
+                    requirement_type: 'Audio',
+                    description: 'Deterministic uploaded performance audio for Intro Studio validation',
+                    file_url: createSilentAudioDataUrl(),
+                    fulfilled: true,
+                },
+                {
+                    act_id: act.id,
+                    requirement_type: 'Generative_Audio',
+                    description: 'Legacy generated voice fallback for intro audio preference checks',
+                    file_url: createSilentAudioDataUrl(),
+                    fulfilled: true,
+                },
+                {
+                    act_id: act.id,
+                    requirement_type: 'Microphone',
+                    description: '1 wireless mic needed',
+                    fulfilled: true
+                }
+            ]);
 
             continue;
         }
@@ -227,13 +272,16 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
 
     const assetsData = participants.slice(0, 15).flatMap(p => {
         const count = faker.number.int({ min: 1, max: 2 });
-        return Array.from({ length: count }).map(() => ({
-            participant_id: p.id,
-            name: faker.helpers.arrayElement(assetNames),
-            type: faker.helpers.arrayElement(assetTypes),
-            status: faker.helpers.arrayElement(assetStatuses),
-            file_url: `https://placeholder.test/${faker.string.uuid()}.jpg`,
-        }));
+        return Array.from({ length: count }).map(() => {
+            const type = faker.helpers.arrayElement(assetTypes);
+            return {
+                participant_id: p.id,
+                name: faker.helpers.arrayElement(assetNames),
+                type,
+                status: faker.helpers.arrayElement(assetStatuses),
+                file_url: createSeedAssetUrl(type, `${p.first_name} ${p.last_name}`),
+            };
+        });
     });
 
     const { error: assetsError } = await supabase.from('participant_assets').insert(assetsData);

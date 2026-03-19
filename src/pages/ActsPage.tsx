@@ -3,13 +3,12 @@ import { useActsQuery } from '@/hooks/useActs';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { ActCard } from '@/components/acts/ActCard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users, ChevronDown, MonitorPlay } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { prepareIntroAutopilot } from '@/lib/introCapabilities';
 
 export default function ActsPage() {
@@ -78,6 +77,7 @@ export default function ActsPage() {
             action: 'Review media',
         },
     ].filter((item) => item.count > 0).slice(0, 3);
+    const highestPriorityResponse = performanceResponseItems[0] || null;
 
     const filteredActs = acts?.filter(act => {
         const matchesSearch = act.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -145,26 +145,26 @@ export default function ActsPage() {
             <div className="space-y-3">
                 <PageHeader
                     title="Performances"
-                    subtitle={`${stats.total} in play • ${stats.stageReady} show ready • ${stats.docs} prep gaps still open`}
+                    subtitle={`${stats.total} performances • ${stats.docs} prep gaps • ${stats.musicMissing} audio missing • ${stats.introReady} intros approved`}
                     actions={
-                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        <div className="flex items-center gap-2">
                             {canBatchPrepareIntros ? (
                                 <Button
                                     variant="outline"
                                     onClick={() => void handleBatchPrepareIntros()}
                                     disabled={isBatchPreparing || stats.introEligible === 0}
-                                    className="h-11 w-full sm:w-auto font-bold"
+                                    className="h-11 font-bold"
                                 >
                                     {isBatchPreparing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Music className="w-4 h-4 mr-2" />}
-                                    Prepare Eligible Intros
+                                    Prepare Intros
                                 </Button>
                             ) : null}
                             <Button
                                 onClick={() => setIsAddModalOpen(true)}
-                                className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                                className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                             >
                                 <Plus className="w-4 h-4 mr-2" />
-                                Add Performance
+                                Add
                             </Button>
                         </div>
                     }
@@ -179,43 +179,23 @@ export default function ActsPage() {
                         {batchNotice.message}
                     </div>
                 ) : null}
-
-                <div className="surface-panel rounded-[1.35rem] p-3">
-                    <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Performance Snapshot</p>
-                    <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <OperationalMetricCard label="Performances" value={stats.total} icon={Music} tone="default" onClick={() => updateFilter('all')} />
-                        <OperationalMetricCard label="Needs Cast" value={stats.needsCast} icon={Users} tone={stats.needsCast > 0 ? 'warning' : 'good'} onClick={() => updateFilter('needs_cast')} />
-                        <OperationalMetricCard label="Intro Ready" value={stats.introReady} icon={AlertTriangle} tone="info" onClick={() => updateFilter('intro_ready')} />
-                        <OperationalMetricCard label="Show Ready" value={stats.stageReady} icon={CheckCircle2} tone="good" onClick={() => updateFilter('stage_ready')} />
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Needs Response</p>
-                    {performanceResponseItems.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-                            {performanceResponseItems.map((item) => (
-                                <OperationalResponseCard
-                                    key={item.key}
-                                    label={item.label}
-                                    detail={item.detail}
-                                    count={item.count}
-                                    tone={item.tone}
-                                    action={item.action}
-                                    onClick={() => updateFilter(item.key)}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <OperationalEmptyResponse
-                            title="No Escalations"
-                            detail="Nothing urgent is blocking the performance queue right now."
-                        />
-                    )}
-                </div>
             </div>
 
             <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+                {highestPriorityResponse ? (
+                    <button
+                        onClick={() => updateFilter(highestPriorityResponse.key)}
+                        className="flex w-full items-start justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-left"
+                    >
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                {highestPriorityResponse.label} {highestPriorityResponse.count ? `• ${highestPriorityResponse.count}` : ''}
+                            </p>
+                            <p className="text-sm text-foreground/85">{highestPriorityResponse.detail}</p>
+                        </div>
+                        <MonitorPlay className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    </button>
+                ) : null}
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

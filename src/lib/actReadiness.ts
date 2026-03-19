@@ -67,3 +67,9 @@ export function deriveActReadinessSummary({
 export function formatReadinessDate(dateString?: string | null) {
     return formatEventDateTime(dateString);
 }
+
+export function getActReadinessLabel(state?: ActReadinessState | null) {
+    if (state === 'Blocked') return 'Needs Attention';
+    if (state === 'At Risk') return 'Watch List';
+    return 'On Track';
+}

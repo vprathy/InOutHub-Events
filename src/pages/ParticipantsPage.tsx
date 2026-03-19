@@ -13,15 +13,15 @@ import {
     Loader2,
     Phone,
     MessageSquare,
-    CheckCircle2,
     Clock,
     AlertTriangle,
     ArrowUpRight,
-    Database,
     ChevronDown,
-    Plus
+    Plus,
+    Database,
+    CheckCircle2,
+    Mail,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useAssignToAct, useAddParticipantNote } from '@/hooks/useParticipants';
@@ -31,7 +31,26 @@ import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useEventSources } from '@/hooks/useEventSources';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
-import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
+
+function getCardSummary(participant: any) {
+    if (participant.openSpecialRequestCount) {
+        return participant.specialRequestRaw || `${participant.openSpecialRequestCount} special request item${participant.openSpecialRequestCount > 1 ? 's are' : ' is'} still open.`;
+    }
+
+    if (!participant.actCount) {
+        return 'Not linked to a performance yet.';
+    }
+
+    if (participant.isMinor && (!participant.guardianName || !participant.guardianPhone)) {
+        return 'Guardian contact still needs completion.';
+    }
+
+    if ((participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0) > 0) {
+        return `${(participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)} file item${((participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0)) > 1 ? 's' : ''} still need review.`;
+    }
+
+    return 'Ready for normal follow-through.';
+}
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
@@ -125,24 +144,24 @@ export default function ParticipantsPage() {
     const participantResponseItems = [
         {
             key: 'at_risk' as const,
-            label: 'Minor Safety Follow-Up',
-            detail: 'Guardian name and phone still need to be completed before these participants are clear.',
+            label: 'Guardian Follow-Up',
+            detail: 'Minor participant records still need complete guardian name and phone before they are clear.',
             count: stats.atRisk,
             tone: 'critical' as const,
-            action: 'Open safety follow-up',
+            action: 'Open guardian records',
         },
         {
             key: 'missing' as const,
-            label: 'Approvals Pending',
-            detail: 'Uploaded docs or evidence still need review before clearance is fully in place.',
+            label: 'Files Waiting',
+            detail: 'Uploaded files or required evidence still need review before these people are fully clear.',
             count: stats.missing,
             tone: 'warning' as const,
-            action: 'Review approvals',
+            action: 'Review files',
         },
         {
             key: 'unassigned' as const,
             label: 'Needs Placement',
-            detail: 'These participants have not been assigned into a performance yet.',
+            detail: 'These people are in the event roster but are not linked to a performance yet.',
             count: stats.unassigned,
             tone: 'warning' as const,
             action: 'Place participants',
@@ -150,12 +169,13 @@ export default function ParticipantsPage() {
         {
             key: 'special' as const,
             label: 'Special Requests',
-            detail: 'Review these requests before final scheduling and show-day clearance.',
+            detail: 'These requests need acknowledgement before final scheduling and show-day clearance.',
             count: stats.special,
             tone: 'info' as const,
             action: 'Review requests',
         },
     ].filter((item) => item.count > 0).slice(0, 3);
+    const highestPriorityResponse = participantResponseItems[0] || null;
     const filteredParticipants = participants?.filter(p => {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
@@ -226,15 +246,15 @@ export default function ParticipantsPage() {
             <div className="space-y-3">
                 <PageHeader
                     title="Participants"
-                    subtitle={`${stats.total} in play • ${stats.unassigned} need placement • ${stats.missing} approvals open`}
+                    subtitle={`${stats.total} people • ${stats.unassigned} unlinked • ${stats.special} requests • ${stats.missing} files waiting`}
                     actions={
-                        <div className="flex flex-col gap-2 sm:flex-row">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setIsAddParticipantOpen(true)}
-                                className="flex h-11 w-full items-center justify-center space-x-2 rounded-xl border border-primary/20 bg-primary/5 px-4 text-[11px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/10 sm:w-auto"
+                                className="flex h-11 items-center justify-center space-x-2 rounded-xl border border-primary/20 bg-primary/5 px-4 text-[11px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/10"
                             >
                                 <Plus className="w-3.5 h-3.5" />
-                                <span>Add Participant</span>
+                                <span>Add</span>
                             </button>
                             <button
                                 onClick={() => {
@@ -245,16 +265,16 @@ export default function ParticipantsPage() {
                                     setIsImportModalOpen(true);
                                 }}
                                 disabled={!canManageSync}
-                                className={`flex h-11 w-full items-center justify-center space-x-2 rounded-xl px-4 text-[11px] font-black uppercase tracking-widest transition-all sm:w-auto ${canManageSync ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                                className={`flex h-11 items-center justify-center space-x-2 rounded-xl px-4 text-[11px] font-black uppercase tracking-widest transition-all ${canManageSync ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98]' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
                             >
                                 <RefreshCw className="w-3.5 h-3.5" />
-                                <span>Open Sync Tools</span>
+                                <span>Sync</span>
                             </button>
                         </div>
                     }
                     status={eventId ? (
-                        <div className={`inline-flex items-center text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(lastSyncedAt) ? 'text-amber-500 animate-pulse' : 'text-emerald-500/80'}`}>
-                            <RefreshCw className={`w-2.5 h-2.5 mr-1 ${isSyncOld(lastSyncedAt) ? 'animate-spin-slow' : ''}`} />
+                        <div className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-tighter ${isSyncOld(lastSyncedAt) ? 'border-amber-500/20 bg-amber-500/10 text-amber-600' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'}`}>
+                            <RefreshCw className={`mr-1 h-2.5 w-2.5 ${isSyncOld(lastSyncedAt) ? 'animate-spin-slow' : ''}`} />
                             {lastSyncedAt ? `Synced ${formatLastSynced(lastSyncedAt)}` : 'Sync Required'}
                         </div>
                     ) : null}
@@ -264,47 +284,30 @@ export default function ParticipantsPage() {
                         Sync tools are limited to EventAdmin for this event. Current access: {currentEventRole || 'No event role'}.
                     </p>
                 ) : null}
-
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <OperationalMetricCard label="Participants" value={stats.total} icon={Users} tone="default" onClick={() => updateFilter('all')} />
-                    <OperationalMetricCard label="Needs Placement" value={stats.unassigned} icon={User} tone="warning" onClick={() => updateFilter('unassigned')} />
-                    <OperationalMetricCard label="Approvals" value={stats.missing} icon={Clock} tone="warning" onClick={() => updateFilter('missing')} />
-                    <OperationalMetricCard label="Safety" value={stats.atRisk} icon={AlertTriangle} tone={stats.atRisk > 0 ? 'critical' : 'good'} onClick={() => updateFilter('at_risk')} />
-                </div>
-
-                <div className="space-y-2">
-                    <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Needs Response</p>
-                    {participantResponseItems.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-                            {participantResponseItems.map((item) => (
-                                <OperationalResponseCard
-                                    key={item.key}
-                                    label={item.label}
-                                    detail={item.detail}
-                                    count={item.count}
-                                    tone={item.tone}
-                                    action={item.action}
-                                    onClick={() => updateFilter(item.key)}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <OperationalEmptyResponse
-                            title="No Escalations"
-                            detail="Nothing urgent is demanding a participant follow-up right now."
-                        />
-                    )}
-                </div>
             </div>
 
             {/* Search, Sort and Quick Filters */}
             <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+                {highestPriorityResponse ? (
+                    <button
+                        onClick={() => updateFilter(highestPriorityResponse.key)}
+                        className="flex w-full items-start justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-3 text-left"
+                    >
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
+                                {highestPriorityResponse.label} {highestPriorityResponse.count ? `• ${highestPriorityResponse.count}` : ''}
+                            </p>
+                            <p className="text-sm text-foreground/85">{highestPriorityResponse.detail}</p>
+                        </div>
+                        <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    </button>
+                ) : null}
                 <div className="flex items-center space-x-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Find a participant..."
+                            placeholder="Search people in this event..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-10 pr-4 h-10 bg-card border border-border rounded-lg text-sm focus:outline-none transition-all font-medium antialiased"
@@ -318,7 +321,7 @@ export default function ParticipantsPage() {
                         >
                             <option value="name">Name</option>
                             <option value="age">Age</option>
-                            <option value="readiness">Clearance</option>
+                        <option value="readiness">Clearance</option>
                             <option value="recent">Recent</option>
                         </select>
                         <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -338,7 +341,7 @@ export default function ParticipantsPage() {
                         className={`flex min-h-11 items-center space-x-1.5 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'missing' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Approvals Pending</span>
+                        <span>Files Waiting</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'missing' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.missing}</span>
                     </button>
                     <button
@@ -354,7 +357,7 @@ export default function ParticipantsPage() {
                         className={`flex min-h-11 items-center space-x-1.5 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'at_risk' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>At Risk</span>
+                        <span>Guardian Follow-Up</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'at_risk' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.atRisk}</span>
                     </button>
                     <div className="relative shrink-0">
@@ -366,7 +369,7 @@ export default function ParticipantsPage() {
                             <option value="">More Filters</option>
                             <option value="special">Special Requests ({stats.special})</option>
                             <option value="no_phone">Missing Guardian Phone</option>
-                            <option value="ready">Cleared</option>
+                            <option value="ready">Clear</option>
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     </div>
@@ -400,7 +403,6 @@ export default function ParticipantsPage() {
                     {filteredParticipants?.map((participant) => {
                         const isExpanded = expandedId === participant.id;
                         const readiness = buildParticipantReadinessSummary(participant);
-                        const isReady = readiness.status === 'cleared';
                         const approvalsPendingCount = (participant.assetStats?.pending || 0) + (participant.assetStats?.missing || 0);
 
                         return (
@@ -408,77 +410,62 @@ export default function ParticipantsPage() {
                                 key={participant.id}
                                 className={`group bg-card rounded-2xl border transition-all overflow-hidden ${isExpanded ? 'ring-2 ring-primary/20 border-primary/50 shadow-md' : 'border-border hover:border-primary/40 shadow-sm antialiased'}`}
                             >
-                                {/* Compact Card Top */}
                                 <div
                                     className="p-3 cursor-pointer"
                                     onClick={() => setExpandedId(isExpanded ? null : participant.id)}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex items-center space-x-3">
-                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isReady ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
-                                                <User className="w-5 h-5" />
-                                            </div>
+                                            {participant.photoUrl ? (
+                                                <img
+                                                    src={participant.photoUrl}
+                                                    alt={`${participant.firstName} ${participant.lastName}`}
+                                                    className="h-11 w-11 shrink-0 rounded-xl border border-border/60 object-cover shadow-sm"
+                                                />
+                                            ) : (
+                                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${readiness.status === 'cleared' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+                                                    <User className="w-5 h-5" />
+                                                </div>
+                                            )}
                                             <div>
                                                 <h3 className="font-bold text-sm tracking-tight text-foreground">{participant.firstName} {participant.lastName}</h3>
-                                                <div className="flex items-center space-x-1.5 mt-0.5 flex-wrap">
-                                                    {participant.age && (
+                                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                    {participant.age ? (
                                                         <span className="text-[10px] font-medium text-muted-foreground uppercase">{participant.age} yrs</span>
-                                                    )}
-                                                    {participant.age ? <span className="w-0.5 h-0.5 rounded-full bg-border" /> : null}
-                                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                                                        {participant.actCount ? `${participant.actCount} Acts` : 'Needs Placement'}
-                                                    </span>
-                                                    {participant.isMinor ? (
-                                                        <>
-                                                            <span className="w-0.5 h-0.5 rounded-full bg-border" />
-                                                            <span className="text-[10px] font-medium text-muted-foreground uppercase">Minor</span>
-                                                        </>
                                                     ) : null}
                                                 </div>
+                                                {participant.specialRequestRaw ? (
+                                                    <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4 text-amber-700">
+                                                        {participant.specialRequestRaw}
+                                                    </p>
+                                                ) : null}
+                                                {!participant.specialRequestRaw && participant.openSpecialRequestCount ? (
+                                                    <p className="mt-1 text-[11px] font-medium leading-4 text-amber-700">
+                                                        {participant.openSpecialRequestCount} special request item{participant.openSpecialRequestCount > 1 ? 's' : ''} still open.
+                                                    </p>
+                                                ) : null}
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-end gap-1.5">
-                                            {isReady ? (
-                                                <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    {readiness.badgeLabel}
-                                                </Badge>
-                                            ) : readiness.status === 'attention' ? (
-                                                <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    {readiness.badgeLabel}
-                                                </Badge>
-                                            ) : (
-                                                <Badge className="bg-muted text-muted-foreground border-none text-[9px] h-5 px-2 font-bold uppercase rounded-md">
-                                                    {readiness.badgeLabel}
-                                                </Badge>
-                                            )}
-                                            <button
-                                                className="flex items-center space-x-1 text-[10px] font-bold uppercase tracking-wide text-primary"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/participants/${participant.id}`);
-                                                }}
-                                            >
-                                                <span>Open</span>
-                                                <ArrowUpRight className="w-3 h-3" />
-                                            </button>
+                                            {participant.actCount ? (
+                                                <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+                                                    readiness.status === 'cleared'
+                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
+                                                        : readiness.status === 'attention'
+                                                            ? 'border-amber-500/20 bg-amber-500/10 text-amber-600'
+                                                            : 'border-primary/20 bg-primary/10 text-primary'
+                                                }`}>
+                                                    {participant.openSpecialRequestCount ? 'Special Request' : readiness.badgeLabel}
+                                                </span>
+                                            ) : null}
                                         </div>
                                     </div>
 
-                                    <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                        <div className={`sm:col-span-2 rounded-xl border px-3 py-2.5 ${readiness.followUpTone}`}>
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em]">Primary Follow-Up</p>
-                                            <p className="mt-1 text-xs font-bold">{readiness.followUpLabel}</p>
-                                            <p className="mt-1 text-xs leading-5 text-foreground/80">{readiness.followUpDetail}</p>
-                                        </div>
-                                        <div className="rounded-xl border border-border bg-background/60 px-3 py-2.5">
-                                            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Read</p>
-                                            <p className="mt-1 text-xs font-bold text-foreground">{readiness.quickReadLabel}</p>
-                                            <p className="mt-1 text-xs text-muted-foreground">{readiness.quickReadDetail}</p>
-                                        </div>
+                                    <div className={`mt-2.5 rounded-xl border px-3 py-2.5 ${readiness.followUpTone}`}>
+                                        <p className="text-xs leading-5 text-foreground/85">{getCardSummary(participant)}</p>
                                     </div>
                                 </div>
 
-                                {/* Thumb-Friendly Action Bar */}
                                 <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50 bg-accent/10">
                                     <div className="flex items-center space-x-2">
                                         <button
@@ -488,7 +475,7 @@ export default function ParticipantsPage() {
                                                 setAssigningParticipant(participant.id);
                                             }}
                                         >
-                                            Place
+                                            {participant.actCount ? 'Manage Link' : 'Link'}
                                         </button>
                                     </div>
                                     <div className="flex items-center space-x-2">
@@ -499,6 +486,16 @@ export default function ParticipantsPage() {
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <Phone className="w-3.5 h-3.5" />
+                                            </a>
+                                        )}
+                                        {participant.email && (
+                                            <a
+                                                href={`mailto:${participant.email}`}
+                                                className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
+                                                onClick={(e) => e.stopPropagation()}
+                                                aria-label={`Email ${participant.firstName} ${participant.lastName}`}
+                                            >
+                                                <Mail className="w-3.5 h-3.5" />
                                             </a>
                                         )}
                                         <button
@@ -517,70 +514,35 @@ export default function ParticipantsPage() {
                                                 navigate(`/participants/${participant.id}`);
                                             }}
                                         >
-                                            <span>Details</span>
+                                            <span>Profile</span>
                                             <ArrowUpRight className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Inline Expanded Content */}
                                 {isExpanded && (
                                     <div className="px-4 pb-4 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="p-4 rounded-xl bg-accent/30 space-y-4">
-                                            {/* Guardian Info */}
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Guardian</p>
-                                                    <p className="text-sm font-bold">{participant.guardianName || 'Unknown'}</p>
+                                        <div className="rounded-xl border border-border/50 bg-accent/20 p-3">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="rounded-xl border border-border/50 bg-background/80 p-3">
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Guardian</p>
+                                                    <p className="mt-1 text-sm font-bold text-foreground">
+                                                        {participant.isMinor ? participant.guardianName || 'Missing' : 'Not needed'}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        {participant.isMinor ? participant.guardianPhone || 'Phone missing' : 'Adult participant'}
+                                                    </p>
                                                 </div>
-                                                <div className="flex flex-col items-end">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase text-right">Relationship</p>
-                                                    <p className="text-sm font-bold text-right">{participant.guardianRelationship || 'Parent/Guardian'}</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Assignment and blocker status */}
-                                            <div className="space-y-2 pt-2 border-t border-border/50">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Assignment & Follow-Up</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${(participant.actCount || 0) > 0 ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                                                        <span className="text-xs font-bold">{participant.actCount ? `${participant.actCount} Act${participant.actCount > 1 ? 's' : ''}` : 'Needs Placement'}</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${participant.hasSpecialRequests ? 'bg-rose-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{participant.hasSpecialRequests ? 'Special Requests' : 'No Special Requests'}</span>
-                                                    </div>
+                                                <div className="rounded-xl border border-border/50 bg-background/80 p-3">
+                                                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Files</p>
+                                                    <p className="mt-1 text-sm font-bold text-foreground">{participant.assetStats?.approved || 0} approved</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">{approvalsPendingCount} waiting review</p>
                                                 </div>
                                             </div>
-
-                                            {/* Document status */}
-                                            <div className="space-y-2 pt-2 border-t border-border/50">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Docs & Approvals</p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${participant.assetStats?.approved && participant.assetStats.approved > 0 ? 'bg-emerald-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{participant.assetStats?.approved || 0} Approved</span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${approvalsPendingCount > 0 ? 'bg-amber-500' : 'bg-muted'}`} />
-                                                        <span className="text-xs font-bold">{approvalsPendingCount} Approvals Pending</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {participant.isMinor && (!participant.guardianName || !participant.guardianPhone) && (
-                                                <div className="p-3 rounded-lg border border-rose-600/20 bg-rose-600/5">
-                                                    <p className="text-[10px] font-bold uppercase text-rose-700 tracking-widest mb-1">Minor Safety Follow-Up</p>
-                                                    <p className="text-xs text-rose-700/90">Guardian name and phone need to be completed before the participant is considered clear.</p>
-                                                </div>
-                                            )}
-
-                                            {/* Internal Note Summary */}
                                             {participant.notes && (
-                                                <div className="mt-2 rounded-lg border border-border/50 bg-background/70 p-3">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Last Internal Note</p>
-                                                    <p className="text-xs text-muted-foreground line-clamp-2">{participant.notes}</p>
+                                                <div className="mt-3 rounded-xl border border-border/50 bg-background/80 p-3">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Last Internal Note</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{participant.notes}</p>
                                                 </div>
                                             )}
                                         </div>

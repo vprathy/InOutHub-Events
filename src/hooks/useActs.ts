@@ -5,6 +5,17 @@ import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
 import { localInputToEventIso } from '@/lib/eventTime';
 
+function hasActAudioSource(row: any) {
+    const requirements = row.act_requirements || [];
+    const assets = row.act_assets || [];
+
+    return requirements.some((requirement: any) =>
+        ['Audio', 'Generative_Audio'].includes(requirement.requirement_type) && Boolean(requirement.file_url)
+    ) || assets.some((asset: any) =>
+        asset.asset_type === 'Audio' || asset.asset_name?.toLowerCase().includes('music')
+    );
+}
+
 export function useActsQuery(eventId: string) {
     const queryClient = useQueryClient();
 
@@ -118,21 +129,17 @@ export function useActsQuery(eventId: string) {
                     escalateToUserId: issue.escalate_to_user_id,
                     resolutionNote: issue.resolution_note,
                 }));
+                const hasMusicTrack = hasActAudioSource(row);
                 const readinessSummary = deriveActReadinessSummary({
                     practices,
                     items: readinessItems,
                     issues: readinessIssues,
                     participantCount: actParticipants.length,
                     missingParticipantAssetCount: participantsWithPendingForms,
-                    hasMusicTrack: (row.act_assets || []).some((a: any) =>
-                        a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
-                    ),
+                    hasMusicTrack,
                     hasIntroRequirement: Boolean(introRequirement),
                     hasApprovedIntro: Boolean(introRequirement?.fulfilled),
                 });
-                const hasMusicTrack = (row.act_assets || []).some((a: any) =>
-                    a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
-                );
                 const introEligible = actParticipants.length > 0 && approvedPhotoCount > 0 && hasMusicTrack && !introRequirement;
 
                 return {
@@ -473,9 +480,7 @@ export function useActDetail(actId: string | null) {
                         if (assets.length === 0) return true;
                         return assets.some((asset: any) => asset.status !== 'approved');
                     }).length,
-                    hasMusicTrack: (row.act_assets || []).some((asset: any) =>
-                        asset.asset_type === 'Audio' || asset.asset_name?.toLowerCase().includes('music')
-                    ),
+                    hasMusicTrack: hasActAudioSource(row),
                     hasIntroRequirement: (row.act_requirements || []).some((requirement: any) => requirement.requirement_type === 'IntroComposition'),
                     hasApprovedIntro: (row.act_requirements || []).some((requirement: any) =>
                         requirement.requirement_type === 'IntroComposition' && requirement.fulfilled

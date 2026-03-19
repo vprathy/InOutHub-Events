@@ -175,23 +175,20 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
     - [x] Integrate startup sequence with smooth exit animation
 
 ## 🟡 Gate 15: Intro System MVP (Needs Revalidation)
-*Tightly constrained end-to-end loop for AI Intro playback.*
-- [x] Edge Function: Implement genuine "Curation" mode (Gemini Vision + requested schema)
-- [x] Intro Builder: Handle rich curation metadata and graceful fallbacks
-- [x] Console: Update `LivePerformanceController` to recognize `IntroComposition` readiness
-- [x] Console: Build `IntroVideoPlayer` Ken Burns engine (Dynamic Assembly)
-- [ ] Revalidate loop against current code (Select -> Curate -> Save -> Approve -> Play) - Backend verified on 2026-03-13; manual Builder/Stage Console pass still pending
-- [x] Reconcile intro metadata contract across builder, persistence, console, and playback
+### Gate 15: Intro System MVP (Generative Loop) & Studio Revalidation
+- [x] **Backend Freshness**: Verified `intro-capabilities` v4 (2026-03-18) is live and handles curation/composition correctly.
+- [x] **Data Alignment**: Seed data for `The strong Solo Singer` verified with 3+ approved photos and linked audio.
+- [x] **Manual UI Loop**: **VERIFIED PASS** (2026-03-18).
+  - Reset -> Prepare -> Preview -> Approve -> Console loop completed.
+  - Success: `IntroComposition` (v2026-03-18) persisted with correct asset IDs and audio preference.
+  - Audio check: Uploaded act audio correctly prioritized over generated TTS.
+  - Stage Console: `PLAY INTRO` button active and reflective of approved state.
 
-## 🟡 Gate 17: Intro Builder UX Overhaul (Industry Standard)
-*Transforming the incoherent builder into a premium "Intro Studio".*
-- [ ] Gate 15 must be revalidated before Gate 17 can be marked complete
-- [ ] **Structural Refactor**: Move Intro Builder to a primary Act Workspace tab
-- [ ] **Studio Layout**: Implement "Canvas-first" layout with unified preview
-- [ ] **Cinematic Storyboard**: Replace lists with visual horizontal cards showing AI metadata
-- [ ] **In-Builder Playback**: Integrate `IntroVideoPlayer` as a live preview component
-- [ ] **Premium Polish**: Add glassmorphism, micro-animations, and descriptive onboarding
-- [ ] **CORS Final Resolution**: Ensure `x-inouthub-trust` is correctly handled locally
+### Gate 17: Intro Builder UX Overhaul (Premium Polish)
+- [x] **Studio Layout**: Intro Builder integrated as primary Act Workspace tab with glassmorphism UI.
+- [x] **Validation Guards**: UI prevents preparation if no approved participant photos exist (Verified).
+- [ ] **Cinematic Storyboard / Playback**: Full cinematic storyboard preview and custom timing verification pending next-gen logic.
+- [x] **CORS / Trust-Headers**: Cross-origin pipeline calls verified with `x-inouthub-trust`.
 
 ---
 

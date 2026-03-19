@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, ArrowUpRight } from 'lucide-react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, ArrowUpRight, Settings2, Loader2, PencilLine } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
-import { useStagesQuery } from '@/hooks/useStages';
+import { useCreateStage, useStagesQuery, useUpdateStage } from '@/hooks/useStages';
 import {
     useLineupQuery,
     useAddLineupItem,
@@ -23,6 +23,8 @@ import { supabase } from '@/lib/supabase';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { formatEventTime } from '@/lib/eventTime';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
 
 function SortableLineupItem({
     slot,
@@ -68,8 +70,14 @@ export default function LineupPage() {
     const { eventId } = useSelection();
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isStageModalOpen, setIsStageModalOpen] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+    const [stageDrafts, setStageDrafts] = useState<Record<string, string>>({});
+    const [stageError, setStageError] = useState<string | null>(null);
 
     const { data: stages, isLoading: isLoadingStages } = useStagesQuery(eventId || '');
+    const createStage = useCreateStage();
+    const updateStage = useUpdateStage();
     const { data: lineup, isLoading: isLoadingLineup } = useLineupQuery(selectedStageId);
     const { data: allEventLineup } = useAllEventLineupQuery(eventId || '');
     const { data: stageState } = useQuery({
@@ -152,6 +160,16 @@ export default function LineupPage() {
         }
     }, [stages, selectedStageId]);
 
+    useEffect(() => {
+        if (!stages) return;
+        setStageDrafts(
+            stages.reduce<Record<string, string>>((acc, stage) => {
+                acc[stage.id] = stage.name;
+                return acc;
+            }, {}),
+        );
+    }, [stages]);
+
     const persistReorder = async (reorderedSuffix: typeof localItems) => {
         const mergedItems = [...lockedPrefixItems, ...reorderedSuffix];
         setLocalItems(mergedItems);
@@ -201,6 +219,54 @@ export default function LineupPage() {
         });
 
         setIsAddModalOpen(false);
+    };
+
+    const handleCreateStage = async () => {
+        if (!eventId) return;
+        const trimmedName = newStageName.trim();
+        if (!trimmedName) {
+            setStageError('Enter a stage name before saving.');
+            return;
+        }
+
+        setStageError(null);
+
+        try {
+            const stage = await createStage.mutateAsync({
+                eventId,
+                name: trimmedName,
+            });
+            setSelectedStageId(stage.id);
+            setNewStageName('');
+        } catch (error: any) {
+            setStageError(error.message || 'Unable to create stage right now.');
+        }
+    };
+
+    const handleRenameStage = async (stageId: string) => {
+        if (!eventId || !stages) return;
+        const trimmedName = stageDrafts[stageId]?.trim();
+        const currentStage = stages.find((stage) => stage.id === stageId);
+
+        if (!currentStage) return;
+        if (!trimmedName) {
+            setStageError('Stage names cannot be empty.');
+            return;
+        }
+        if (trimmedName === currentStage.name) return;
+
+        setStageError(null);
+
+        try {
+            await updateStage.mutateAsync({
+                stageId,
+                eventId,
+                name: trimmedName,
+                description: currentStage.description,
+            });
+        } catch (error: any) {
+            setStageError(error.message || 'Unable to rename this stage right now.');
+        }
     };
 
     if (!eventId) {
@@ -264,15 +330,25 @@ export default function LineupPage() {
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
                         <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune right now.</p>
                     </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => selectedStageId && setIsAddModalOpen(true)}
-                        disabled={!selectedStageId}
-                        className="min-h-11 gap-2 rounded-2xl border-primary/20 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/15"
-                    >
-                        Add To Flow
-                        <ArrowUpRight size={16} />
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsStageModalOpen(true)}
+                            className="min-h-11 gap-2 rounded-2xl border-border px-4 text-[11px] font-black uppercase tracking-[0.18em] text-foreground"
+                        >
+                            <Settings2 size={16} />
+                            Manage
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => selectedStageId && setIsAddModalOpen(true)}
+                            disabled={!selectedStageId}
+                            className="min-h-11 gap-2 rounded-2xl border-primary/20 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/15"
+                        >
+                            Add To Flow
+                            <ArrowUpRight size={16} />
+                        </Button>
+                    </div>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     {isLoadingStages ? (
@@ -421,6 +497,104 @@ export default function LineupPage() {
                 onAdd={handleAddAct}
                 eventId={eventId}
             />
+
+            <Modal
+                isOpen={isStageModalOpen}
+                onClose={() => {
+                    setIsStageModalOpen(false);
+                    setStageError(null);
+                    setNewStageName('');
+                }}
+                title="Stage Setup"
+            >
+                <div className="space-y-5">
+                    <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Create Stage</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Keep Phase 1 simple: add the stages your lineup and console will use.</p>
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <Input
+                                value={newStageName}
+                                onChange={(event) => setNewStageName(event.target.value)}
+                                placeholder="Main Stage"
+                                className="h-11 rounded-xl"
+                            />
+                            <Button
+                                onClick={handleCreateStage}
+                                disabled={!eventId || createStage.isPending}
+                                className="min-h-11 rounded-xl px-5"
+                            >
+                                {createStage.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} className="mr-2" />}
+                                Add Stage
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current Stages</p>
+                            <p className="mt-1 text-sm text-muted-foreground">Rename stages here. Performances stay assigned through the stage lineup.</p>
+                        </div>
+                        <div className="space-y-3">
+                            {isLoadingStages ? (
+                                <div className="rounded-2xl border border-border p-4 text-sm text-muted-foreground">Loading stages...</div>
+                            ) : stages && stages.length > 0 ? (
+                                stages.map((stage) => {
+                                    const hasChanges = stageDrafts[stage.id]?.trim() && stageDrafts[stage.id]?.trim() !== stage.name;
+                                    const isSaving = updateStage.isPending && updateStage.variables?.stageId === stage.id;
+
+                                    return (
+                                        <div key={stage.id} className="rounded-2xl border border-border bg-background/70 p-4">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-foreground">{stage.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {selectedStageId === stage.id ? 'Active in Show Flow now' : 'Available to select'}
+                                                    </p>
+                                                </div>
+                                                {selectedStageId === stage.id ? (
+                                                    <Badge className="shrink-0 bg-primary/10 text-primary">Active</Badge>
+                                                ) : null}
+                                            </div>
+                                            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                                <Input
+                                                    value={stageDrafts[stage.id] || ''}
+                                                    onChange={(event) =>
+                                                        setStageDrafts((current) => ({
+                                                            ...current,
+                                                            [stage.id]: event.target.value,
+                                                        }))
+                                                    }
+                                                    className="h-11 rounded-xl"
+                                                    aria-label={`Stage name for ${stage.name}`}
+                                                />
+                                                <Button
+                                                    variant={hasChanges ? 'default' : 'outline'}
+                                                    onClick={() => handleRenameStage(stage.id)}
+                                                    disabled={!hasChanges || isSaving}
+                                                    className="min-h-11 rounded-xl px-4"
+                                                >
+                                                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <PencilLine size={16} className="mr-2" />}
+                                                    Save
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                                    No stages yet. Add your first stage above so Show Flow and Console have a home.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {stageError ? (
+                        <div className="rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                            {stageError}
+                        </div>
+                    ) : null}
+                </div>
+            </Modal>
         </div>
     );
 }

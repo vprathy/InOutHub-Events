@@ -34,8 +34,13 @@ Git intent:
 - new app is now the forward path
 - old app is preserved as pilot/fallback
 
+Current git state:
+- latest pushed rollout commit: `5c57185` `Polish operator profiles and intro automation`
+- `main` and `origin/main` both point to `5c57185`
+- `codex/mobile-readiness-redesign` and `origin/codex/mobile-readiness-redesign` also point to `5c57185`
+
 Expected git markers:
-- branch: `main` should represent the new Phase 1 operator app
+- branch: `main` represents the new Phase 1 operator app
 - preserved branch: `pilot-v1`
 - tags:
   - `pilot-freeze-2026-03-18`
@@ -55,6 +60,7 @@ That statement covers:
 - console
 - participant and performance detail screens
 - Phase 1 act and fixed participant readiness bridges
+- **AI Intro System**: Full loop (Reset -> Prepare -> Approve -> Console) is verified and functional.
 
 That statement does **not** mean these are complete:
 - external request / LT review workflow
@@ -246,14 +252,27 @@ Current eligibility shape:
 - uploaded performance audio exists
 - no intro yet
 
-## Critical Deployment Follow-Through
+## Intro Backend Freshness
 
-### Required Before Production Uses The New Intro System
+### Backend Freshness & Full Loop Verified
 
-The updated edge function still needs deployment:
-- `/Users/vinay/dev/InOutHub-Events/supabase/functions/intro-capabilities/index.ts`
+Gate 15 (Intro System MVP) was fully revalidated on 2026-03-18.
 
-Repo code is ready, but live production will not get the new intro autopilot / telemetry behavior until that function is deployed.
+Current confirmed state:
+- repo commit baseline remains `5c57185`
+- Antigravity verified live Supabase freshness on project `qnucfdnjmcaklbwohnuj`
+- `intro-capabilities` was redeployed successfully (v4)
+- **Full Manual Loop PASS**: Verified Reset -> Prepare -> Approve -> Stage Console flow with deterministic act `The strong Solo Singer`.
+- **Audio Preference**: Confirmed that uploaded act audio is prioritized over generated TTS.
+- **Stage Console**: `PLAY INTRO` button is active and functional for approved intros.
+
+This follow-through item is now fully resolved.
+
+### Actual Next Step
+
+The next highest-value rollout task is now:
+- **Gate 17 Final Polish**: Verify full cinematic storyboard preview and custom timing logic once logic is expanded.
+- **Phase 2 Planning**: Begin drafting the dynamic participant template / document bridge architecture.
 
 ### Live Config Checks
 
@@ -373,9 +392,10 @@ These do not need to be rediscovered in the next chat unless further refinement 
 Choose one depending on intent:
 
 ### If the next chat is about rollout hardening
-- verify/deploy the updated `intro-capabilities` edge function
+- verify Gate 17 cinematic storyboard / playback polish
 - test intro autopilot and batch prep against live data
 - verify mobile phone / tablet behavior after production deploy
+- verify the current git worktree is clean before starting the next tranche
 
 ### If the next chat is about post-rollout product expansion
 - dynamic participant document bridge
@@ -391,5 +411,4 @@ Choose one depending on intent:
 
 Use something like:
 
-> Read `/Users/vinay/dev/InOutHub-Events/docs/codex/session-handoff-2026-03-18-phase1-rollout.md` first, then inspect git status and continue from the highest-value open item without redoing completed Phase 1 cleanup.
-
+> Read `/Users/vinay/dev/InOutHub-Events/docs/codex/session-handoff-2026-03-18-phase1-rollout.md` first, then inspect git status and continue from the highest-value open item without redoing completed Phase 1 cleanup. Treat Gate 15 as verified and continue with Gate 17 polish or Phase 2 follow-through.
