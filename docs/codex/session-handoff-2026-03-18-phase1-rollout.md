@@ -1,20 +1,47 @@
-# Session Handoff: 2026-03-18 Phase 1 Rollout
+# Session Handoff: Phase 1 Rollout / March 19, 2026
 
-## Purpose
+## Start Here
 
-This file is the fastest way to bring a new chat up to speed on the current InOutHub operator rollout state.
+This is the only handoff the next chat should trust.
 
-It captures:
-- what is now true in the repo
-- what has been verified
-- what still needs deployment or follow-through
-- what suggestions surfaced in recent chats but were not all executed yet
+Use it before making changes.
 
-Use this before starting new implementation work.
+It is intentionally explicit about:
+- which worktree is canonical
+- what is actually verified
+- what was intentionally disabled
+- what local changes are still dirty and unsynced
+- what should **not** be redone
 
-## Canonical Reminders
+---
 
-Authority order:
+## Canonical Repo State
+
+Canonical worktree:
+- `/Users/vinay/dev/InOutHub-Events-main`
+
+Historical rollout worktree:
+- `/Users/vinay/dev/InOutHub-Events`
+
+Canonical branch:
+- `main`
+
+Do **not** continue work on:
+- `codex/mobile-readiness-redesign`
+
+Important git/worktree note:
+- this repo uses multiple git worktrees
+- `main` is already checked out in `/Users/vinay/dev/InOutHub-Events-main`
+- trying to switch the historical worktree to `main` will fail with the normal git worktree error
+
+Node/tooling note:
+- `/Users/vinay/dev/InOutHub-Events-main/node_modules` is a symlink to `/Users/vinay/dev/InOutHub-Events/node_modules`
+- this is intentional to avoid duplicate installs / disk bloat
+
+---
+
+## Authority Order
+
 1. `database_schema.sql`
 2. `AGENTS.md`
 3. `task.md`
@@ -23,59 +50,17 @@ Authority order:
 6. runtime code in `src/` and `supabase/functions/`
 7. `docs/`
 
-External Antigravity brain files are not authoritative.
+External agent notes or “brain” files are not authoritative.
 
-## Repo / Branch State
+---
 
-- Canonical main worktree: `/Users/vinay/dev/InOutHub-Events-main`
-- Historical rollout worktree: `/Users/vinay/dev/InOutHub-Events`
-- **Tooling Fix**: `/Users/vinay/dev/InOutHub-Events-main/node_modules` is a symlink to the historical worktree's node_modules to preserve disk space.
+## What Is Actually Verified
 
-Git intent:
-- new app is now the forward path
-- old app is preserved as pilot/fallback
+### Core rollout state
 
-Current git state:
-- `main` is the canonical forward path and the branch that should keep moving
-- `origin/main` is the intended production-tracked branch
-- `pilot-v1` remains the frozen legacy app / fallback reference
-- `codex/mobile-readiness-redesign` is a preserved rollout-history branch, not the default integration trunk
+Phase 1 operator app is the active path on `main`.
 
-Branch note:
-- the redesign work originally lived on `codex/mobile-readiness-redesign`
-- that work was promoted into `main`
-- from this point forward, ongoing app changes should land on `main` unless there is an explicit reason to work elsewhere
-
-Expected git markers:
-- branch: `main` represents the new Phase 1 operator app and active trunk
-- preserved branch: `pilot-v1`
-- historical rollout branch: `codex/mobile-readiness-redesign`
-- tags:
-  - `pilot-freeze-2026-03-18`
-  - `phase1-operator-rollout-2026-03-18`
-
-## Worktree / Tooling Note
-
-This repo currently has multiple git worktrees:
-- `/Users/vinay/dev/InOutHub-Events-main` on `main`
-- `/Users/vinay/dev/InOutHub-Events` on `codex/mobile-readiness-redesign`
-
-Important:
-- git worktrees share history, but they do **not** share `node_modules` automatically
-- the `main` worktree originally failed `npm run build` with `tsc: command not found` because it had no local install
-
-Current low-disk fix:
-- `/Users/vinay/dev/InOutHub-Events-main/node_modules` is a symlink to `/Users/vinay/dev/InOutHub-Events/node_modules`
-
-Implication for future chats:
-- if `main` reports missing local build tools, check the symlink before reinstalling dependencies
-- do **not** blindly run a second full `npm install` in the `main` worktree unless the lockfiles diverge or the shared install is intentionally being removed
-
-## Phase 1 Rollout Status In Plain English
-
-Phase 1 operator rollout is ready enough to use as the primary app.
-
-That statement covers:
+This includes:
 - login / access
 - org / event selection
 - dashboard
@@ -83,357 +68,205 @@ That statement covers:
 - performances
 - show flow
 - console
-- participant and performance detail screens
-- Phase 1 act and fixed participant readiness bridges
-- **AI Intro System**: Full loop (Reset -> Prepare -> Approve -> Console) is verified and functional.
+- participant / performance profile workspaces
 
-That statement does **not** mean these are complete:
-- external request / LT review workflow
-- waitlist / triage workflow
-- compliance template library / distribution / collection
-- dynamic participant template-backed requirement unification
-- live dual-write triggers for legacy readiness tables
+### Gate 15
 
-## What Was Verified
+Gate 15 is verified.
 
-### Local App Verification
+Verified loop:
+- Reset Demo Event
+- Prepare Performance Intro
+- Preview
+- Approve for Stage
+- Stage Console reflects approved intro state
 
-Most recent local verification:
-- `npm run build` passes
+Known good deterministic act:
+- `The strong Solo Singer`
 
-### Supabase Verification Already Confirmed Via Antigravity
+### Build
 
-Act-side:
-- `requirement_policies` exists
-- `requirement_assignments` exists
-- `map_legacy_act_requirement_code` exists
-- `bridge_act_requirements_sync` exists
-- starter act policies were seeded
-- act-side assignments were backfilled
-- no live trigger was enabled on `act_requirements`
+`npm run build` passes on the canonical `main` worktree.
 
-Participant fixed-policy bridge:
-- participant-side policies exist / were inserted as needed:
-  - `guardian_contact_complete`
-  - `identity_verified`
-  - `special_request_reviewed`
-- participant-side requirement assignments were backfilled
-- no participant-side bridge trigger was created
+### PWA / install surface
 
-Important nuance:
-- identity exists in the backend bridge, but Phase 1 UI was intentionally decluttered so identity does not dominate the default operator flow
+Already completed and synced:
+- app icon refresh
+- install name aligned to `InOutHub Events`
+- dev-PWA stability fixes for localhost
 
-## Current Product Shape
+### OTP-first auth
 
-### Shared UI Structure
+Already completed and synced:
+- email OTP is primary login path
+- Google is secondary and collapsed
+- mobile auth screen was heavily simplified for phone use
+- install hint / `How to add it` exists
+- `Already have a code?` exists for browser-to-PWA continuity
 
-The app now follows one main visual grammar:
-- metric cards = stable truth
-- response cards = what needs action
-- work lane = where the operator does the work
+---
 
-Reference:
-- `/Users/vinay/dev/InOutHub-Events/docs/plans/operator-screen-organization-framework.md`
+## What Was Intentionally Disabled
 
-### Screen-Level State
+The signed-in account profile confirmation / update flow was intentionally disabled from the live UI.
 
-Dashboard:
-- calm operational snapshot
-- separate `Needs Response`
-- MECE cleanup largely done
+Reason:
+- it created too much friction
+- it was interrupting testing
+- repeated confirmation was not solved fast enough to justify more time right now
 
-Participants:
-- lighter controls
-- shared snapshot / response language
-- profile screens simplified
+Currently disabled in synced `main`:
+- automatic `Confirm your details` gate
+- `Update Profile` action in the header menu
 
-Performances:
-- lighter top-level list
-- event-admin batch intro action now present
-- performance profile restructured around operator tasks
+Relevant synced commit:
+- `0a3ade9` `Disable profile confirmation flow`
 
-Show Flow:
-- calmer run summary
-- aligned visual language
+Interpretation:
+- do **not** assume profile confirmation is live
+- do **not** keep debugging it unless explicitly asked
 
-Console:
-- more human copy
-- less engineering-shaped surface language
+---
 
-Profiles:
-- nested-navigation problem was removed
-- participant tabs are simplified
-- performance tabs are simplified
-- history/admin metadata is demoted instead of competing with the active work lane
+## What Is Still Dirty Locally Right Now
 
-## Important Feature Work Completed In This Chat
+Current unsynced local changes in the canonical worktree:
+- `database_schema.sql`
+- `src/components/auth/ProfileConfirmationGate.tsx`
+- `supabase/migrations/20260319_add_update_own_profile_rpc.sql`
 
-### 1. Screen Polish / Structural Simplification
+Also still untracked locally:
+- `public/icon-source.jpeg`
 
-Major Phase 1 screens were reworked to feel like one app:
-- dashboard
-- participants
-- performances
-- show flow
-- console
-- participant profile
-- performance profile
-- login / org selection / event selection
+Meaning:
+- there is partially implemented follow-up work for a profile RPC path
+- it is **not live**
+- it is **not pushed**
+- it should be treated as parked / unfinished unless the user explicitly wants to resume it
 
-Profiles were the main clutter hotspot and received the deepest cleanup.
+Do not assume that local dirty profile work is production intent.
 
-### 2. Shared Operational Card Language
+---
 
-Dashboard `Show Snapshot` and `Needs Response` styles were generalized and reused across the app.
+## What Was Learned About The Profile Attempt
 
-Shared component:
-- `/Users/vinay/dev/InOutHub-Events/src/components/ui/OperationalCards.tsx`
+There are two different data domains and they must stay separate:
 
-### 3. Theme / Background Coherence
+### Signed-in account profile
 
-Main operator surfaces were normalized for light and dark mode.
+Source of truth:
+- `user_profiles`
 
-Intent:
-- consistent shell backgrounds
-- fewer hardcoded colors
-- no hidden text/buttons from theme drift on the main operator spine
+Purpose:
+- support
+- troubleshooting
+- operator contact details
+- auth/session context
 
-### 4. Participant / Performance Asset Preview
+### Org/Event admin-managed operational records
 
-In-app asset preview now works in the main profile workspaces for file-backed assets.
+Source of truth:
+- participants / assignments / roster / event access structures
 
-Shared preview:
-- `/Users/vinay/dev/InOutHub-Events/src/components/ui/AssetPreviewModal.tsx`
+Purpose:
+- cast / crew operations
+- readiness
+- staffing
+- act membership
 
-Important boundary:
-- metadata-only records still do not preview, because there is no file URL to show
+Rule:
+- do **not** silently blend roster/cast records into signed-in account profile
+- do **not** imply the user profile and roster profile are the same thing
 
-### 5. Crew / People Relationship Model
+This distinction matters and must be preserved in future work.
 
-Crew was added without creating a second object model.
+---
 
-Current direction:
-- one event-level person record
-- many-to-many act assignment
-- role lives on the act membership
+## Auth / Telemetry State
 
-Supported realities:
-- same person can be a performer in one performance and crew/support in another
-- crew can also be minors
-- quick-add from the performance screen exists
-- bulk team upload template exists
-
-### 6. Intro Workflow Simplification
-
-The intro system moved away from an obvious 5-step wizard.
-
-Current operator flow:
-- `Prepare Performance Intro`
-- `Preview`
-- `Approve for Stage`
-
-Manual controls still exist, but they are de-emphasized.
-
-### 7. Intro Audio Source Correction
-
-The intro path was corrected to prefer uploaded performance audio instead of AI TTS.
+Synced on `main`:
+- OTP-first auth UI
+- auth telemetry expansion for:
+  - `email_code_requested`
+  - `email_code_verified`
+  - `google_login_started`
+  - `google_login_completed`
+  - `install_help_opened`
+  - `profile_check_shown`
+  - `profile_check_completed`
+  - `login_completed`
+  - `logout`
+  - `session_timeout`
 
 Important:
-- older generated audio can still exist as legacy fallback
-- the active intended path is uploaded performance music first
+- telemetry code was added and synced
+- but the new `auth_events.metadata` backend support depends on applying the migration below
 
-### 8. Intro Autopilot Guardrails
+Pending backend migration to apply in Supabase:
+- `/Users/vinay/dev/InOutHub-Events-main/supabase/migrations/20260319_expand_auth_events_metadata.sql`
 
-The repo now includes server-side intro-generation guardrails:
-- deterministic fingerprinting
-- cooldown
-- daily cap
-- no auto-regeneration after approval
-- persistent generation status
+Do not claim telemetry metadata is fully live until that migration is applied.
 
-### 9. Intro Telemetry / Confidence Layer
+Privacy/trust direction agreed with the user:
+- coarse troubleshooting context is acceptable
+- exact GPS-style location is not desired
+- visible timezone in profile confirmation was considered a trust issue and should not be surfaced casually
 
-Intro prep now has an optional confidence view instead of a permanently noisy status block.
+---
 
-What it supports:
-- rolling event-level average build duration
-- a simple “usually ready in ~X sec” estimate
-- event success rate with sample size
-- per-act attempt count and failure rate
-- live elapsed time while preparing
-- last successful build duration
+## Highest-Value Next Work
 
-Important:
-- this is intentionally secondary information
-- not a full-time diagnostics dashboard
+The next chat should avoid low-value churn and work on one of these only if the user wants it:
 
-### 10. Batch Intro Prep For Event Admin
+1. Finish OTP pilot validation end to end
+- Supabase OTP template / email flow
+- mobile/PWA install path
+- actual operator entry reliability
 
-Event admins can now trigger a batch action on the performances screen to prepare intros for eligible performances.
+2. Apply pending Supabase auth telemetry migration
+- only if telemetry inspection is needed now
 
-Current eligibility shape:
-- cast assigned
-- approved participant photos exist
-- uploaded performance audio exists
-- no intro yet
+3. Gate 17 polish
+- cinematic storyboard / playback refinement
+- only if user wants intro premium polish next
 
-## Intro Backend Freshness
+4. Operational UX issues surfaced by live testing
+- only when there is a real reproducible operator pain point
 
-### Backend Freshness & Full Loop Verified
+Do **not** restart profile-confirmation work unless explicitly requested.
 
-Gate 15 (Intro System MVP) was fully revalidated on 2026-03-18.
+---
 
-Current confirmed state:
-- repo commit baseline remains `5c57185`
-- Antigravity verified live Supabase freshness on project `qnucfdnjmcaklbwohnuj`
-- `intro-capabilities` was redeployed successfully (v4)
-- **Full Manual Loop PASS**: Verified Reset -> Prepare -> Approve -> Stage Console flow with deterministic act `The strong Solo Singer`.
-- **Audio Preference**: Confirmed that uploaded act audio is prioritized over generated TTS.
-- **Stage Console**: `PLAY INTRO` button is active and functional for approved intros.
+## Things The Next Chat Should Not Redo
 
-This follow-through item is now fully resolved.
+Do not redo:
+- Gate 15 verification
+- branch-model cleanup
+- icon/name install work
+- OTP-first login redesign from scratch
+- stale worktree confusion analysis
 
-### Actual Next Step
+Do not assume:
+- `codex/mobile-readiness-redesign` is the active branch
+- the profile/update flow is currently enabled
+- local dirty files are already shipped
 
-The next highest-value rollout task is now:
-- **Gate 17 Final Polish**: Verify full cinematic storyboard preview and custom timing logic once logic is expanded.
-- **Phase 2 Planning**: Begin drafting the dynamic participant template / document bridge architecture.
+---
 
-### Live Config Checks
+## Recommended First Commands For The Next Chat
 
-After promoting the new app:
-- Vercel production branch should be `main`
-- production env vars must still exist:
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
-  - optional `VITE_APP_VARIANT_LABEL`
-- Supabase Auth redirect allowlist must include the live domain and `/auth/complete`
+In `/Users/vinay/dev/InOutHub-Events-main`:
 
-## Suggestions Raised In This Chat That Were Intentionally Deferred Or Not Fully Executed
+1. `git status --short`
+2. confirm branch/worktree context
+3. check whether the user wants:
+- sync / cleanup of dirty local profile files
+- OTP testing
+- telemetry migration application
+- or a different Phase 1 pilot issue
 
-These are worth revisiting in a future chat.
+---
 
-### High-Value Next Suggestions
+## Recommended First Prompt For The Next Chat
 
-#### A. Make Batch Intro Prep More Production-Grade
-
-Current batch prep is useful, but still basic.
-
-Suggested next layer:
-- show richer progress:
-  - eligible
-  - prepared
-  - skipped
-  - failed
-- optionally move to controlled concurrency instead of strict sequential execution
-- persist batch job summaries if admins need a durable audit trail
-
-#### B. Add Org/Event-Level Intro Credit Label Overrides
-
-Current credit order is deterministic, but labels are fixed.
-
-Potential next step:
-- allow presenter/lead/choreography/support labels to be overridden per org/event
-
-Current default credit order:
-- Presented By
-- Performance
-- Lead
-- Choreography
-- Support
-- Performers
-
-Still open:
-- a clean source and rule for `Special Thanks`
-
-#### C. Rename More Participant-Facing Language To People Where Appropriate
-
-This was suggested once crew became a first-class relationship in the same registry.
-
-Why it matters:
-- `Participants` can feel too performer-only once crew, leads, choreographers, and support all live in the same event-level registry
-
-Potential approach:
-- keep current Phase 1 wording stable now
-- evaluate a gradual move toward `People` in admin/operator contexts later
-
-#### D. Dynamic Participant Template / Document Bridge
-
-Still open by design.
-
-What remains unresolved:
-- dynamic template-backed participant requirements
-- document-based participant requirement assignments beyond the fixed participant policies
-
-This is still one of the biggest architectural follow-through items after Phase 1.
-
-### Phase 2 Suggestions
-
-#### E. External Request / LT Review Workflow
-
-Still not implemented.
-
-Model already discussed:
-- Request-to-Approval
-- Approval-to-Operations
-
-Must remain separate from operational readiness.
-
-#### F. Waitlist / Triage For Sparse External Performance Requests
-
-Still planning only.
-
-Desired shape:
-- external request arrives sparse
-- leadership reviews / approves / rejects
-- only approved items convert into operational records
-
-#### G. Compliance Template Library / Distribution / Collection
-
-Still Phase 2.
-
-Target capability:
-- org/event admins can add and organize one or many standard compliance documents
-- distribute them to participants/guardians
-- collect returned files/signatures
-- tie evidence back to requirement assignments
-
-This is not a fully live end-to-end capability yet.
-
-## Suggestions That Surfaced And Were Addressed
-
-These do not need to be rediscovered in the next chat unless further refinement is desired:
-- unify visible vocabulary around `Dashboard`, `Performances`, `Show Flow`
-- preserve legacy route aliases instead of breaking older links
-- move `Preview` header badge to env-controlled only
-- reduce profile clutter and nested tab/subtab behavior
-- remove participant-side poster/generative-media leakage
-- make telemetry optional rather than always-on
-- add crew support without inventing a separate crew object model
-- support minor crew with guardian fields
-
-## Good Next-Chat Starting Points
-
-Choose one depending on intent:
-
-### If the next chat is about rollout hardening
-- verify Gate 17 cinematic storyboard / playback polish
-- test intro autopilot and batch prep against live data
-- verify mobile phone / tablet behavior after production deploy
-- verify the current git worktree is clean before starting the next tranche
-
-### If the next chat is about post-rollout product expansion
-- dynamic participant document bridge
-- external request / LT-review workflow
-- compliance template library / distribution / collection
-
-### If the next chat is about polish refinement
-- decide whether `Participants` should gradually become `People`
-- improve batch intro feedback and queue visibility
-- add org/event intro credit label controls
-
-## Recommended First Prompt For A New Chat
-
-Use something like:
-
-> Read `/Users/vinay/dev/InOutHub-Events/docs/codex/session-handoff-2026-03-18-phase1-rollout.md` first, then inspect git status and continue from the highest-value open item without redoing completed Phase 1 cleanup. Treat Gate 15 as verified and continue with Gate 17 polish or Phase 2 follow-through.
+Read `/Users/vinay/dev/InOutHub-Events-main/docs/codex/session-handoff-2026-03-18-phase1-rollout.md` first, then inspect `git status --short` in `/Users/vinay/dev/InOutHub-Events-main` and continue from the highest-value open item on `main`. Do not redo Gate 15, branch/worktree cleanup, or the disabled profile-confirmation flow unless explicitly asked.
