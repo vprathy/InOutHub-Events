@@ -26,7 +26,7 @@ export function Modal({ isOpen, onClose, title, children, hideCloseButton = fals
 
     return (
         <div
-            className="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto p-4"
+            className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top,1rem)+3.5rem)] sm:items-center sm:p-4"
             onClick={closeOnBackdrop ? onClose : undefined}
         >
             {/* Backdrop */}
@@ -36,7 +36,7 @@ export function Modal({ isOpen, onClose, title, children, hideCloseButton = fals
 
             {/* Modal */}
             <div
-                className="relative my-8 flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-200"
+                className="relative my-2 flex max-h-[calc(100vh-5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-200 sm:my-8 sm:max-h-[calc(100vh-2rem)]"
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="flex items-center justify-between mb-2">
