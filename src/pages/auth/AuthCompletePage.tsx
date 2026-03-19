@@ -63,7 +63,7 @@ export default function AuthCompletePage() {
                     <div className="rounded-[2rem] border border-border bg-card p-6 text-center shadow-sm">
                         <h1 className="text-2xl font-black tracking-tight text-foreground">Sign-in incomplete</h1>
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                            This callback did not finish the sign-in session. Return to InOutHub and try Google first, or request a fallback magic link.
+                            This callback did not finish the sign-in session. Return to InOutHub and use your email code, or try Google if you prefer the browser path.
                         </p>
                         <Button className="mt-6 h-12 w-full rounded-2xl" onClick={() => navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true })}>
                             Return To Sign In
@@ -89,7 +89,7 @@ export default function AuthCompletePage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-black tracking-tight text-foreground">Sign-in complete</h1>
                             <p className="text-sm leading-6 text-muted-foreground">
-                                Your sign-in worked. If you installed InOutHub on your phone, switch back to the app now to continue there.
+                                Your sign-in worked. Continue here in the browser, or open InOutHub Events manually from your Home Screen.
                             </p>
                         </div>
                     </div>
@@ -100,7 +100,7 @@ export default function AuthCompletePage() {
                             <div className="space-y-1">
                                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Installed App</p>
                                 <p className="text-sm text-foreground">
-                                    Reopen the installed InOutHub app on your phone. Your session should now be ready there.
+                                    The installed app will not open automatically.
                                 </p>
                             </div>
                         </div>
@@ -111,9 +111,6 @@ export default function AuthCompletePage() {
                         Continue In Browser
                     </Button>
 
-                    <p className="mt-4 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        If the installed app does not pick up the session immediately, reopen it once and then continue from the event you were working on.
-                    </p>
                 </div>
             </div>
         </div>

@@ -64,9 +64,12 @@ export const SplashScreen: React.FC = () => {
                     transition={{ delay: 0.4 }}
                     className="text-center"
                 >
-                    <h1 className="text-white text-3xl font-bold tracking-tighter mb-2">InOutHub</h1>
-                    <p className="text-zinc-500 text-sm font-medium tracking-widest uppercase mb-8">
-                        Events Command Center
+                    <h1 className="text-white text-3xl font-bold tracking-tighter mb-1">InOutHub</h1>
+                    <p className="text-zinc-400 text-lg font-medium tracking-tight mb-2">
+                        Events
+                    </p>
+                    <p className="text-zinc-500 text-[11px] font-semibold tracking-[0.22em] uppercase mb-8">
+                        Powered by ZiffyVolve
                     </p>
                 </motion.div>
 
