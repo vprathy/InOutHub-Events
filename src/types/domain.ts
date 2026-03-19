@@ -19,6 +19,7 @@ export const PerformanceRole = {
     Choreographer: 'Choreographer',
     Performer: 'Performer',
     Support: 'Support',
+    Crew: 'Crew',
 } as const;
 export type PerformanceRole = typeof PerformanceRole[keyof typeof PerformanceRole];
 
@@ -144,6 +145,7 @@ export interface ActDetails extends Act {
  */
 export interface ActWithCounts extends Act {
     participantCount: number;
+    approvedPhotoCount?: number;
     assetCount: number;
     requirementCount: number;
     // Core readiness indicators
@@ -171,6 +173,7 @@ export interface ActWithCounts extends Act {
     nextPracticeStatus?: ActPracticeStatus | null;
     openIssueCount?: number;
     missingChecklistCount?: number;
+    introEligible?: boolean;
 }
 
 /**
@@ -277,12 +280,36 @@ export interface IntroMediaRef {
     optional?: boolean;
 }
 
+export interface IntroCreditLine {
+    key: string;
+    label: string;
+    value: string;
+}
+
+export interface IntroGenerationMeta {
+    status: 'not_started' | 'preparing' | 'ready_for_review' | 'approved' | 'failed';
+    fingerprint: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    lastDurationMs?: number | null;
+    lastPreparedAt: string | null;
+    totalAttempts?: number;
+    failedAttempts?: number;
+    dailyPrepareCount: number;
+    dailyPrepareDate: string | null;
+    cooldownUntil: string | null;
+    statusMessage?: string | null;
+    lastError?: string | null;
+}
+
 export interface IntroComposition {
     version: string;
     selectedAssetIds: string[];
     curation: IntroCurationItem[];
     background: IntroMediaRef;
     audio: IntroMediaRef;
+    credits?: IntroCreditLine[];
+    generation?: IntroGenerationMeta;
     approved: boolean;
     lastUpdated: string;
 }

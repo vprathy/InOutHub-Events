@@ -19,7 +19,7 @@ export function useActsQuery(eventId: string) {
                         participant:participants(
                             id,
                             has_special_requests,
-                            participant_assets(status)
+                            participant_assets(status, type)
                         )
                     ),
                     act_assets(id, asset_type, asset_name),
@@ -42,6 +42,10 @@ export function useActsQuery(eventId: string) {
 
             return (data as any[]).map((row): ActWithCounts => {
                 const actParticipants = row.act_participants || [];
+                const approvedPhotoCount = actParticipants.filter((ap: any) => {
+                    const assets = ap.participant?.participant_assets || [];
+                    return assets.some((asset: any) => asset.type === 'photo' && asset.status === 'approved');
+                }).length;
 
                 // Calculate missing assets: Any participant with NO assets or at least one non-approved asset
                 // Actually, let's be more precise: count participants who have forms that are not approved.
@@ -129,6 +133,7 @@ export function useActsQuery(eventId: string) {
                 const hasMusicTrack = (row.act_assets || []).some((a: any) =>
                     a.asset_type === 'Audio' || a.asset_name.toLowerCase().includes('music')
                 );
+                const introEligible = actParticipants.length > 0 && approvedPhotoCount > 0 && hasMusicTrack && !introRequirement;
 
                 return {
                     id: row.id,
@@ -139,6 +144,7 @@ export function useActsQuery(eventId: string) {
                     arrivalStatus: row.arrival_status as ArrivalStatus,
                     notes: row.notes,
                     participantCount: actParticipants.length,
+                    approvedPhotoCount,
                     assetCount: row.act_assets?.length || 0,
                     requirementCount: row.act_requirements?.length || 0,
                     missingAssetCount: participantsWithPendingForms,
@@ -156,6 +162,7 @@ export function useActsQuery(eventId: string) {
                     nextPracticeStatus: readinessSummary.nextPractice?.status || null,
                     openIssueCount: readinessSummary.openIssueCount,
                     missingChecklistCount: readinessSummary.incompleteChecklistCount,
+                    introEligible,
                 };
             });
         },
@@ -703,11 +710,14 @@ export function useAddParticipantToAct(actId: string, eventId?: string) {
         mutationFn: async ({ participantId, role = 'Performer' }: { participantId: string; role?: string }) => {
             const { data, error } = await supabase
                 .from('act_participants')
-                .insert([{
+                .upsert([{
                     act_id: actId,
                     participant_id: participantId,
                     role
-                }])
+                }], {
+                    onConflict: 'act_id,participant_id',
+                    ignoreDuplicates: false,
+                })
                 .select()
                 .single();
 

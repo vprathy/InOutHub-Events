@@ -203,12 +203,12 @@ export function buildParticipantReadinessSummary(participant: any): ParticipantR
 
 export function buildActRequirementRows(act: any): RequirementRow[] {
     const participantRows = Array.isArray(act?.participants) ? act.participants : [];
-    const performers = participantRows.filter((participant: any) => !['Manager', 'Choreographer', 'Support'].includes(participant.role));
+    const performers = participantRows.filter((participant: any) => !['Manager', 'Choreographer', 'Support', 'Crew'].includes(participant.role));
     const castClear = performers.length > 0 && performers.every((participant: any) => {
         const assets = Array.isArray(participant.assets) ? participant.assets : [];
         return assets.length > 0 && assets.every((asset: any) => asset.status === 'approved');
     });
-    const teamCount = participantRows.filter((participant: any) => ['Manager', 'Choreographer', 'Support'].includes(participant.role)).length;
+    const teamCount = participantRows.filter((participant: any) => ['Manager', 'Choreographer', 'Support', 'Crew'].includes(participant.role)).length;
     const castCount = performers.length;
     const introAssignmentStatus = getActAssignmentStatus(act, 'ACT_INTRO');
     const audioAssignmentStatus = getActAssignmentStatus(act, 'ACT_AUDIO');

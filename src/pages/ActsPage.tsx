@@ -1,5 +1,6 @@
 import { useSelection } from '@/context/SelectionContext';
 import { useActsQuery } from '@/hooks/useActs';
+import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { ActCard } from '@/components/acts/ActCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Music, Search, Loader2, Plus, CheckCircle2, Clock3, Users, AlertTriangle, ChevronDown } from 'lucide-react';
@@ -9,6 +10,7 @@ import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { prepareIntroAutopilot } from '@/lib/introCapabilities';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
@@ -17,7 +19,10 @@ export default function ActsPage() {
     const [activeFilter, setActiveFilter] = useState<'all' | 'needs_cast' | 'docs' | 'intro_ready' | 'stage_ready' | 'music_missing'>('all');
     const [expandedActId, setExpandedActId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isBatchPreparing, setIsBatchPreparing] = useState(false);
+    const [batchNotice, setBatchNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
+    const { data: currentEventRole } = useCurrentEventRole(eventId || null);
 
     useEffect(() => {
         const filterParam = searchParams.get('filter');
@@ -42,9 +47,11 @@ export default function ActsPage() {
         needsCast: acts?.filter((act) => act.participantCount === 0).length || 0,
         docs: acts?.filter((act) => act.missingAssetCount > 0).length || 0,
         introReady: acts?.filter((act) => act.hasApprovedIntro).length || 0,
+        introEligible: acts?.filter((act) => act.introEligible).length || 0,
         stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
         musicMissing: acts?.filter((act) => !act.hasMusicTrack).length || 0,
     };
+    const canBatchPrepareIntros = currentEventRole === 'EventAdmin';
     const performanceResponseItems = [
         {
             key: 'needs_cast' as const,
@@ -84,6 +91,35 @@ export default function ActsPage() {
         return true;
     });
 
+    const handleBatchPrepareIntros = async () => {
+        const eligibleActs = (acts || []).filter((act) => act.introEligible);
+        if (eligibleActs.length === 0) {
+            setBatchNotice({ tone: 'error', message: 'No performances currently meet the intro prerequisites.' });
+            return;
+        }
+
+        setIsBatchPreparing(true);
+        setBatchNotice(null);
+        let prepared = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        for (const act of eligibleActs) {
+            try {
+                await prepareIntroAutopilot(act.id);
+                prepared += 1;
+            } catch {
+                failed += 1;
+            }
+        }
+
+        setIsBatchPreparing(false);
+        setBatchNotice({
+            tone: failed > 0 ? 'error' : 'success',
+            message: `${eligibleActs.length} eligible intros checked. ${prepared} prepared, ${failed} failed, ${skipped} skipped.`,
+        });
+    };
+
     if (isLoading || !eventId) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
@@ -111,15 +147,38 @@ export default function ActsPage() {
                     title="Performances"
                     subtitle={`${stats.total} in play • ${stats.stageReady} show ready • ${stats.docs} prep gaps still open`}
                     actions={
-                        <Button
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Performance
-                        </Button>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                            {canBatchPrepareIntros ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => void handleBatchPrepareIntros()}
+                                    disabled={isBatchPreparing || stats.introEligible === 0}
+                                    className="h-11 w-full sm:w-auto font-bold"
+                                >
+                                    {isBatchPreparing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Music className="w-4 h-4 mr-2" />}
+                                    Prepare Eligible Intros
+                                </Button>
+                            ) : null}
+                            <Button
+                                onClick={() => setIsAddModalOpen(true)}
+                                className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Performance
+                            </Button>
+                        </div>
                     }
                 />
+
+                {batchNotice ? (
+                    <div className={`rounded-[1.2rem] border px-4 py-3 text-sm font-semibold ${
+                        batchNotice.tone === 'success'
+                            ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+                            : 'border-destructive/20 bg-destructive/5 text-destructive'
+                    }`}>
+                        {batchNotice.message}
+                    </div>
+                ) : null}
 
                 <div className="surface-panel rounded-[1.35rem] p-3">
                     <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Performance Snapshot</p>

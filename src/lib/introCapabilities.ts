@@ -93,6 +93,10 @@ export async function curateIntroPhotos(actId: string, assetIds: string[]) {
   return invokeIntroCapability<IntroCapabilityResponse>('curateIntroPhotos', { actId, assetIds });
 }
 
+export async function prepareIntroAutopilot(actId: string) {
+  return invokeIntroCapability<IntroCapabilityResponse>('prepareIntroAutopilot', { actId });
+}
+
 export async function generateIntroBackground(actId: string, stylePreset = 'theatrical-safe') {
   return invokeIntroCapability<IntroCapabilityResponse>('generateIntroBackground', { actId, stylePreset });
 }

@@ -330,49 +330,6 @@ export function ParticipantProfilePage() {
                     <OperationalMetricCard label="Follow-Up" value={unresolvedNoteCount} icon={FileText} tone={unresolvedNoteCount > 0 ? 'warning' : 'good'} detail={unresolvedNoteCount > 0 ? 'Open notes' : 'Clear'} />
                 </div>
 
-                <div className="surface-panel rounded-[1.2rem] p-3.5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Required Items</p>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                                {unresolvedRequirementRows.length > 0
-                                    ? `${unresolvedRequirementRows.length} items still need work`
-                                    : 'Everything in the current requirement strip is clear'}
-                            </p>
-                            {nextRequirementRow ? (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Next up: {nextRequirementRow.label}
-                                </p>
-                            ) : null}
-                        </div>
-                        <Button
-                            variant="outline"
-                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.18em]"
-                            onClick={() => nextRequirementRow && handleRequirementAction(nextRequirementRow.key)}
-                            disabled={!nextRequirementRow}
-                        >
-                            {nextRequirementRow ? nextRequirementRow.actionLabel : 'Clear'}
-                        </Button>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                        {requirementRows.slice(0, 3).map((row) => {
-                            const meta = getRequirementStatusMeta(row.status as any);
-                            return (
-                                <OperationalResponseCard
-                                    key={`summary-${row.key}`}
-                                    label={row.label}
-                                    detail={row.detail}
-                                    count={meta.label}
-                                    tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
-                                    action={row.actionLabel}
-                                    onClick={() => handleRequirementAction(row.key)}
-                                />
-                            );
-                        })}
-                    </div>
-                </div>
-
                 <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 rounded-l-2xl bg-gradient-to-r from-background via-background/90 to-transparent sm:hidden" />
                     <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 rounded-r-2xl bg-gradient-to-l from-background via-background/90 to-transparent sm:hidden" />
@@ -382,14 +339,14 @@ export function ParticipantProfilePage() {
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'workspace' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Info size={14} />
-                            Workspace
+                            Profile
                         </button>
                         <button
                             onClick={() => setActiveTab('assets')}
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'assets' ? 'border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Plus size={14} />
-                            Docs & Assets
+                            Documents
                         </button>
                     </div>
                 </div>
@@ -398,18 +355,25 @@ export function ParticipantProfilePage() {
             <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
                 {activeTab === 'workspace' && (
                     <div className="animate-in fade-in space-y-4 p-4 sm:p-5 duration-300">
-                        {participant.hasSpecialRequests ? (
-                            <OperationalResponseCard
-                                label="Special Request Review"
-                                detail={participant.specialRequestRaw || 'A participant request still needs review before final show-day clearance.'}
-                                tone="warning"
-                                action="Open coordination notes"
-                                onClick={() => {
-                                    setNoteCategory('special_request');
-                                    setShowNoteForm(true);
-                                }}
+                        {nextRequirementRow ? (() => {
+                            const meta = getRequirementStatusMeta(nextRequirementRow.status as any);
+                            return (
+                                <OperationalResponseCard
+                                    key={`profile-next-${nextRequirementRow.key}`}
+                                    label="Next Action"
+                                    detail={`${nextRequirementRow.label} • ${nextRequirementRow.detail}`}
+                                    count={meta.label}
+                                    tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
+                                    action={nextRequirementRow.actionLabel}
+                                    onClick={() => handleRequirementAction(nextRequirementRow.key)}
+                                />
+                            );
+                        })() : (
+                            <OperationalEmptyResponse
+                                title="Profile Clear"
+                                detail="No participant follow-up is blocking the current profile lane."
                             />
-                        ) : null}
+                        )}
 
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr,1.05fr]">
                             <div className="space-y-4">
@@ -481,7 +445,7 @@ export function ParticipantProfilePage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-2">
                                             <FileText className="h-4 w-4 text-primary" />
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Active Coordination</h3>
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Updates & Follow-Up</h3>
                                         </div>
                                         <Button
                                             variant={showNoteForm ? 'ghost' : 'outline'}
@@ -569,6 +533,63 @@ export function ParticipantProfilePage() {
                                 </div>
                             </div>
                         </div>
+
+                        <div className="surface-panel rounded-[1.2rem] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
+                                        <Database className="mr-2 h-4 w-4 text-primary" />
+                                        Assignments
+                                    </h3>
+                                    <p className="text-sm font-semibold text-foreground">Manage which performances this participant is currently attached to.</p>
+                                </div>
+                                <Button
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => setShowAssignModal(true)}
+                                >
+                                    Assign to Performance
+                                </Button>
+                            </div>
+
+                            {participant.acts && participant.acts.length > 0 ? (
+                                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {participant.acts.map((act) => (
+                                        <div
+                                            key={act.id}
+                                            className="rounded-xl border border-border/50 bg-background/70 p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
+                                                            {act.role || 'Performer'}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="text-[9px] h-5 font-black uppercase">
+                                                            {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="mt-2 text-lg font-black tracking-tight text-foreground">{act.name}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeFromAct.mutate(act.id)}
+                                                    className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
+                                                    title="Remove from performance"
+                                                    disabled={removeFromAct.isPending}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
+                                    <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                                    <p className="text-sm font-bold text-foreground">No active assignments yet.</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Place this participant into a performance when the lineup is ready.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -580,7 +601,7 @@ export function ParticipantProfilePage() {
                                 <div>
                                     <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
                                         <CheckCircle className="w-4 h-4 mr-2 text-primary" />
-                                        Required Artifacts
+                                        Required Documents
                                     </h3>
                                     <p className="mt-1 text-sm text-muted-foreground">
                                         Uploads, approvals, and review notes live here without repeating the workspace lane.
@@ -685,7 +706,7 @@ export function ParticipantProfilePage() {
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60 flex items-center">
                                     <Plus className="w-4 h-4 mr-2 text-primary" />
-                                    Other Participant Assets
+                                    Other Files
                                 </h3>
                                 <Button
                                     size="sm"
@@ -747,109 +768,46 @@ export function ParticipantProfilePage() {
                     </div>
                 )}
 
-                {activeTab === 'workspace' && (
-                    <div className="animate-in fade-in space-y-6 p-4 sm:p-5 duration-300">
-                        <div className="surface-panel rounded-[1.2rem] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
-                                        <Database className="mr-2 h-4 w-4 text-primary" />
-                                        Performance Assignments
-                                    </h3>
-                                    <p className="text-sm font-semibold text-foreground">Manage which performances this participant is currently attached to.</p>
-                                </div>
-                                <Button
-                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                    onClick={() => setShowAssignModal(true)}
-                                >
-                                    Assign to Performance
-                                </Button>
-                            </div>
-
-                            {participant.acts && participant.acts.length > 0 ? (
-                                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                                    {participant.acts.map((act) => (
-                                        <div
-                                            key={act.id}
-                                            className="rounded-xl border border-border/50 bg-background/70 p-4"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
-                                                            {act.role || 'Performer'}
-                                                        </Badge>
-                                                        <Badge variant="outline" className="text-[9px] h-5 font-black uppercase">
-                                                            {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="mt-2 text-lg font-black tracking-tight text-foreground">{act.name}</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => removeFromAct.mutate(act.id)}
-                                                    className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
-                                                    title="Remove from performance"
-                                                    disabled={removeFromAct.isPending}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
-                                    <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                                    <p className="text-sm font-bold text-foreground">No active assignments yet.</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Place this participant into a performance when the lineup is ready.</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Assignment Modal */}
-                        <Modal
-                            isOpen={showAssignModal}
-                            onClose={() => setShowAssignModal(false)}
-                            title="Assign to Act"
-                        >
-                            <div className="space-y-4 pt-2">
-                                <p className="text-xs text-muted-foreground">Select an act to assign <strong>{participant.firstName}</strong> as a performer.</p>
-                                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                                    {allActs?.filter(act => !participant.acts?.some(a => a.id === act.id)).map(act => (
-                                        <button
-                                            key={act.id}
-                                            onClick={() => setSelectedActId(act.id)}
-                                            className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between ${selectedActId === act.id ? 'border-primary bg-primary/5 shadow-md' : 'border-border/50 hover:border-primary/20'}`}
-                                        >
-                                            <div>
-                                                <p className="text-sm font-black whitespace-nowrap">{act.name}</p>
-                                                <p className="text-[10px] text-muted-foreground uppercase font-bold">{act.participantCount} performers joined</p>
-                                            </div>
-                                            {selectedActId === act.id && <CheckCircle className="w-4 h-4 text-primary" />}
-                                        </button>
-                                    ))}
-                                    {allActs?.filter(act => !participant.acts?.some(a => a.id === act.id)).length === 0 && (
-                                        <div className="py-8 text-center bg-muted/30 rounded-xl border border-dashed">
-                                            <p className="text-xs font-bold text-muted-foreground">No more acts available</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex justify-end space-x-2 pt-4 border-t border-border/50">
-                                    <Button variant="ghost" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-                                    <Button
-                                        onClick={handleAssignAct}
-                                        disabled={!selectedActId || assignToAct.isPending}
-                                    >
-                                        {assignToAct.isPending ? 'Assigning...' : 'Confirm Assignment'}
-                                    </Button>
-                                </div>
-                            </div>
-                        </Modal>
-
-                    </div>
-                )}
-
             </div>
+
+            <Modal
+                isOpen={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                title="Assign to Performance"
+            >
+                <div className="space-y-4 pt-2">
+                    <p className="text-xs text-muted-foreground">Select a performance to assign <strong>{participant.firstName}</strong> into.</p>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                        {allActs?.filter(act => !participant.acts?.some(a => a.id === act.id)).map(act => (
+                            <button
+                                key={act.id}
+                                onClick={() => setSelectedActId(act.id)}
+                                className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between ${selectedActId === act.id ? 'border-primary bg-primary/5 shadow-md' : 'border-border/50 hover:border-primary/20'}`}
+                            >
+                                <div>
+                                    <p className="text-sm font-black whitespace-nowrap">{act.name}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">{act.participantCount} performers joined</p>
+                                </div>
+                                {selectedActId === act.id && <CheckCircle className="w-4 h-4 text-primary" />}
+                            </button>
+                        ))}
+                        {allActs?.filter(act => !participant.acts?.some(a => a.id === act.id)).length === 0 && (
+                            <div className="py-8 text-center bg-muted/30 rounded-xl border border-dashed">
+                                <p className="text-xs font-bold text-muted-foreground">No more performances available</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4 border-t border-border/50">
+                        <Button variant="ghost" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+                        <Button
+                            onClick={handleAssignAct}
+                            disabled={!selectedActId || assignToAct.isPending}
+                        >
+                            {assignToAct.isPending ? 'Assigning...' : 'Confirm Assignment'}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
 
 
             {/* Final structural balance check */}

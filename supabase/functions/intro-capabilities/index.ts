@@ -8,8 +8,10 @@ const corsHeaders = {
 
 const INTRO_REQUIREMENT_TYPE = 'IntroComposition'
 const TRUST_HEADER = 'inouthub-internal-2026-v16'
-const INTRO_COMPOSITION_VERSION = '2026-03-13'
+const INTRO_COMPOSITION_VERSION = '2026-03-18'
 const MIN_PLAYABLE_ASSET_COUNT = 1
+const INTRO_PREP_COOLDOWN_MS = 10 * 60 * 1000
+const INTRO_PREP_DAILY_LIMIT = 3
 
 class IntroCapabilityError extends Error {
   code: string
@@ -38,12 +40,36 @@ interface IntroMediaRef {
   optional?: boolean
 }
 
+interface IntroCreditLine {
+  key: string
+  label: string
+  value: string
+}
+
+interface IntroGenerationMeta {
+  status: 'not_started' | 'preparing' | 'ready_for_review' | 'approved' | 'failed'
+  fingerprint: string | null
+  startedAt?: string | null
+  completedAt?: string | null
+  lastDurationMs?: number | null
+  lastPreparedAt: string | null
+  totalAttempts?: number
+  failedAttempts?: number
+  dailyPrepareCount: number
+  dailyPrepareDate: string | null
+  cooldownUntil: string | null
+  statusMessage?: string | null
+  lastError?: string | null
+}
+
 interface IntroComposition {
   version: string
   selectedAssetIds: string[]
   curation: IntroCurationItem[]
   background: IntroMediaRef
   audio: IntroMediaRef
+  credits?: IntroCreditLine[]
+  generation?: IntroGenerationMeta
   approved: boolean
   lastUpdated: string
 }
@@ -62,6 +88,22 @@ function createDefaultComposition(): IntroComposition {
       fileUrl: null,
       source: null,
       optional: true,
+    },
+    credits: [],
+    generation: {
+      status: 'not_started',
+      fingerprint: null,
+      startedAt: null,
+      completedAt: null,
+      lastDurationMs: null,
+      lastPreparedAt: null,
+      totalAttempts: 0,
+      failedAttempts: 0,
+      dailyPrepareCount: 0,
+      dailyPrepareDate: null,
+      cooldownUntil: null,
+      statusMessage: null,
+      lastError: null,
     },
     approved: false,
     lastUpdated: new Date().toISOString(),
@@ -119,6 +161,73 @@ function normalizeComposition(raw: unknown, fallback?: Partial<IntroComposition>
         parsed.audio && typeof parsed.audio === 'object' && typeof (parsed.audio as Record<string, unknown>).optional === 'boolean'
           ? Boolean((parsed.audio as Record<string, unknown>).optional)
           : true,
+    },
+    credits: Array.isArray(parsed.credits)
+      ? parsed.credits
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => {
+            const value = item as Record<string, unknown>
+            return {
+              key: String(value.key ?? ''),
+              label: String(value.label ?? ''),
+              value: String(value.value ?? ''),
+            }
+          })
+          .filter((item) => item.key && item.label && item.value)
+      : fallback?.credits ?? [],
+    generation: {
+      status:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).status === 'string'
+          ? String((parsed.generation as Record<string, unknown>).status) as IntroGenerationMeta['status']
+          : fallback?.generation?.status ?? (fallback?.approved ? 'approved' : base.generation.status),
+      fingerprint:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).fingerprint === 'string'
+          ? String((parsed.generation as Record<string, unknown>).fingerprint)
+          : fallback?.generation?.fingerprint ?? null,
+      startedAt:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).startedAt === 'string'
+          ? String((parsed.generation as Record<string, unknown>).startedAt)
+          : fallback?.generation?.startedAt ?? null,
+      completedAt:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).completedAt === 'string'
+          ? String((parsed.generation as Record<string, unknown>).completedAt)
+          : fallback?.generation?.completedAt ?? null,
+      lastDurationMs:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).lastDurationMs === 'number'
+          ? Number((parsed.generation as Record<string, unknown>).lastDurationMs)
+          : fallback?.generation?.lastDurationMs ?? null,
+      lastPreparedAt:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).lastPreparedAt === 'string'
+          ? String((parsed.generation as Record<string, unknown>).lastPreparedAt)
+          : fallback?.generation?.lastPreparedAt ?? null,
+      totalAttempts:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).totalAttempts === 'number'
+          ? Number((parsed.generation as Record<string, unknown>).totalAttempts)
+          : fallback?.generation?.totalAttempts ?? 0,
+      failedAttempts:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).failedAttempts === 'number'
+          ? Number((parsed.generation as Record<string, unknown>).failedAttempts)
+          : fallback?.generation?.failedAttempts ?? 0,
+      dailyPrepareCount:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).dailyPrepareCount === 'number'
+          ? Number((parsed.generation as Record<string, unknown>).dailyPrepareCount)
+          : fallback?.generation?.dailyPrepareCount ?? 0,
+      dailyPrepareDate:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).dailyPrepareDate === 'string'
+          ? String((parsed.generation as Record<string, unknown>).dailyPrepareDate)
+          : fallback?.generation?.dailyPrepareDate ?? null,
+      cooldownUntil:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).cooldownUntil === 'string'
+          ? String((parsed.generation as Record<string, unknown>).cooldownUntil)
+          : fallback?.generation?.cooldownUntil ?? null,
+      statusMessage:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).statusMessage === 'string'
+          ? String((parsed.generation as Record<string, unknown>).statusMessage)
+          : fallback?.generation?.statusMessage ?? null,
+      lastError:
+        parsed.generation && typeof parsed.generation === 'object' && typeof (parsed.generation as Record<string, unknown>).lastError === 'string'
+          ? String((parsed.generation as Record<string, unknown>).lastError)
+          : fallback?.generation?.lastError ?? null,
     },
     approved: typeof parsed.approved === 'boolean' ? parsed.approved : fallback?.approved ?? base.approved,
     lastUpdated: typeof parsed.lastUpdated === 'string' ? parsed.lastUpdated : new Date().toISOString(),
@@ -270,6 +379,122 @@ async function fetchActName(supabaseClient: ReturnType<typeof createClient>, act
   return data?.name || 'Live Performance'
 }
 
+async function fetchActIntroContext(supabaseClient: ReturnType<typeof createClient>, actId: string) {
+  const { data, error } = await supabaseClient
+    .from('acts')
+    .select(`
+      name,
+      notes,
+      event:events(
+        organization:organizations(name)
+      ),
+      act_participants(
+        role,
+        participant:participants(first_name, last_name)
+      )
+    `)
+    .eq('id', actId)
+    .single()
+
+  if (error) throw error
+
+  return {
+    actName: data.name || 'Live Performance',
+    notes: data.notes || null,
+    presenterName: data.event?.organization?.name || null,
+    participantRows: (data.act_participants || []).map((row: any) => ({
+      role: row.role,
+      firstName: row.participant?.first_name || '',
+      lastName: row.participant?.last_name || '',
+    })),
+  }
+}
+
+function buildIntroCredits(context: {
+  actName: string
+  presenterName: string | null
+  participantRows: Array<{ role: string; firstName: string; lastName: string }>
+}) {
+  const fullName = (row: { firstName: string; lastName: string }) => `${row.firstName} ${row.lastName}`.trim()
+  const namesForRole = (roles: string[]) =>
+    context.participantRows
+      .filter((row) => roles.includes(row.role))
+      .map(fullName)
+      .filter(Boolean)
+
+  const leadNames = namesForRole(['Manager'])
+  const choreographerNames = namesForRole(['Choreographer'])
+  const supportNames = namesForRole(['Support', 'Crew'])
+  const performerNames = namesForRole(['Performer'])
+
+  const lines: IntroCreditLine[] = []
+  if (context.presenterName) {
+    lines.push({ key: 'presenter', label: 'Presented By', value: context.presenterName })
+  }
+  lines.push({ key: 'performance', label: 'Performance', value: context.actName })
+  if (leadNames.length > 0) {
+    lines.push({ key: 'lead', label: 'Lead', value: leadNames.join(', ') })
+  }
+  if (choreographerNames.length > 0) {
+    lines.push({ key: 'choreography', label: 'Choreography', value: choreographerNames.join(', ') })
+  }
+  if (supportNames.length > 0) {
+    lines.push({ key: 'support', label: 'Support', value: supportNames.join(', ') })
+  }
+  if (performerNames.length > 0) {
+    const performerValue = performerNames.length <= 4
+      ? performerNames.join(', ')
+      : `${performerNames.slice(0, 4).join(', ')} + ${performerNames.length - 4} more`
+    lines.push({ key: 'performers', label: 'Performers', value: performerValue })
+  }
+
+  return lines
+}
+
+function buildIntroFingerprint(args: {
+  actName: string
+  selectedAssetIds: string[]
+  audioFileUrl: string | null
+  credits: IntroCreditLine[]
+}) {
+  return JSON.stringify({
+    actName: args.actName,
+    selectedAssetIds: [...args.selectedAssetIds].sort(),
+    audioFileUrl: args.audioFileUrl,
+    credits: args.credits.map((line) => `${line.key}:${line.value}`),
+  })
+}
+
+function applyGenerationGuard(composition: IntroComposition, fingerprint: string) {
+  const now = Date.now()
+  const today = new Date().toISOString().slice(0, 10)
+  const generation = composition.generation || createDefaultComposition().generation
+
+  if (composition.approved || generation.status === 'approved') {
+    throw new IntroCapabilityError('This intro is already approved. Regenerate only if you intentionally want a new draft.', 'INTRO_ALREADY_APPROVED')
+  }
+
+  if (generation.fingerprint === fingerprint && generation.cooldownUntil && new Date(generation.cooldownUntil).getTime() > now) {
+    throw new IntroCapabilityError('Meaningful intro inputs have not changed since the last prep. Review the current draft before regenerating.', 'INTRO_NO_MEANINGFUL_CHANGE')
+  }
+
+  if (generation.cooldownUntil && new Date(generation.cooldownUntil).getTime() > now) {
+    const minutesLeft = Math.ceil((new Date(generation.cooldownUntil).getTime() - now) / 60000)
+    throw new IntroCapabilityError(`Intro prep just ran. Review the draft before regenerating again in about ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`, 'INTRO_COOLDOWN_ACTIVE')
+  }
+
+  const dailyCount = generation.dailyPrepareDate === today ? generation.dailyPrepareCount : 0
+  if (dailyCount >= INTRO_PREP_DAILY_LIMIT) {
+    throw new IntroCapabilityError(`This performance already hit the ${INTRO_PREP_DAILY_LIMIT}-run intro prep limit for today. Review the current draft instead of burning more credits.`, 'INTRO_DAILY_LIMIT_REACHED')
+  }
+
+  return {
+    generation,
+    today,
+    nextDailyCount: dailyCount + 1,
+  }
+}
+
 async function fetchLatestRequirement(
   supabaseClient: ReturnType<typeof createClient>,
   actId: string,
@@ -346,6 +571,14 @@ async function fetchCurrentComposition(supabaseClient: ReturnType<typeof createC
     },
     approved: Boolean(introRequirement?.fulfilled),
   })
+
+  if (composition.generation?.status === 'preparing' && composition.background.fileUrl) {
+    composition.generation = {
+      ...composition.generation,
+      status: composition.approved ? 'approved' : 'ready_for_review',
+      lastError: null,
+    }
+  }
 
   return {
     introRequirement,
@@ -501,6 +734,7 @@ serve(async (req: Request) => {
           ...composition,
           selectedAssetIds: orderedSelectedIds,
           curation,
+          credits: composition.credits,
           approved: false,
           lastUpdated: new Date().toISOString(),
         },
@@ -550,6 +784,13 @@ serve(async (req: Request) => {
             source: resolvedBackgroundSource,
             stylePreset,
           },
+          generation: {
+            ...(composition.generation || createDefaultComposition().generation),
+            status: resolvedBackgroundUrl ? 'ready_for_review' : 'preparing',
+            completedAt: resolvedBackgroundUrl ? new Date().toISOString() : composition.generation?.completedAt ?? null,
+            statusMessage: resolvedBackgroundUrl ? 'Backdrop ready for review.' : 'Backdrop is still publishing.',
+            lastError: null,
+          },
           approved: false,
           lastUpdated: new Date().toISOString(),
         },
@@ -593,6 +834,11 @@ serve(async (req: Request) => {
             source: 'act_audio_requirement',
             optional: true,
           },
+          generation: {
+            ...(composition.generation || createDefaultComposition().generation),
+            statusMessage: 'Performance audio linked.',
+            lastError: null,
+          },
           lastUpdated: new Date().toISOString(),
         },
         {
@@ -633,6 +879,7 @@ serve(async (req: Request) => {
           curation: Array.isArray(overrides.curation) ? overrides.curation : composition.curation,
           background: overrides.background && typeof overrides.background === 'object' ? overrides.background : composition.background,
           audio: overrides.audio && typeof overrides.audio === 'object' ? overrides.audio : composition.audio,
+          credits: Array.isArray((overrides as Record<string, unknown>).credits) ? ((overrides as Record<string, unknown>).credits as IntroCreditLine[]) : composition.credits,
           approved: false,
           lastUpdated: new Date().toISOString(),
         },
@@ -679,6 +926,13 @@ serve(async (req: Request) => {
       const updatedComposition = normalizeComposition(
         {
           ...composition,
+          generation: {
+            ...(composition.generation || createDefaultComposition().generation),
+            status: 'approved',
+            completedAt: new Date().toISOString(),
+            statusMessage: 'Approved for stage playback.',
+            lastError: null,
+          },
           approved: true,
           lastUpdated: new Date().toISOString(),
         },
@@ -698,6 +952,145 @@ serve(async (req: Request) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
       )
+    }
+
+    if (action === 'prepareIntroAutopilot') {
+      const startedAt = new Date().toISOString()
+      const startedAtMs = Date.now()
+      const { introRequirement, composition } = await fetchCurrentComposition(supabaseClient, actId)
+      const priorGeneration = composition.generation || createDefaultComposition().generation
+
+      try {
+        const actAssetMap = await fetchActAssetMap(supabaseClient, actId)
+        const selectedAssetIds = Array.from(actAssetMap.keys())
+        if (selectedAssetIds.length < MIN_PLAYABLE_ASSET_COUNT) {
+          throw new IntroCapabilityError('Approve at least one participant photo before preparing an intro.', 'INVALID_ASSET_SELECTION', {
+            minAssetCount: MIN_PLAYABLE_ASSET_COUNT,
+          })
+        }
+
+        const context = await fetchActIntroContext(supabaseClient, actId)
+        const uploadedAudio = await fetchLatestRequirement(supabaseClient, actId, 'Audio')
+        const credits = buildIntroCredits(context)
+        const fingerprint = buildIntroFingerprint({
+          actName: context.actName,
+          selectedAssetIds,
+          audioFileUrl: uploadedAudio?.file_url ?? composition.audio.fileUrl ?? null,
+          credits,
+        })
+        const guard = applyGenerationGuard(composition, fingerprint)
+
+        const curationGenerationResult = await invokeGenerationCapability(supabaseUrl, serviceRoleKey, {
+          actId,
+          mode: 'Curation',
+          assetIds: selectedAssetIds,
+        })
+        const rawSuggestions =
+          typeof curationGenerationResult.suggestions === 'string'
+            ? JSON.parse(curationGenerationResult.suggestions.replace(/```json|```/g, ''))
+            : curationGenerationResult.suggestions
+        const curation = normalizeCurationSuggestions(rawSuggestions, selectedAssetIds)
+        const orderedSelectedIds = orderSelectedIdsByCuration(selectedAssetIds, curation)
+
+        const backgroundGenerationResult = await invokeGenerationCapability(supabaseUrl, serviceRoleKey, {
+          actId,
+          mode: 'Background',
+        })
+        const shouldUseFallbackBackground = !backgroundGenerationResult.publicUrl && !composition.background.fileUrl
+        const fallbackBackgroundUrl = shouldUseFallbackBackground
+          ? buildFallbackBackgroundDataUrl(context.actName, 'theatrical-safe')
+          : null
+        const resolvedBackgroundUrl = backgroundGenerationResult.publicUrl ?? composition.background.fileUrl ?? fallbackBackgroundUrl
+        const resolvedBackgroundSource = backgroundGenerationResult.publicUrl
+          ? 'generated_background'
+          : composition.background.fileUrl
+            ? composition.background.source
+            : fallbackBackgroundUrl
+              ? 'fallback_background'
+              : composition.background.source
+
+        const nowIso = new Date().toISOString()
+        const completedAt = new Date().toISOString()
+        const updatedComposition = normalizeComposition(
+          {
+            ...composition,
+            selectedAssetIds: orderedSelectedIds,
+            curation,
+            background: {
+              fileUrl: resolvedBackgroundUrl,
+              source: resolvedBackgroundSource,
+              stylePreset: 'theatrical-safe',
+            },
+            audio: {
+              fileUrl: uploadedAudio?.file_url ?? composition.audio.fileUrl ?? null,
+              source: uploadedAudio?.file_url ? 'act_audio_requirement' : composition.audio.source,
+              optional: true,
+            },
+            credits,
+            generation: {
+              ...priorGeneration,
+              status: resolvedBackgroundUrl ? 'ready_for_review' : 'preparing',
+              fingerprint,
+              startedAt,
+              completedAt: resolvedBackgroundUrl ? completedAt : null,
+              lastDurationMs: resolvedBackgroundUrl ? Date.now() - startedAtMs : null,
+              lastPreparedAt: nowIso,
+              totalAttempts: (priorGeneration.totalAttempts || 0) + 1,
+              failedAttempts: priorGeneration.failedAttempts || 0,
+              dailyPrepareCount: guard.nextDailyCount,
+              dailyPrepareDate: guard.today,
+              cooldownUntil: new Date(Date.now() + INTRO_PREP_COOLDOWN_MS).toISOString(),
+              statusMessage: resolvedBackgroundUrl
+                ? 'Draft prepared and ready for review.'
+                : 'Draft is still preparing in the background.',
+              lastError: null,
+            },
+            approved: false,
+            lastUpdated: nowIso,
+          },
+          {
+            approved: false,
+          },
+        )
+
+        const saved = await saveComposition(supabaseClient, actId, updatedComposition, introRequirement?.id)
+
+        return new Response(
+          JSON.stringify({
+            composition: updatedComposition,
+            compositionId: saved.id,
+            isPending: Boolean(backgroundGenerationResult.isPending && !resolvedBackgroundUrl),
+            message: resolvedBackgroundUrl
+              ? 'Intro draft prepared. Review the credits and preview before stage approval.'
+              : 'Intro draft is still preparing in the background.',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        )
+      } catch (error) {
+        const failedComposition = normalizeComposition(
+          {
+            ...composition,
+            generation: {
+              ...priorGeneration,
+              status: 'failed',
+              startedAt,
+              completedAt: new Date().toISOString(),
+              lastDurationMs: Date.now() - startedAtMs,
+              totalAttempts: (priorGeneration.totalAttempts || 0) + 1,
+              failedAttempts: (priorGeneration.failedAttempts || 0) + 1,
+              statusMessage: 'Intro prep failed. Review the error before trying again.',
+              lastError: error instanceof Error ? error.message : 'Intro preparation failed',
+            },
+            approved: false,
+            lastUpdated: new Date().toISOString(),
+          },
+          {
+            approved: false,
+          },
+        )
+        await saveComposition(supabaseClient, actId, failedComposition, introRequirement?.id ?? null)
+        throw error
+      }
     }
 
     if (action === 'getPlayableIntro') {

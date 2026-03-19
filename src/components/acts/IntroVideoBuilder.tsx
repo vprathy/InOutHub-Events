@@ -25,6 +25,7 @@ import {
   generateIntroBackground,
   getIntroComposition,
   IntroCapabilityError,
+  prepareIntroAutopilot,
 } from '@/lib/introCapabilities';
 
 interface ParticipantAsset {
@@ -42,9 +43,6 @@ interface IntroVideoBuilderProps {
 
 const BACKGROUND_POLL_LIMIT = 12;
 const BACKGROUND_POLL_INTERVAL_MS = 5000;
-const INTRO_PREP_COOLDOWN_MS = 10 * 60 * 1000;
-const INTRO_PREP_DAILY_LIMIT = 3;
-
 function getAssetDisplayLabel(asset: ParticipantAsset, index: number) {
   return asset.name?.trim() || `Performer ${index + 1}`;
 }
@@ -59,50 +57,26 @@ function BrokenAssetTile({ label, compact = false }: { label: string; compact?: 
   );
 }
 
-function getUsageStorageKey(actId: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  return `intro-prep:${actId}:${today}`;
+function formatDurationMs(value?: number | null) {
+  if (!value || value <= 0) return null;
+  const seconds = Math.max(1, Math.round(value / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
-function readIntroUsage(actId: string) {
-  if (typeof window === 'undefined') {
-    return { count: 0, lastRunAt: 0 };
-  }
-
-  try {
-    const raw = window.localStorage.getItem(getUsageStorageKey(actId));
-    if (!raw) return { count: 0, lastRunAt: 0 };
-    const parsed = JSON.parse(raw) as { count?: number; lastRunAt?: number };
-    return {
-      count: Number(parsed.count || 0),
-      lastRunAt: Number(parsed.lastRunAt || 0),
-    };
-  } catch {
-    return { count: 0, lastRunAt: 0 };
-  }
-}
-
-function recordIntroUsage(actId: string) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const current = readIntroUsage(actId);
-  const next = {
-    count: current.count + 1,
-    lastRunAt: Date.now(),
-  };
-
-  try {
-    window.localStorage.setItem(getUsageStorageKey(actId), JSON.stringify(next));
-  } catch {
-    // Ignore local storage failures; this is only a soft guardrail.
-  }
+function formatElapsedSince(value?: string | null) {
+  if (!value) return null;
+  const diffMs = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return null;
+  return formatDurationMs(diffMs);
 }
 
 export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) => {
   const [assets, setAssets] = useState<ParticipantAsset[]>([]);
   const [participantCount, setParticipantCount] = useState(0);
+  const [compositionState, setCompositionState] = useState<IntroComposition | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [backgroundSource, setBackgroundSource] = useState<string | null>(null);
@@ -125,13 +99,20 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const [isRefreshingBackground, setIsRefreshingBackground] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [telemetryInsights, setTelemetryInsights] = useState<{
+    averageDurationMs: number | null;
+    successRate: number | null;
+    sampleCount: number;
+  }>({ averageDurationMs: null, successRate: null, sampleCount: 0 });
   const backgroundPollIntervalRef = useRef<number | null>(null);
 
   const hasSelectedAssets = selectedIds.length > 0;
   const hasCuration = curationSuggestions.length > 0;
   const hasBackground = Boolean(backgroundUrl);
+  const generationMeta = compositionState?.generation;
   const hasPreview = hasSelectedAssets || hasBackground;
-  const isPreparing = isCurating || isGeneratingBackground || backgroundStatus === 'pending';
+  const isPreparing = isCurating || isGeneratingBackground || backgroundStatus === 'pending' || generationMeta?.status === 'preparing';
   const backgroundSourceLabel = backgroundSource === 'fallback_background'
     ? 'Fallback Backdrop'
     : backgroundSource === 'generated_background' || backgroundSource === 'generative_background'
@@ -153,8 +134,21 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     hasSelectedAssets && !hasCuration ? 'Prepare the intro so photos are arranged for playback.' : null,
     hasCuration && !hasBackground ? 'Finish the intro background before approval.' : null,
   ].filter(Boolean) as string[];
+  const elapsedPrepareTime = generationMeta?.status === 'preparing' ? formatElapsedSince(generationMeta.startedAt || generationMeta.lastPreparedAt) : null;
+  const lastPrepareDuration = formatDurationMs(generationMeta?.lastDurationMs);
+  const estimatedReadyTime = formatDurationMs(telemetryInsights.averageDurationMs);
+  const actSuccessRate = generationMeta?.totalAttempts
+    ? Math.max(0, Math.round(((generationMeta.totalAttempts - (generationMeta.failedAttempts || 0)) / generationMeta.totalAttempts) * 100))
+    : null;
+  const eventFailureRate = telemetryInsights.successRate != null
+    ? Math.max(0, 100 - Math.round(telemetryInsights.successRate))
+    : null;
+  const actFailureRate = actSuccessRate != null
+    ? Math.max(0, 100 - actSuccessRate)
+    : null;
 
   const syncFromComposition = (composition: IntroComposition, nextCompositionId: string | null) => {
+    setCompositionState(composition);
     setCompositionId(nextCompositionId);
     setBackgroundUrl(composition.background.fileUrl);
     setBackgroundSource(composition.background.source ?? null);
@@ -164,7 +158,13 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     setSelectedIds(composition.selectedAssetIds || []);
     setCurationSuggestions(composition.curation || []);
     setIsBackgroundBroken(false);
-    setBackgroundStatus(composition.background.fileUrl ? 'ready' : 'idle');
+    setBackgroundStatus(
+      composition.generation?.status === 'preparing'
+        ? 'pending'
+        : composition.background.fileUrl
+          ? 'ready'
+          : 'idle'
+    );
   };
 
   const resetCompositionState = () => {
@@ -173,6 +173,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       backgroundPollIntervalRef.current = null;
     }
     setSelectedIds([]);
+    setCompositionState(null);
     setBackgroundUrl(null);
     setBackgroundSource(null);
     setAudioUrl(null);
@@ -218,6 +219,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     try {
       await fetchAssets();
       await fetchComposition();
+      await fetchTelemetryInsights();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to load intro composition');
     }
@@ -247,6 +249,47 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const fetchComposition = async () => {
     const result = await getIntroComposition(actId);
     syncFromComposition(result.composition, result.compositionId);
+  };
+
+  const fetchTelemetryInsights = async () => {
+    const { data: currentAct, error: currentActError } = await supabase
+      .from('acts')
+      .select('event_id')
+      .eq('id', actId)
+      .single();
+
+    if (currentActError || !currentAct?.event_id) return;
+
+    const { data: eventActs, error: eventActsError } = await supabase
+      .from('acts')
+      .select('act_requirements(description, requirement_type)')
+      .eq('event_id', currentAct.event_id);
+
+    if (eventActsError) return;
+
+    const compositions = (eventActs || [])
+      .flatMap((act: any) => act.act_requirements || [])
+      .filter((requirement: any) => requirement.requirement_type === 'IntroComposition')
+      .map((requirement: any) => {
+        try {
+          return JSON.parse(requirement.description || '{}') as IntroComposition;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean) as IntroComposition[];
+
+    const durations = compositions
+      .map((composition) => composition.generation?.lastDurationMs)
+      .filter((value): value is number => typeof value === 'number' && value > 0);
+    const attempts = compositions.reduce((sum, composition) => sum + (composition.generation?.totalAttempts || 0), 0);
+    const failedAttempts = compositions.reduce((sum, composition) => sum + (composition.generation?.failedAttempts || 0), 0);
+
+    setTelemetryInsights({
+      averageDurationMs: durations.length > 0 ? durations.reduce((sum, value) => sum + value, 0) / durations.length : null,
+      successRate: attempts > 0 ? ((attempts - failedAttempts) / attempts) * 100 : null,
+      sampleCount: compositions.length,
+    });
   };
 
   const clearBackgroundPolling = () => {
@@ -337,6 +380,8 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         source: audioUrl ? audioSource : null,
         optional: true,
       },
+      credits: compositionState?.credits || [],
+      generation: compositionState?.generation,
       approved,
       lastUpdated: new Date().toISOString()
     };
@@ -423,22 +468,6 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
     }
   };
 
-  const runPrepareGuard = () => {
-    const usage = readIntroUsage(actId);
-    const now = Date.now();
-
-    if (usage.lastRunAt && now - usage.lastRunAt < INTRO_PREP_COOLDOWN_MS) {
-      const minutesLeft = Math.ceil((INTRO_PREP_COOLDOWN_MS - (now - usage.lastRunAt)) / 60000);
-      return `Intro prep just ran. Review the draft before regenerating again in about ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`;
-    }
-
-    if (usage.count >= INTRO_PREP_DAILY_LIMIT) {
-      return `This performance already hit the ${INTRO_PREP_DAILY_LIMIT}-run intro prep limit for today. Review the current draft instead of burning more credits.`;
-    }
-
-    return null;
-  };
-
   const prepareIntro = async () => {
     if (isApproved) {
       setInfoMessage('This intro is already approved. Use review instead of preparing a new draft.');
@@ -454,23 +483,25 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       return;
     }
 
-    const guardMessage = runPrepareGuard();
-    if (guardMessage) {
-      setInfoMessage(guardMessage);
-      return;
-    }
-
-    const nextSelectedIds = assets.map((asset) => asset.id);
-    setSelectedIds(nextSelectedIds);
     setErrorMessage(null);
     setInfoMessage('Preparing the intro draft in the background.');
-
-    await syncPerformanceAudio();
-    const curated = await curateAssets(nextSelectedIds);
-    if (!curated) return;
-
-    await generateBackground();
-    recordIntroUsage(actId);
+    setIsCurating(true);
+    try {
+      const result = await prepareIntroAutopilot(actId);
+      syncFromComposition(result.composition, result.compositionId);
+      if (result.isPending) {
+        setBackgroundStatus('pending');
+        setInfoMessage(result.message || 'Intro draft is still preparing in the background.');
+        startBackgroundPolling();
+      } else {
+        setBackgroundStatus(result.composition.background.fileUrl ? 'ready' : 'idle');
+        setInfoMessage(result.message || 'Intro draft is ready for review.');
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Intro preparation failed');
+    } finally {
+      setIsCurating(false);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -486,15 +517,23 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
   if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" /></div>;
 
-  const statusLabel = isApproved
+  const liveStatus = (generationMeta?.status as string | undefined)
+    || (isApproved
+      ? 'approved'
+      : isPreparing
+        ? 'preparing'
+        : hasBackground && hasCuration
+          ? 'ready_for_review'
+          : compositionId
+            ? 'ready_for_review'
+            : 'not_started');
+  const statusLabel = liveStatus === 'approved'
     ? 'Approved'
-    : isPreparing
+    : liveStatus === 'preparing'
       ? 'Preparing'
-      : hasBackground && hasCuration
+      : liveStatus === 'ready_for_review'
         ? 'Ready for Review'
-        : compositionId
-          ? 'Draft'
-          : 'Not Started';
+        : 'Not Started';
   const primaryActionLabel = isApproved ? 'Approved for Stage' : hasBackground && hasCuration ? 'Approve for Stage' : 'Prepare Performance Intro';
 
   return (
@@ -630,6 +669,71 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           </div>
         </div>
 
+        <Card className="rounded-2xl border-border/60 bg-muted/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Intro Confidence</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">
+                {generationMeta?.statusMessage || (
+                  estimatedReadyTime
+                    ? `Usually ready in ~${estimatedReadyTime}${telemetryInsights.sampleCount > 0 ? ` across ${telemetryInsights.sampleCount} recent intros` : ''}.`
+                    : isPreparing
+                      ? 'Preparing intro draft…'
+                      : 'Ready for review actions.'
+                )}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTelemetry((current) => !current)}
+              className="min-h-[44px] rounded-xl border-border/80 px-4 text-[10px] font-black uppercase tracking-[0.18em]"
+            >
+              {showTelemetry ? 'Hide Timing Details' : 'Timing Details'}
+            </Button>
+          </div>
+          {(showTelemetry || isPreparing) ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Status</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{statusLabel}</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Elapsed</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{elapsedPrepareTime || '—'}</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Usually Ready</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{estimatedReadyTime || '—'}</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Event Success</p>
+                <p className="mt-1 text-sm font-bold text-foreground">
+                  {telemetryInsights.successRate != null ? `${Math.round(telemetryInsights.successRate)}%` : '—'}
+                </p>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                  {telemetryInsights.sampleCount > 0
+                    ? `${telemetryInsights.sampleCount} recent intros${eventFailureRate != null ? ` • ${eventFailureRate}% failure rate` : ''}`
+                    : 'No event sample yet'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">This Act</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{actSuccessRate != null ? `${actSuccessRate}%` : '—'}</p>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                  {generationMeta?.totalAttempts
+                    ? `${generationMeta.totalAttempts} attempts${actFailureRate != null ? ` • ${actFailureRate}% failure rate` : ''}`
+                    : 'No act attempts yet'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Last Build</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{lastPrepareDuration || '—'}</p>
+              </div>
+            </div>
+          ) : null}
+        </Card>
+
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card className="relative aspect-video overflow-hidden rounded-[2rem] border-slate-900/80 bg-slate-950 shadow-2xl">
             {backgroundUrl && !isBackgroundBroken ? (
@@ -697,6 +801,20 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
             </div>
 
             <div className="space-y-3">
+              {compositionState?.credits && compositionState.credits.length > 0 ? (
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Credits</p>
+                  <div className="mt-3 space-y-2">
+                    {compositionState.credits.map((line) => (
+                      <div key={line.key} className="flex items-start justify-between gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{line.label}</p>
+                        <p className="text-right text-sm font-semibold text-foreground">{line.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {curationSuggestions.slice(0, 3).map((suggestion, idx) => (
                 <div key={`${suggestion.id}-${idx}`} className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Frame {idx + 1}</p>
@@ -843,6 +961,19 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
               <p className="mt-1 text-sm font-bold">{audioSourceLabel}</p>
             </div>
           </div>
+          {compositionState?.credits && compositionState.credits.length > 0 ? (
+            <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Credit Order</p>
+              <div className="mt-3 space-y-2">
+                {compositionState.credits.map((line) => (
+                  <div key={`preview-${line.key}`} className="flex items-start justify-between gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{line.label}</p>
+                    <p className="text-right text-sm font-semibold text-foreground">{line.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </Modal>
     </>

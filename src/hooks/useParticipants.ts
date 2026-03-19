@@ -492,19 +492,28 @@ export function useCreateParticipant(eventId: string) {
         mutationFn: async (participant: {
             firstName: string;
             lastName: string;
+            isMinor?: boolean;
             guardianName?: string | null;
             guardianPhone?: string | null;
+            guardianRelationship?: string | null;
+            email?: string | null;
             notes?: string | null;
         }) => {
+            const notesParts = [participant.notes?.trim() || null];
+            if (participant.email?.trim()) {
+                notesParts.push(`[Email: ${participant.email.trim()}]`);
+            }
             const { data, error } = await (supabase as any)
                 .from('participants')
                 .insert([{
                     event_id: eventId,
                     first_name: participant.firstName.trim(),
                     last_name: participant.lastName.trim(),
+                    is_minor: participant.isMinor ?? false,
                     guardian_name: participant.guardianName ?? null,
                     guardian_phone: participant.guardianPhone ?? null,
-                    notes: participant.notes ?? null,
+                    guardian_relationship: participant.guardianRelationship ?? null,
+                    notes: notesParts.filter(Boolean).join(' ').trim() || null,
                     source_system: 'manual',
                     source_instance: 'mobile-ops',
                     source_anchor_type: 'manual_entry',

@@ -119,7 +119,7 @@ export function useDashboardRadar(eventId: string) {
             const actCoverage = new Map<string, { performerCount: number; teamCount: number }>();
             (actParticipants || []).forEach((row: any) => {
                 const current = actCoverage.get(row.act_id) || { performerCount: 0, teamCount: 0 };
-                if (['Manager', 'Choreographer', 'Support'].includes(row.role)) {
+                if (['Manager', 'Choreographer', 'Support', 'Crew'].includes(row.role)) {
                     current.teamCount += 1;
                 } else {
                     current.performerCount += 1;
