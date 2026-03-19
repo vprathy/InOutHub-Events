@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, Mail, ShieldCheck, Smartphone } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Mail, ShieldCheck, Smartphone } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { buildLoginRedirectTo } from '@/lib/authConfig';
 import { rememberMagicLinkRequest } from '@/lib/authTelemetry';
-import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 function isStandaloneDisplayMode() {
     if (typeof window === 'undefined') return false;
@@ -31,6 +32,9 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [codeRequestedFor, setCodeRequestedFor] = useState<string | null>(null);
+    const [showInstallHelp, setShowInstallHelp] = useState(false);
+    const [showPrimarySignIn, setShowPrimarySignIn] = useState(true);
+    const [showSecondarySignIn, setShowSecondarySignIn] = useState(false);
     const [status, setStatus] = useState<'idle' | 'google-loading' | 'code-loading' | 'verify-loading' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -128,155 +132,218 @@ export default function LoginPage() {
         setErrorMessage('');
     };
 
+    const togglePrimarySignIn = () => {
+        setShowPrimarySignIn((current) => {
+            const next = !current;
+            if (next) {
+                setShowSecondarySignIn(false);
+            }
+            return next;
+        });
+    };
+
+    const toggleSecondarySignIn = () => {
+        setShowSecondarySignIn((current) => {
+            const next = !current;
+            if (next) {
+                setShowPrimarySignIn(false);
+            }
+            return next;
+        });
+    };
+
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-            <div className="w-full max-w-md space-y-5">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-[22rem] space-y-4">
                 <div className="flex justify-center">
-                    <BrandMark size="md" showLabel className="justify-center" />
+                    <BrandMark size="lg" showLabel className="justify-center" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                    <OperationalMetricCard label="Access" value="Secure" icon={ShieldCheck} tone="good" />
-                    <OperationalMetricCard label="Primary Path" value="Email Code" icon={Mail} tone="info" />
-                </div>
-
-                <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-                    <div className="space-y-4 text-center">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            <span>Secure Sign In</span>
-                        </div>
+                <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
+                    <div className="space-y-2 text-center">
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black tracking-tight text-foreground">Sign in to InOutHub</h1>
-                            <p className="text-sm leading-6 text-muted-foreground">
-                                Use the one-time code sent to your email. Google sign-in remains available as a secondary option.
-                            </p>
+                            <h1 className="text-lg font-bold tracking-tight text-foreground">Sign in to continue</h1>
                         </div>
                     </div>
 
-                    <div className="mt-6 space-y-4">
-                        {!codeRequestedFor ? (
-                            <form className="space-y-4" onSubmit={handleRequestCode}>
-                                <div className="space-y-2">
-                                    <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                        Email Address
-                                    </label>
-                                    <Input
-                                        type="email"
-                                        autoComplete="email"
-                                        inputMode="email"
-                                        placeholder="name@example.com"
-                                        value={email}
-                                        onChange={(event) => setEmail(event.target.value)}
-                                        className="h-12 rounded-2xl"
-                                        required
-                                    />
+                    <div className="mt-4 space-y-3">
+                        <div className="rounded-2xl border border-border bg-background/70">
+                            <button
+                                type="button"
+                                onClick={togglePrimarySignIn}
+                                className="flex min-h-[44px] w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+                            >
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Email code</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {codeRequestedFor ? `Continue with ${codeRequestedFor}` : 'Primary sign-in'}
+                                    </p>
                                 </div>
+                                {showPrimarySignIn ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                            </button>
 
-                                {status === 'error' ? (
-                                    <OperationalResponseCard
-                                        label="Sign-In Error"
-                                        detail={errorMessage}
-                                        tone="critical"
-                                    />
-                                ) : null}
-
-                                {shouldShowInstallPrompt ? (
-                                    <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 text-left">
-                                        <div className="flex items-start gap-3">
-                                            <Smartphone className="mt-0.5 h-5 w-5 text-primary" />
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Best On Phone</p>
-                                                <p className="text-sm text-foreground">
-                                                    After your first sign-in, add InOutHub Events to your Home Screen for faster operator access.
-                                                </p>
+                            {showPrimarySignIn ? (
+                                <div className="space-y-3 border-t border-border px-4 pb-3 pt-3">
+                                    {!codeRequestedFor ? (
+                                        <form className="space-y-3" onSubmit={handleRequestCode}>
+                                            <div className="space-y-1.5">
+                                                <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                    Email Address
+                                                </label>
+                                                <Input
+                                                    type="email"
+                                                    autoComplete="email"
+                                                    inputMode="email"
+                                                    placeholder="name@example.com"
+                                                    value={email}
+                                                    onChange={(event) => setEmail(event.target.value)}
+                                                    className="h-11 rounded-2xl"
+                                                    required
+                                                />
                                             </div>
-                                        </div>
-                                    </div>
-                                ) : null}
 
-                                <Button type="submit" className="h-12 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}>
-                                    {status === 'code-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                                    Send Email Code
-                                </Button>
-                            </form>
-                        ) : (
-                            <form className="space-y-4" onSubmit={handleVerifyCode}>
-                                <OperationalResponseCard
-                                    label="Email Code Sent"
-                                    detail={`Enter the 6-digit code sent to ${codeRequestedFor}.`}
-                                    tone="good"
-                                />
+                                            {status === 'error' ? (
+                                                <OperationalResponseCard
+                                                    label="Sign-In Error"
+                                                    detail={errorMessage}
+                                                    tone="critical"
+                                                />
+                                            ) : null}
 
-                                <div className="space-y-2">
-                                    <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                        One-Time Code
-                                    </label>
-                                    <Input
-                                        type="text"
-                                        autoComplete="one-time-code"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        placeholder="123456"
-                                        value={otpCode}
-                                        onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        className="h-12 rounded-2xl text-center text-lg tracking-[0.35em]"
-                                        required
-                                    />
+                                            <p className="text-center text-xs font-medium leading-5 text-muted-foreground">
+                                                Watch for an email from Supabase. If it does not appear, check your junk folder.
+                                            </p>
+
+                                            <Button type="submit" className="h-11 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}>
+                                                {status === 'code-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                                                Send Email Code
+                                            </Button>
+                                        </form>
+                                    ) : (
+                                        <form className="space-y-3" onSubmit={handleVerifyCode}>
+                                            <OperationalResponseCard
+                                                label="Email Code Sent"
+                                                detail={`Enter the 6-digit code sent to ${codeRequestedFor}. Watch for an email from Supabase. If it does not appear, check your junk folder.`}
+                                                tone="good"
+                                            />
+
+                                            <div className="space-y-1.5">
+                                                <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                    One-Time Code
+                                                </label>
+                                                <Input
+                                                    type="text"
+                                                    autoComplete="one-time-code"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    placeholder="123456"
+                                                    value={otpCode}
+                                                    onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    className="h-11 rounded-2xl text-center text-lg tracking-[0.35em]"
+                                                    required
+                                                />
+                                            </div>
+
+                                            {status === 'error' ? (
+                                                <OperationalResponseCard
+                                                    label="Code Error"
+                                                    detail={errorMessage}
+                                                    tone="critical"
+                                                />
+                                            ) : null}
+
+                                            <Button type="submit" className="h-11 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading' || otpCode.trim().length < 6}>
+                                                {status === 'verify-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                                                Verify Code
+                                            </Button>
+
+                                            <Button type="button" variant="outline" className="h-11 w-full rounded-2xl" onClick={handleUseDifferentEmail} disabled={status === 'verify-loading'}>
+                                                Use Different Email
+                                            </Button>
+                                        </form>
+                                    )}
                                 </div>
+                            ) : null}
+                        </div>
 
-                                {shouldShowInstallPrompt ? (
-                                    <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 text-left">
-                                        <div className="flex items-start gap-3">
-                                            <Smartphone className="mt-0.5 h-5 w-5 text-primary" />
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Home Screen App</p>
-                                                <p className="text-sm text-foreground">
-                                                    Finish sign-in here first. Then add InOutHub Events to your Home Screen if you want the installed app.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : null}
+                        <div className="rounded-2xl border border-border bg-background/70">
+                            <button
+                                type="button"
+                                onClick={toggleSecondarySignIn}
+                                className="flex min-h-[44px] w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+                            >
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Other sign-in options</p>
+                                    <p className="text-xs text-muted-foreground">Google sign-in</p>
+                                </div>
+                                {showSecondarySignIn ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                            </button>
 
-                                {status === 'error' ? (
-                                    <OperationalResponseCard
-                                        label="Code Error"
-                                        detail={errorMessage}
-                                        tone="critical"
-                                    />
-                                ) : null}
+                            {showSecondarySignIn ? (
+                                <div className="space-y-3 border-t border-border px-4 pb-3 pt-3">
+                                    <p className="text-xs font-medium leading-5 text-muted-foreground">
+                                        Sign in with Google.
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-11 w-full rounded-2xl border-border bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900"
+                                        onClick={handleGoogleSignIn}
+                                        disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}
+                                    >
+                                        {status === 'google-loading' ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" aria-hidden="true">
+                                                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.39 3.62v3.01h3.87c2.26-2.08 3.56-5.14 3.56-8.66Z"/>
+                                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-3.01c-1.07.72-2.45 1.14-4.06 1.14-3.12 0-5.76-2.11-6.7-4.95H1.3v3.11A11.99 11.99 0 0 0 12 24Z"/>
+                                                <path fill="#FBBC05" d="M5.3 14.27A7.2 7.2 0 0 1 4.93 12c0-.79.14-1.55.37-2.27V6.62H1.3A11.99 11.99 0 0 0 0 12c0 1.93.46 3.76 1.3 5.38l4-3.11Z"/>
+                                                <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.94 1.13 15.23 0 12 0A11.99 11.99 0 0 0 1.3 6.62l4 3.11c.94-2.84 3.58-4.96 6.7-4.96Z"/>
+                                            </svg>
+                                        )}
+                                        Continue with Google
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
 
-                                <Button type="submit" className="h-12 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading' || otpCode.trim().length < 6}>
-                                    {status === 'verify-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                                    Verify Code
-                                </Button>
-
-                                <Button type="button" variant="outline" className="h-12 w-full rounded-2xl" onClick={handleUseDifferentEmail} disabled={status === 'verify-loading'}>
-                                    Use Different Email
-                                </Button>
-                            </form>
-                        )}
-
-                        <OperationalEmptyResponse
-                            title="Secondary Option"
-                            detail="Use Google only if you prefer it and the consent-screen tradeoff is acceptable."
-                        />
-
-                        <Button type="button" variant="outline" className="h-12 w-full rounded-2xl" onClick={handleGoogleSignIn} disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}>
-                            {status === 'google-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4 fill-current" aria-hidden="true"><path d="M21.805 10.023h-9.18v3.955h5.27c-.227 1.27-.907 2.347-1.93 3.067v2.547h3.12c1.827-1.683 2.88-4.16 2.88-7.102 0-.663-.06-1.3-.16-1.927Z"/><path d="M12.625 22c2.61 0 4.8-.865 6.4-2.408l-3.12-2.547c-.866.58-1.974.923-3.28.923-2.52 0-4.654-1.703-5.417-3.99H4.003v2.628A9.67 9.67 0 0 0 12.625 22Z"/><path d="M7.208 13.978A5.8 5.8 0 0 1 6.905 12c0-.687.12-1.35.303-1.978V7.394H4.003A9.67 9.67 0 0 0 2.94 12c0 1.56.373 3.037 1.063 4.606l3.205-2.628Z"/><path d="M12.625 6.032c1.42 0 2.694.487 3.697 1.443l2.773-2.773C17.42 3.14 15.236 2 12.625 2a9.67 9.67 0 0 0-8.622 5.394l3.205 2.628c.763-2.287 2.897-3.99 5.417-3.99Z"/></svg>}
-                            Continue With Google
-                        </Button>
+                        {shouldShowInstallPrompt ? (
+                            <div className="rounded-2xl border border-primary/10 bg-primary/5 px-3 py-2.5 text-center">
+                                <p className="text-[13px] leading-5 text-foreground">
+                                    Install InOutHub Events on your Home Screen for faster access on this device.
+                                    {' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowInstallHelp(true)}
+                                        className="font-semibold text-primary underline underline-offset-4"
+                                    >
+                                        How to add it
+                                    </button>
+                                </p>
+                            </div>
+                        ) : null}
                     </div>
-
-                    <p className="mt-4 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        Email code is the primary phone-friendly sign-in path. Use Google only when you want the browser flow instead.
-                    </p>
-                    <p className="mt-2 text-center text-xs font-medium leading-5 text-muted-foreground">
-                        Don't have access yet? Contact your organization or event admin to complete access setup.
-                    </p>
                 </div>
             </div>
+
+            <Modal isOpen={showInstallHelp} onClose={() => setShowInstallHelp(false)} title="Add To Home Screen">
+                <div className="space-y-4 text-base leading-7 text-foreground">
+                    <div className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4">
+                        <Smartphone className="mt-1 h-5 w-5 shrink-0 text-primary" />
+                        <div>
+                            <p className="font-semibold">iPhone</p>
+                            <p className="text-muted-foreground">Tap Share, then choose <span className="font-semibold text-foreground">Add to Home Screen</span>.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-border bg-background p-4">
+                        <Smartphone className="mt-1 h-5 w-5 shrink-0 text-primary" />
+                        <div>
+                            <p className="font-semibold">Android</p>
+                            <p className="text-muted-foreground">Open the browser menu, then choose <span className="font-semibold text-foreground">Add to Home Screen</span> or <span className="font-semibold text-foreground">Install app</span>.</p>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
