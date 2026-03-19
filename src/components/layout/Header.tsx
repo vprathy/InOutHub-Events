@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, UserCog, ShieldCheck, ClipboardCheck } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, ClipboardCheck } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +11,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
 import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
-import { ProfileDetailsModal } from '@/components/auth/ProfileConfirmationGate';
 
 export function Header() {
     const { organizationId, eventId } = useSelection();
@@ -19,7 +18,6 @@ export function Header() {
     const signOut = useAppSignOut();
     const { user } = useAuth();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-    const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
     const [isOrgAccessOpen, setIsOrgAccessOpen] = useState(false);
     const [isEventAccessOpen, setIsEventAccessOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -277,16 +275,6 @@ export function Header() {
                                 <button
                                     onClick={() => {
                                         setIsProfileMenuOpen(false);
-                                        setIsProfileEditorOpen(true);
-                                    }}
-                                    className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                                >
-                                    <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <span>Update Profile</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsProfileMenuOpen(false);
                                         void handleLogout();
                                     }}
                                     className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
@@ -299,11 +287,6 @@ export function Header() {
                     ) : null}
                 </div>
             </div>
-
-            <ProfileDetailsModal
-                isOpen={isProfileEditorOpen}
-                onClose={() => setIsProfileEditorOpen(false)}
-            />
 
             <ManageOrgAccessModal
                 isOpen={isOrgAccessOpen}
