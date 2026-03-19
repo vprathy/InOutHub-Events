@@ -287,9 +287,10 @@ CREATE TABLE auth_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES user_profiles(id) ON DELETE CASCADE,
     context_event_id UUID REFERENCES events(id) ON DELETE SET NULL,
-    event_type TEXT NOT NULL CHECK (event_type IN ('magic_link_requested', 'login_completed', 'logout', 'session_timeout')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('magic_link_requested', 'email_code_requested', 'email_code_verified', 'google_login_started', 'google_login_completed', 'install_help_opened', 'profile_check_shown', 'profile_check_completed', 'login_completed', 'logout', 'session_timeout')),
     ip_address TEXT,
     user_agent TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 

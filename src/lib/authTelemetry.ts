@@ -1,10 +1,22 @@
 import { supabase } from '@/lib/supabase';
 
 const APP_SESSION_ID_KEY = 'inouthub_app_session_id';
-const PENDING_MAGIC_LINK_KEY = 'inouthub_pending_magic_link';
+const PENDING_AUTH_EVENTS_KEY = 'inouthub_pending_auth_events';
 
-type AuthEventType = 'magic_link_requested' | 'login_completed' | 'logout' | 'session_timeout';
+type AuthEventType =
+    | 'magic_link_requested'
+    | 'email_code_requested'
+    | 'email_code_verified'
+    | 'google_login_started'
+    | 'google_login_completed'
+    | 'install_help_opened'
+    | 'profile_check_shown'
+    | 'profile_check_completed'
+    | 'login_completed'
+    | 'logout'
+    | 'session_timeout';
 type SessionEndReason = 'logout' | 'timed_out' | 'revoked' | 'replaced' | 'ended';
+type AuthEventMetadata = Record<string, unknown>;
 
 function readSessionStorage(key: string) {
     if (typeof window === 'undefined') return null;
@@ -21,6 +33,24 @@ function removeSessionStorage(key: string) {
     window.sessionStorage.removeItem(key);
 }
 
+function getDisplayMode() {
+    if (typeof window === 'undefined') return 'unknown';
+
+    const standaloneMedia = window.matchMedia?.('(display-mode: standalone)').matches;
+    const standaloneNavigator = 'standalone' in window.navigator && Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+
+    if (standaloneMedia || standaloneNavigator) return 'standalone';
+    return 'browser';
+}
+
+function getDeviceType() {
+    if (typeof window === 'undefined') return 'unknown';
+    const width = window.innerWidth;
+    if (width < 768) return 'mobile';
+    if (width < 1024) return 'tablet';
+    return 'desktop';
+}
+
 function getDeviceInfo() {
     if (typeof window === 'undefined') return {};
 
@@ -28,6 +58,14 @@ function getDeviceInfo() {
         userAgent: window.navigator.userAgent,
         language: window.navigator.language,
         platform: window.navigator.platform,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        displayMode: getDisplayMode(),
+        deviceType: getDeviceType(),
+        pwaVersion: import.meta.env.VITE_APP_VERSION || '1.0.0',
+        viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+        },
         screen: {
             width: window.screen.width,
             height: window.screen.height,
@@ -35,31 +73,59 @@ function getDeviceInfo() {
     };
 }
 
-export function rememberMagicLinkRequest(email: string) {
-    writeSessionStorage(PENDING_MAGIC_LINK_KEY, JSON.stringify({
-        email,
-        requestedAt: new Date().toISOString(),
-    }));
-}
-
-export async function flushPendingMagicLinkRequest(contextEventId?: string | null) {
-    const raw = readSessionStorage(PENDING_MAGIC_LINK_KEY);
-    if (!raw) return;
+function readPendingAuthEvents(): Array<{ eventType: AuthEventType; metadata?: AuthEventMetadata; createdAt?: string }> {
+    const raw = readSessionStorage(PENDING_AUTH_EVENTS_KEY);
+    if (!raw) return [];
 
     try {
-        const parsed = JSON.parse(raw) as { requestedAt?: string };
-        await logAuthEvent('magic_link_requested', {
-            contextEventId,
-            createdAt: parsed.requestedAt,
-        });
+        const parsed = JSON.parse(raw) as Array<{ eventType: AuthEventType; metadata?: AuthEventMetadata; createdAt?: string }>;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function writePendingAuthEvents(events: Array<{ eventType: AuthEventType; metadata?: AuthEventMetadata; createdAt?: string }>) {
+    writeSessionStorage(PENDING_AUTH_EVENTS_KEY, JSON.stringify(events));
+}
+
+export function queuePendingAuthEvent(
+    eventType: AuthEventType,
+    metadata?: AuthEventMetadata
+) {
+    const pending = readPendingAuthEvents();
+    pending.push({
+        eventType,
+        metadata,
+        createdAt: new Date().toISOString(),
+    });
+    writePendingAuthEvents(pending);
+}
+
+export function rememberMagicLinkRequest(email: string) {
+    queuePendingAuthEvent('email_code_requested', { email });
+}
+
+export async function flushPendingAuthEvents(contextEventId?: string | null) {
+    const pending = readPendingAuthEvents();
+    if (!pending.length) return;
+
+    try {
+        for (const event of pending) {
+            await logAuthEvent(event.eventType, {
+                contextEventId,
+                createdAt: event.createdAt,
+                metadata: event.metadata ?? undefined,
+            });
+        }
     } finally {
-        removeSessionStorage(PENDING_MAGIC_LINK_KEY);
+        removeSessionStorage(PENDING_AUTH_EVENTS_KEY);
     }
 }
 
 export async function logAuthEvent(
     eventType: AuthEventType,
-    options?: { contextEventId?: string | null; createdAt?: string }
+    options?: { contextEventId?: string | null; createdAt?: string; metadata?: AuthEventMetadata }
 ) {
     const {
         data: { user },
@@ -72,6 +138,10 @@ export async function logAuthEvent(
         context_event_id: options?.contextEventId ?? null,
         event_type: eventType,
         user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : null,
+        metadata: {
+            ...getDeviceInfo(),
+            ...(options?.metadata ?? {}),
+        },
         created_at: options?.createdAt,
     });
 }

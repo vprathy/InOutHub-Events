@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, Settings, ShieldCheck, ClipboardCheck } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut, UserCog, ShieldCheck, ClipboardCheck } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
 import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
+import { ProfileDetailsModal } from '@/components/auth/ProfileConfirmationGate';
 
 export function Header() {
     const { organizationId, eventId } = useSelection();
@@ -18,7 +19,7 @@ export function Header() {
     const signOut = useAppSignOut();
     const { user } = useAuth();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
     const [isOrgAccessOpen, setIsOrgAccessOpen] = useState(false);
     const [isEventAccessOpen, setIsEventAccessOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -276,12 +277,12 @@ export function Header() {
                                 <button
                                     onClick={() => {
                                         setIsProfileMenuOpen(false);
-                                        setIsSettingsOpen(true);
+                                        setIsProfileEditorOpen(true);
                                     }}
                                     className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
                                 >
-                                    <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <span>Profile</span>
+                                    <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                    <span>Update Profile</span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -299,47 +300,10 @@ export function Header() {
                 </div>
             </div>
 
-            {isSettingsOpen ? (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" onClick={() => setIsSettingsOpen(false)}>
-                    <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
-                    <div
-                        className="relative w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <div className="space-y-1">
-                            <h2 className="text-xl font-black tracking-tight text-foreground">Profile & Settings</h2>
-                            <p className="text-sm text-muted-foreground">Prototype account controls for the app shell.</p>
-                        </div>
-
-                        <div className="mt-6 space-y-4">
-                            <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                                <div className="flex items-start gap-3">
-                                    <ShieldCheck className="mt-0.5 h-5 w-5 text-foreground" />
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-black text-foreground">Session Behavior</p>
-                                        <p className="text-sm text-muted-foreground">Authentication persists across the current device context, and inactivity still signs out after 30 minutes.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-                                <p className="text-sm font-black text-foreground">Signed In As</p>
-                                <p className="mt-1 text-sm text-muted-foreground">{displayName}</p>
-                                {emailLabel ? <p className="text-sm text-muted-foreground">{emailLabel}</p> : null}
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex justify-end">
-                            <button
-                                onClick={() => setIsSettingsOpen(false)}
-                                className="min-h-[44px] rounded-2xl bg-muted px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-foreground transition-colors hover:bg-accent"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            <ProfileDetailsModal
+                isOpen={isProfileEditorOpen}
+                onClose={() => setIsProfileEditorOpen(false)}
+            />
 
             <ManageOrgAccessModal
                 isOpen={isOrgAccessOpen}

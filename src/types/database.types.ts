@@ -291,6 +291,7 @@ export type Database = {
                     event_type: string
                     id: string
                     ip_address: string | null
+                    metadata: Json | null
                     user_agent: string | null
                     user_id: string
                 }
@@ -300,6 +301,7 @@ export type Database = {
                     event_type: string
                     id?: string
                     ip_address?: string | null
+                    metadata?: Json | null
                     user_agent?: string | null
                     user_id?: string
                 }
@@ -309,6 +311,7 @@ export type Database = {
                     event_type?: string
                     id?: string
                     ip_address?: string | null
+                    metadata?: Json | null
                     user_agent?: string | null
                     user_id?: string
                 }

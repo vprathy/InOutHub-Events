@@ -4,7 +4,7 @@ import { CheckCircle2, ExternalLink, Loader2, Smartphone } from 'lucide-react';
 import { BrandMark } from '@/components/branding/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
-import { flushPendingMagicLinkRequest, logAuthEvent } from '@/lib/authTelemetry';
+import { flushPendingAuthEvents, logAuthEvent } from '@/lib/authTelemetry';
 
 function isStandaloneDisplayMode() {
     if (typeof window === 'undefined') return false;
@@ -37,7 +37,8 @@ export default function AuthCompletePage() {
     useEffect(() => {
         if (!isLoading && isAuthenticated) {
             void (async () => {
-                await flushPendingMagicLinkRequest();
+                await flushPendingAuthEvents();
+                await logAuthEvent('google_login_completed');
                 await logAuthEvent('login_completed');
             })();
         }

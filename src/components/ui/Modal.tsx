@@ -6,9 +6,11 @@ interface ModalProps {
     onClose: () => void
     title: string
     children: React.ReactNode
+    hideCloseButton?: boolean
+    closeOnBackdrop?: boolean
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, hideCloseButton = false, closeOnBackdrop = true }: ModalProps) {
     React.useEffect(() => {
         if (!isOpen) return
 
@@ -25,7 +27,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
-            onClick={onClose}
+            onClick={closeOnBackdrop ? onClose : undefined}
         >
             {/* Backdrop */}
             <div
@@ -39,12 +41,14 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             >
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xl font-bold text-foreground tracking-tight">{title}</h2>
-                    <button
-                        onClick={onClose}
-                        className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
+                    {hideCloseButton ? null : (
+                        <button
+                            onClick={onClose}
+                            className="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="min-h-0 overflow-y-auto pr-1">

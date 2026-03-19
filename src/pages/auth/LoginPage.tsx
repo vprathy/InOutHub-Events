@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { buildLoginRedirectTo } from '@/lib/authConfig';
-import { rememberMagicLinkRequest } from '@/lib/authTelemetry';
+import { logAuthEvent, queuePendingAuthEvent, rememberMagicLinkRequest } from '@/lib/authTelemetry';
 import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 function isStandaloneDisplayMode() {
@@ -72,6 +72,8 @@ export default function LoginPage() {
             setErrorMessage(error.message || 'Could not start Google sign-in.');
             return;
         }
+
+        queuePendingAuthEvent('google_login_started');
     };
 
     const handleRequestCode = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -120,6 +122,17 @@ export default function LoginPage() {
             setErrorMessage(error.message || 'Could not verify email code.');
             return;
         }
+
+        await logAuthEvent('email_code_verified', {
+            metadata: {
+                email: codeRequestedFor,
+            },
+        });
+        await logAuthEvent('login_completed', {
+            metadata: {
+                method: 'email_code',
+            },
+        });
 
         setStatus('idle');
         navigate(nextPath, { replace: true });
@@ -328,18 +341,23 @@ export default function LoginPage() {
                         </div>
 
                         {shouldShowInstallPrompt ? (
-                            <div className="rounded-2xl border border-primary/10 bg-primary/5 px-3 py-2 text-center">
-                                <p className="text-xs leading-5 text-foreground">
-                                    Install InOutHub Events on your Home Screen for faster access on this device.
-                                    {' '}
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowInstallHelp(true)}
-                                        className="font-semibold text-primary underline underline-offset-4"
-                                    >
-                                        How to add it
-                                    </button>
-                                </p>
+                                                <div className="rounded-2xl border border-primary/10 bg-primary/5 px-3 py-2 text-center">
+                                                    <p className="text-xs leading-5 text-foreground">
+                                                        Install InOutHub Events on your Home Screen for faster access on this device.
+                                                        {' '}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                queuePendingAuthEvent('install_help_opened', {
+                                                                    surface: codeRequestedFor ? 'code_entry' : 'request_code',
+                                                                });
+                                                                setShowInstallHelp(true);
+                                                            }}
+                                                            className="font-semibold text-primary underline underline-offset-4"
+                                                        >
+                                                            How to add it
+                                                        </button>
+                                                    </p>
                             </div>
                         ) : null}
                     </div>
