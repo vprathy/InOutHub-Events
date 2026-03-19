@@ -54,18 +54,18 @@ export default function AuthCompletePage() {
 
     if (!isAuthenticated) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-                <div className="w-full max-w-md space-y-8">
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-3">
+                <div className="w-full max-w-[21rem] space-y-3">
                     <div className="flex justify-center">
                         <BrandMark size="md" showLabel className="justify-center" />
                     </div>
 
-                    <div className="rounded-[2rem] border border-border bg-card p-6 text-center shadow-sm">
-                        <h1 className="text-2xl font-black tracking-tight text-foreground">Sign-in incomplete</h1>
+                    <div className="rounded-[1.75rem] border border-border bg-card p-4 text-center shadow-sm">
+                        <h1 className="text-lg font-black tracking-tight text-foreground">Sign-in incomplete</h1>
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">
                             This callback did not finish the sign-in session. Return to InOutHub and use your email code, or try Google if you prefer the browser path.
                         </p>
-                        <Button className="mt-6 h-12 w-full rounded-2xl" onClick={() => navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true })}>
+                        <Button className="mt-5 h-11 w-full rounded-2xl" onClick={() => navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true })}>
                             Return To Sign In
                         </Button>
                     </div>
@@ -75,26 +75,26 @@ export default function AuthCompletePage() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-            <div className="w-full max-w-md space-y-8">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-3">
+            <div className="w-full max-w-[21rem] space-y-3">
                 <div className="flex justify-center">
                     <BrandMark size="md" showLabel className="justify-center" />
                 </div>
 
-                <div className="rounded-[2rem] border border-border bg-card p-6 shadow-sm">
-                    <div className="space-y-4 text-center">
+                <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
+                    <div className="space-y-3 text-center">
                         <div className="mx-auto inline-flex rounded-full bg-emerald-500/10 p-3 text-emerald-600">
                             <CheckCircle2 className="h-7 w-7" />
                         </div>
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black tracking-tight text-foreground">Sign-in complete</h1>
+                            <h1 className="text-2xl font-black tracking-tight text-foreground">Sign-in complete</h1>
                             <p className="text-sm leading-6 text-muted-foreground">
                                 Your sign-in worked. Continue here in the browser, or open InOutHub Events manually from your Home Screen.
                             </p>
                         </div>
                     </div>
 
-                    <div className="mt-6 space-y-3 rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-primary/10 bg-primary/5 p-4">
                         <div className="flex items-start gap-3">
                             <Smartphone className="mt-0.5 h-5 w-5 text-primary" />
                             <div className="space-y-1">
@@ -106,7 +106,7 @@ export default function AuthCompletePage() {
                         </div>
                     </div>
 
-                    <Button className="mt-6 h-12 w-full rounded-2xl" onClick={() => navigate(nextPath, { replace: true })}>
+                    <Button className="mt-5 h-11 w-full rounded-2xl" onClick={() => navigate(nextPath, { replace: true })}>
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Continue In Browser
                     </Button>

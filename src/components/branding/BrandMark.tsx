@@ -8,8 +8,23 @@ interface BrandMarkProps {
 
 const sizeClasses = {
     sm: 'h-9 w-9',
-    md: 'h-11 w-11',
-    lg: 'h-20 w-20',
+    md: 'h-12 w-12',
+    lg: 'h-16 w-16',
+} as const;
+
+const labelClasses = {
+    sm: {
+        title: 'text-base',
+        subtitle: 'text-xs',
+    },
+    md: {
+        title: 'text-xl',
+        subtitle: 'text-sm',
+    },
+    lg: {
+        title: 'text-xl',
+        subtitle: 'text-sm',
+    },
 } as const;
 
 export function BrandMark({ size = 'md', showLabel = false, className }: BrandMarkProps) {
@@ -20,8 +35,8 @@ export function BrandMark({ size = 'md', showLabel = false, className }: BrandMa
             </div>
             {showLabel ? (
                 <div className="min-w-0">
-                    <p className="truncate text-lg font-black tracking-tight text-foreground">InOutHub</p>
-                    <p className="truncate text-sm font-medium text-muted-foreground">Events</p>
+                    <p className={cn('truncate font-black tracking-tight text-foreground', labelClasses[size].title)}>InOutHub</p>
+                    <p className={cn('truncate font-medium text-muted-foreground', labelClasses[size].subtitle)}>Events</p>
                 </div>
             ) : null}
         </div>

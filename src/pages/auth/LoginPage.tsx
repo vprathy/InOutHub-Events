@@ -132,6 +132,13 @@ export default function LoginPage() {
         setErrorMessage('');
     };
 
+    const handleAlreadyHaveCode = () => {
+        const normalizedEmail = email.trim().toLowerCase();
+        setCodeRequestedFor(normalizedEmail || '');
+        setStatus('idle');
+        setErrorMessage('');
+    };
+
     const togglePrimarySignIn = () => {
         setShowPrimarySignIn((current) => {
             const next = !current;
@@ -153,20 +160,18 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-[22rem] space-y-4">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-3">
+            <div className="w-full max-w-[21rem] space-y-3">
                 <div className="flex justify-center">
-                    <BrandMark size="lg" showLabel className="justify-center" />
+                    <BrandMark size="md" showLabel className="justify-center" />
                 </div>
 
                 <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
-                    <div className="space-y-2 text-center">
-                        <div className="space-y-2">
-                            <h1 className="text-lg font-bold tracking-tight text-foreground">Sign in to continue</h1>
-                        </div>
+                    <div className="text-center">
+                        <h1 className="text-base font-bold tracking-tight text-foreground">Sign in to continue</h1>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-2.5">
                         <div className="rounded-2xl border border-border bg-background/70">
                             <button
                                 type="button"
@@ -176,17 +181,17 @@ export default function LoginPage() {
                                 <div>
                                     <p className="text-sm font-semibold text-foreground">Email code</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {codeRequestedFor ? `Continue with ${codeRequestedFor}` : 'Primary sign-in'}
+                                        {codeRequestedFor ? `Sent to ${codeRequestedFor}` : 'Primary sign-in'}
                                     </p>
                                 </div>
                                 {showPrimarySignIn ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                             </button>
 
                             {showPrimarySignIn ? (
-                                <div className="space-y-3 border-t border-border px-4 pb-3 pt-3">
+                                <div className="space-y-2.5 border-t border-border px-4 pb-3 pt-2.5">
                                     {!codeRequestedFor ? (
-                                        <form className="space-y-3" onSubmit={handleRequestCode}>
-                                            <div className="space-y-1.5">
+                                        <form className="space-y-2.5" onSubmit={handleRequestCode}>
+                                            <div className="space-y-1">
                                                 <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                                                     Email Address
                                                 </label>
@@ -218,16 +223,28 @@ export default function LoginPage() {
                                                 {status === 'code-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                                                 Send Email Code
                                             </Button>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleAlreadyHaveCode}
+                                                disabled={!email.trim() || status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}
+                                                className="min-h-[44px] w-full text-center text-xs font-medium text-muted-foreground underline underline-offset-4 disabled:no-underline disabled:opacity-50"
+                                            >
+                                                Already have a code?
+                                            </button>
                                         </form>
                                     ) : (
-                                        <form className="space-y-3" onSubmit={handleVerifyCode}>
-                                            <OperationalResponseCard
-                                                label="Email Code Sent"
-                                                detail={`Enter the 6-digit code sent to ${codeRequestedFor}. Watch for an email from Supabase. If it does not appear, check your junk folder.`}
-                                                tone="good"
-                                            />
+                                        <form className="space-y-2.5" onSubmit={handleVerifyCode}>
+                                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-center">
+                                                <p className="text-sm font-medium leading-6 text-foreground">
+                                                    Code sent to <span className="font-semibold">{codeRequestedFor}</span>
+                                                </p>
+                                                <p className="text-xs leading-5 text-muted-foreground">
+                                                    Check for an email from Supabase. Look in junk if needed.
+                                                </p>
+                                            </div>
 
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1">
                                                 <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                                                     One-Time Code
                                                 </label>
@@ -256,10 +273,6 @@ export default function LoginPage() {
                                                 {status === 'verify-loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                                                 Verify Code
                                             </Button>
-
-                                            <Button type="button" variant="outline" className="h-11 w-full rounded-2xl" onClick={handleUseDifferentEmail} disabled={status === 'verify-loading'}>
-                                                Use Different Email
-                                            </Button>
                                         </form>
                                     )}
                                 </div>
@@ -274,16 +287,23 @@ export default function LoginPage() {
                             >
                                 <div>
                                     <p className="text-sm font-semibold text-foreground">Other sign-in options</p>
-                                    <p className="text-xs text-muted-foreground">Google sign-in</p>
+                                    <p className="text-xs text-muted-foreground">Different email or Google</p>
                                 </div>
                                 {showSecondarySignIn ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                             </button>
 
                             {showSecondarySignIn ? (
                                 <div className="space-y-3 border-t border-border px-4 pb-3 pt-3">
-                                    <p className="text-xs font-medium leading-5 text-muted-foreground">
-                                        Sign in with Google.
-                                    </p>
+                                    {codeRequestedFor ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleUseDifferentEmail}
+                                            disabled={status === 'verify-loading'}
+                                            className="min-h-[44px] w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground disabled:opacity-50"
+                                        >
+                                            Use Different Email
+                                        </button>
+                                    ) : null}
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -308,8 +328,8 @@ export default function LoginPage() {
                         </div>
 
                         {shouldShowInstallPrompt ? (
-                            <div className="rounded-2xl border border-primary/10 bg-primary/5 px-3 py-2.5 text-center">
-                                <p className="text-[13px] leading-5 text-foreground">
+                            <div className="rounded-2xl border border-primary/10 bg-primary/5 px-3 py-2 text-center">
+                                <p className="text-xs leading-5 text-foreground">
                                     Install InOutHub Events on your Home Screen for faster access on this device.
                                     {' '}
                                     <button
