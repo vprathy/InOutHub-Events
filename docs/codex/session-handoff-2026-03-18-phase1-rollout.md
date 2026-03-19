@@ -35,13 +35,20 @@ Git intent:
 - old app is preserved as pilot/fallback
 
 Current git state:
-- latest pushed rollout commit: `5c57185` `Polish operator profiles and intro automation`
-- `main` and `origin/main` both point to `5c57185`
-- `codex/mobile-readiness-redesign` and `origin/codex/mobile-readiness-redesign` also point to `5c57185`
+- `main` is the canonical forward path and the branch that should keep moving
+- `origin/main` is the intended production-tracked branch
+- `pilot-v1` remains the frozen legacy app / fallback reference
+- `codex/mobile-readiness-redesign` is a preserved rollout-history branch, not the default integration trunk
+
+Branch note:
+- the redesign work originally lived on `codex/mobile-readiness-redesign`
+- that work was promoted into `main`
+- from this point forward, ongoing app changes should land on `main` unless there is an explicit reason to work elsewhere
 
 Expected git markers:
-- branch: `main` represents the new Phase 1 operator app
+- branch: `main` represents the new Phase 1 operator app and active trunk
 - preserved branch: `pilot-v1`
+- historical rollout branch: `codex/mobile-readiness-redesign`
 - tags:
   - `pilot-freeze-2026-03-18`
   - `phase1-operator-rollout-2026-03-18`
