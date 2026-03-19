@@ -16,6 +16,106 @@ type UserProfileRow = {
     metadata: Record<string, unknown> | null;
 };
 
+type CountryOption = {
+    label: string;
+    dialCode: string;
+    maxDigits: number;
+    placeholder: string;
+};
+
+const COUNTRY_OPTIONS: CountryOption[] = [
+    { label: 'United States / Canada', dialCode: '+1', maxDigits: 10, placeholder: '(555) 123-4567' },
+    { label: 'India', dialCode: '+91', maxDigits: 10, placeholder: '98765 43210' },
+    { label: 'United Kingdom', dialCode: '+44', maxDigits: 10, placeholder: '7400 123 456' },
+    { label: 'United Arab Emirates', dialCode: '+971', maxDigits: 9, placeholder: '50 123 4567' },
+    { label: 'Australia', dialCode: '+61', maxDigits: 9, placeholder: '412 345 678' },
+];
+
+function onlyDigits(value: string) {
+    return value.replace(/\D/g, '');
+}
+
+function formatLocalNumber(dialCode: string, rawValue: string) {
+    const digits = onlyDigits(rawValue);
+
+    if (dialCode === '+1') {
+        const a = digits.slice(0, 3);
+        const b = digits.slice(3, 6);
+        const c = digits.slice(6, 10);
+        if (!b) return a;
+        if (!c) return `(${a}) ${b}`;
+        return `(${a}) ${b}-${c}`;
+    }
+
+    if (dialCode === '+91') {
+        const a = digits.slice(0, 5);
+        const b = digits.slice(5, 10);
+        return b ? `${a} ${b}` : a;
+    }
+
+    if (dialCode === '+44') {
+        const a = digits.slice(0, 4);
+        const b = digits.slice(4, 7);
+        const c = digits.slice(7, 10);
+        if (!b) return a;
+        if (!c) return `${a} ${b}`;
+        return `${a} ${b} ${c}`;
+    }
+
+    if (dialCode === '+971') {
+        const a = digits.slice(0, 2);
+        const b = digits.slice(2, 5);
+        const c = digits.slice(5, 9);
+        if (!b) return a;
+        if (!c) return `${a} ${b}`;
+        return `${a} ${b} ${c}`;
+    }
+
+    if (dialCode === '+61') {
+        const a = digits.slice(0, 3);
+        const b = digits.slice(3, 6);
+        const c = digits.slice(6, 9);
+        if (!b) return a;
+        if (!c) return `${a} ${b}`;
+        return `${a} ${b} ${c}`;
+    }
+
+    return digits.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
+}
+
+function formatStoredPhone(dialCode: string, localDigits: string) {
+    const formattedLocal = formatLocalNumber(dialCode, localDigits);
+    return formattedLocal ? `${dialCode} ${formattedLocal}` : dialCode;
+}
+
+function parseStoredPhone(phoneNumber: string | null) {
+    const raw = (phoneNumber ?? '').trim();
+    if (!raw) {
+        return {
+            dialCode: '+1',
+            localNumber: '',
+        };
+    }
+
+    const matchedCountry = [...COUNTRY_OPTIONS]
+        .sort((a, b) => b.dialCode.length - a.dialCode.length)
+        .find((option) => raw.startsWith(option.dialCode));
+
+    if (matchedCountry) {
+        const localDigits = onlyDigits(raw.slice(matchedCountry.dialCode.length)).slice(0, matchedCountry.maxDigits);
+        return {
+            dialCode: matchedCountry.dialCode,
+            localNumber: formatLocalNumber(matchedCountry.dialCode, localDigits),
+        };
+    }
+
+    const digits = onlyDigits(raw).slice(0, 10);
+    return {
+        dialCode: '+1',
+        localNumber: formatLocalNumber('+1', digits),
+    };
+}
+
 type ProfileDetailsModalProps = {
     isOpen: boolean;
     onClose: () => void;
@@ -35,6 +135,7 @@ export function ProfileDetailsModal({
     const [profile, setProfile] = useState<UserProfileRow | null>(null);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [phoneCountryCode, setPhoneCountryCode] = useState('+1');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [notice, setNotice] = useState('');
 
@@ -77,7 +178,9 @@ export function ProfileDetailsModal({
             setProfile(row);
             setFirstName(row.first_name ?? '');
             setLastName(row.last_name ?? '');
-            setPhoneNumber(row.phone_number ?? '');
+            const parsedPhone = parseStoredPhone(row.phone_number);
+            setPhoneCountryCode(parsedPhone.dialCode);
+            setPhoneNumber(parsedPhone.localNumber);
             setIsLoading(false);
 
             if (required && needsConfirmation) {
@@ -98,7 +201,10 @@ export function ProfileDetailsModal({
     }, [detectedTimezone, isOpen, required, user?.id]);
 
     const handleSave = async () => {
-        if (!user?.id || !firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
+        const selectedCountry = COUNTRY_OPTIONS.find((option) => option.dialCode === phoneCountryCode) ?? COUNTRY_OPTIONS[0];
+        const localDigits = onlyDigits(phoneNumber).slice(0, selectedCountry.maxDigits);
+
+        if (!user?.id || !firstName.trim() || !lastName.trim() || !localDigits) {
             setNotice('Add your name and mobile number to continue.');
             return;
         }
@@ -117,7 +223,7 @@ export function ProfileDetailsModal({
             .update({
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
-                phone_number: phoneNumber.trim(),
+                phone_number: formatStoredPhone(phoneCountryCode, localDigits),
                 timezone_pref: profile?.timezone_pref || detectedTimezone,
                 metadata: nextMetadata,
             })
@@ -143,6 +249,8 @@ export function ProfileDetailsModal({
     };
 
     if (!isOpen) return null;
+
+    const selectedCountry = COUNTRY_OPTIONS.find((option) => option.dialCode === phoneCountryCode) ?? COUNTRY_OPTIONS[0];
 
     return (
         <Modal
@@ -178,19 +286,39 @@ export function ProfileDetailsModal({
 
                         <div className="space-y-1">
                             <label className="ml-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Mobile Number</label>
-                            <Input
-                                type="tel"
-                                autoComplete="tel"
-                                inputMode="tel"
-                                value={phoneNumber}
-                                onChange={(event) => setPhoneNumber(event.target.value)}
-                                className="h-11 rounded-2xl"
-                            />
+                            <div className="grid grid-cols-[132px_1fr] gap-3">
+                                <select
+                                    value={phoneCountryCode}
+                                    onChange={(event) => {
+                                        setPhoneCountryCode(event.target.value);
+                                        setPhoneNumber('');
+                                    }}
+                                    className="h-11 rounded-2xl border border-border bg-background px-3 text-sm text-foreground"
+                                >
+                                    {COUNTRY_OPTIONS.map((option) => (
+                                        <option key={option.dialCode} value={option.dialCode}>
+                                            {option.dialCode}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Input
+                                    type="tel"
+                                    autoComplete="tel"
+                                    inputMode="tel"
+                                    placeholder={selectedCountry.placeholder}
+                                    value={phoneNumber}
+                                    onChange={(event) => {
+                                        const nextDigits = onlyDigits(event.target.value).slice(0, selectedCountry.maxDigits);
+                                        setPhoneNumber(formatLocalNumber(phoneCountryCode, nextDigits));
+                                    }}
+                                    className="h-11 rounded-2xl"
+                                />
+                            </div>
+                            <p className="ml-1 text-xs text-muted-foreground">{selectedCountry.label}</p>
                         </div>
 
                         <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm">
                             <p className="font-semibold text-foreground">{profile?.email || user?.email}</p>
-                            <p className="mt-1 text-muted-foreground">Timezone: {profile?.timezone_pref || detectedTimezone}</p>
                             <p className="mt-2 text-xs leading-5 text-muted-foreground">
                                 Cast and crew records are managed by organization and event admins. This only updates your signed-in account profile.
                             </p>
