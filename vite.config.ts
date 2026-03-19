@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import packageJson from "./package.json"
 
+const enableDevPwa = process.env.VITE_ENABLE_DEV_PWA === 'true'
+
 // https://vite.dev/config/
 export default defineConfig({
   define: {
@@ -21,7 +23,7 @@ export default defineConfig({
       manifest: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-icon-192.png', 'pwa-icon-512.png', 'pwa-screenshot-desktop.png', 'pwa-screenshot-mobile.png', 'manifest.json'],
       devOptions: {
-        enabled: true,
+        enabled: enableDevPwa,
         type: 'module'
       }
     })

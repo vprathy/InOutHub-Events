@@ -27,8 +27,9 @@ External Antigravity brain files are not authoritative.
 
 ## Repo / Branch State
 
-Current active repo:
-- `/Users/vinay/dev/InOutHub-Events`
+- Canonical main worktree: `/Users/vinay/dev/InOutHub-Events-main`
+- Historical rollout worktree: `/Users/vinay/dev/InOutHub-Events`
+- **Tooling Fix**: `/Users/vinay/dev/InOutHub-Events-main/node_modules` is a symlink to the historical worktree's node_modules to preserve disk space.
 
 Git intent:
 - new app is now the forward path

@@ -183,6 +183,7 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
   - Success: `IntroComposition` (v2026-03-18) persisted with correct asset IDs and audio preference.
   - Audio check: Uploaded act audio correctly prioritized over generated TTS.
   - Stage Console: `PLAY INTRO` button active and reflective of approved state.
+  - **Worktree Update**: The project has moved to the canonical `main` branch worktree at `/Users/vinay/dev/InOutHub-Events-main`. All further rollout and polish must happen in this tree.
 
 ### Gate 17: Intro Builder UX Overhaul (Premium Polish)
 - [x] **Studio Layout**: Intro Builder integrated as primary Act Workspace tab with glassmorphism UI.
