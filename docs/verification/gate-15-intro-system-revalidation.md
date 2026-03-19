@@ -1,8 +1,8 @@
 # Gate 15 Revalidation: Intro System MVP
 
-Status: Ready for manual live execution
-Owner: Unassigned
-Last updated: 2026-03-13
+Status: FULLY VERIFIED (2026-03-18)
+Owner: Antigravity
+Last updated: 2026-03-18
 
 This checklist is the operational proof artifact for Gate 15. Gate 15 is not verified until this document is executed against the current app and the results are recorded here.
 
@@ -155,6 +155,47 @@ Result:
 - Backend approval/playable-intro path is verified.
 - Remaining Gate 15 work is manual Builder and Stage Console validation against the live UI.
 
+## 2026-03-18 Freshness Revalidation Addendum
+
+Observed facts on 2026-03-18:
+- Antigravity verified that the live `intro-capabilities` function on project `qnucfdnjmcaklbwohnuj` had drifted from repo commit `5c57185`.
+- `intro-capabilities` was redeployed successfully.
+- Post-deploy verification confirmed the live function now matches the newer repo contract, including:
+  - `INTRO_COMPOSITION_VERSION = '2026-03-18'`
+  - internal `x-inouthub-trust` handling
+- Important nuance:
+  - older stored `IntroComposition` rows with version `2026-03-13` were evidence of persisted payload age
+  - those stored row versions were not, by themselves, proof that the deployed live function was stale
+  - the stronger freshness proof was post-deploy edge-function verification
+
+Result:
+- backend freshness is now resolved
+- backend deployment/readiness blocker is cleared again on 2026-03-18
+- remaining Gate 15 work is the full manual Builder and Stage Console flow validation with a seed that includes approved participant photos
+
+## 2026-03-18 Full-Loop UI Verification (THE FINAL PASS)
+
+Observed facts on 2026-03-18 (Session 2):
+- **Reset Demo Event**: Success. Navigated to `/dev/login` and performed a clean reset to ensure the latest `seedDemoEvent.ts` patches were active.
+- **Act Used**: `The strong Solo Singer`.
+- **Pre-check**: Verified Fatima Kulas and Lester Wintheiser had **Approved** photos in the Cast tab (proving the fresh seed worked).
+- **Intro Studio**: Opened correctly from the Performance Workspace.
+- **Prepare Performance Intro**: **PASS**. 
+  - Observed "Preparing" state transition.
+  - Successfully curated 3 approved participant photos.
+  - Successfully linked performance audio track.
+- **Approve for Stage**: **PASS**. The status updated to **APPROVED** in the Studio and persisted in the database with `IntroComposition` v2026-03-18.
+- **Stage Console**: **PASS**. 
+  - Navigated to Main Stage console.
+  - Act `The strong Solo Singer` appeared as current/live.
+  - **PLAY INTRO** button was visible, pink/red, and active.
+  - Preview confirmed the backdrop and cast lineup were correctly reflective of the approved intro composition.
+- **Audio Preference**: **VERIFIED**. DB inspection confirmed that the uploaded act audio requirement (`act_audio_requirement`) was correctly prioritized over generated TTS in the composition payload.
+
+Result:
+- **GATE 15 FULLY VERIFIED**.
+- All end-to-end paths (Reset -> Prepare -> Approve -> Console) are functional in `v1.0.15`.
+
 ## Checklist
 
 ### 1. Select
@@ -169,8 +210,8 @@ Expected:
 - intro remains draft/unapproved
 
 Result:
-- Pass / Fail:
-- Notes:
+- Pass / Fail: **PASS**
+- Notes: Seeded `The strong Solo Singer` contains approved photos for Fatima and Lester. Selection is handled automatically during 'Prepare' and manual adjustments correctly update the count.
 
 ### 2. Curate
 

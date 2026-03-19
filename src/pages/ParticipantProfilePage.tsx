@@ -29,7 +29,9 @@ import {
     Plus,
     Trash2,
     Upload,
-    Activity,
+    ShieldCheck,
+    ClipboardList,
+    FolderOpen,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
@@ -92,6 +94,12 @@ const formatDate = (dateString: any) => {
 function getParticipantRequirementTarget(rowKey: string): 'workspace' | 'assets' {
     if (rowKey === 'special-request' || rowKey === 'guardian-contact') return 'workspace';
     return 'assets';
+}
+
+function getParticipantStatusLabel(status: string | null | undefined) {
+    if (status === 'missing_from_source') return 'Missing From Source';
+    if (!status) return 'Active';
+    return status.replace(/_/g, ' ');
 }
 
 export function ParticipantProfilePage() {
@@ -218,10 +226,14 @@ export function ParticipantProfilePage() {
     const unresolvedNoteCount = participant.operationalNotes?.filter(note => !note.isResolved).length || 0;
     const approvedAssetCount = participant.templatedAssets?.filter(asset => asset.fulfillment?.status === 'approved').length || 0;
     const totalAssetCount = participant.templatedAssets?.length || 0;
+    const specialRequestNotes = participant.operationalNotes?.filter((note) => note.category === 'special_request') || [];
+    const openSpecialRequestNotes = specialRequestNotes.filter((note) => !note.isResolved);
+    const resolvedSpecialRequestNotes = specialRequestNotes.filter((note) => note.isResolved);
     const stageReadinessPercent = Math.round((approvedAssetCount / (totalAssetCount || 1)) * 100);
     const subtitleParts = [
         assignedActCount === 1 ? '1 performance assigned' : `${assignedActCount} performances assigned`,
-        totalAssetCount > 0 ? `${approvedAssetCount}/${totalAssetCount} requirements approved` : 'No required assets',
+        totalAssetCount > 0 ? `${approvedAssetCount}/${totalAssetCount} files approved` : 'No required files',
+        participant.isMinor ? 'Minor profile' : 'Adult profile',
     ];
     const requirementRows = buildParticipantRequirementRows(participant);
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
@@ -286,48 +298,77 @@ export function ParticipantProfilePage() {
                         </div>
                     }
                     status={
-                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/40 bg-muted/20 p-2">
-                            <select
-                                value={participant.status || 'active'}
-                                onChange={(e) => updateStatus.mutate(e.target.value as any)}
-                                className={`min-h-11 rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
-                                    ? 'border-destructive/20 bg-destructive/10 text-destructive'
-                                    : participant.status === 'missing_from_source'
-                                        ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
-                                        : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
-                                    }`}
-                            >
-                                <option value="active">Active</option>
-                                <option value="withdrawn">Withdrawn</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="refunded">Refunded</option>
-                                <option value="missing_from_source">Missing (Source)</option>
-                            </select>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Roster Status</p>
+                                <select
+                                    value={participant.status || 'active'}
+                                    onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                                    className={`mt-2 min-h-11 w-full rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
+                                        ? 'border-destructive/20 bg-destructive/10 text-destructive'
+                                        : participant.status === 'missing_from_source'
+                                            ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
+                                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+                                        }`}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="withdrawn">Withdrawn</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="refunded">Refunded</option>
+                                    <option value="missing_from_source">Missing From Source</option>
+                                </select>
+                                <p className="mt-2 text-xs text-muted-foreground">{getParticipantStatusLabel(participant.status)}</p>
+                            </div>
 
-                            {participant.age ? (
-                                <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-muted/50 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                                    Age {participant.age}
-                                </Badge>
-                            ) : null}
+                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile Type</p>
+                                <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
+                                    <p className="text-sm font-black text-foreground">
+                                        {participant.isMinor ? 'Minor participant' : 'Adult participant'}
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {participant.isMinor
+                                        ? participant.guardianName && participant.guardianPhone
+                                            ? 'Guardian contact captured'
+                                            : 'Guardian contact still needs completion'
+                                        : participant.identityVerified
+                                            ? 'Identity verified'
+                                            : 'Identity review optional'}
+                                </p>
+                            </div>
 
-                            {assignedActCount > 1 ? (
-                                <Badge className="min-h-11 rounded-xl border-none bg-indigo-500 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-md shadow-indigo-500/20">
-                                    <Activity className="mr-1.5 h-3.5 w-3.5" />
-                                    Multi-Act
-                                </Badge>
-                            ) : null}
+                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Performance Links</p>
+                                <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
+                                    <p className="text-sm font-black text-foreground">
+                                        {assignedActCount === 0 ? 'Needs placement' : `${assignedActCount} linked`}
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {assignedActCount > 1 ? 'Multiple performance assignments' : assignedActCount === 1 ? 'One active performance assignment' : 'Link this participant to a performance'}
+                                </p>
+                            </div>
 
-                            <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-primary/5 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-primary">
-                                {participant.eventId ? 'Event Registered' : 'Draft Participant'}
-                            </Badge>
+                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Files & Approvals</p>
+                                <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
+                                    <p className="text-sm font-black text-foreground">
+                                        {approvedAssetCount}/{totalAssetCount} approved
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {unresolvedRequirementRows.length > 0 ? `${unresolvedRequirementRows.length} follow-up item${unresolvedRequirementRows.length > 1 ? 's' : ''} still open` : 'No open participant file blockers'}
+                                </p>
+                            </div>
                         </div>
                     }
                 />
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <OperationalMetricCard label="Performances" value={assignedActCount} icon={Users} tone={assignedActCount > 0 ? 'default' : 'warning'} detail={assignedActCount > 0 ? 'Assignments active' : 'Needs placement'} />
-                    <OperationalMetricCard label="Assets" value={`${approvedAssetCount}/${totalAssetCount}`} icon={Upload} tone={stageReadinessPercent === 100 ? 'good' : 'info'} detail={`${stageReadinessPercent}% ready`} />
-                    <OperationalMetricCard label="Follow-Up" value={unresolvedNoteCount} icon={FileText} tone={unresolvedNoteCount > 0 ? 'warning' : 'good'} detail={unresolvedNoteCount > 0 ? 'Open notes' : 'Clear'} />
+                    <OperationalMetricCard label="Performances" value={assignedActCount} icon={Users} tone={assignedActCount > 0 ? 'default' : 'warning'} detail={assignedActCount > 0 ? 'Placement active' : 'Needs placement'} />
+                    <OperationalMetricCard label="Files Ready" value={`${approvedAssetCount}/${totalAssetCount}`} icon={FolderOpen} tone={stageReadinessPercent === 100 ? 'good' : 'info'} detail={totalAssetCount > 0 ? `${stageReadinessPercent}% approved` : 'No required files'} />
+                    <OperationalMetricCard label="Follow-Up" value={unresolvedNoteCount} icon={ClipboardList} tone={unresolvedNoteCount > 0 ? 'warning' : 'good'} detail={unresolvedNoteCount > 0 ? 'Open coordination notes' : 'No open notes'} />
                 </div>
 
                 <div className="relative">
@@ -339,14 +380,14 @@ export function ParticipantProfilePage() {
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'workspace' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Info size={14} />
-                            Profile
+                            Overview
                         </button>
                         <button
                             onClick={() => setActiveTab('assets')}
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'assets' ? 'border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Plus size={14} />
-                            Documents
+                            Files & Approvals
                         </button>
                     </div>
                 </div>
@@ -379,21 +420,36 @@ export function ParticipantProfilePage() {
                             <div className="space-y-4">
                                 <div className="surface-panel rounded-[1.2rem] p-4">
                                     <div className="flex items-center gap-2">
-                                        <UserCircle className="h-4 w-4 text-primary" />
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity & Contact</h3>
+                                        <ShieldCheck className="h-4 w-4 text-primary" />
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile & Safety</h3>
                                     </div>
                                     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Name</p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</p>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                                {participant.isMinor ? 'Guardian Name' : 'Profile Type'}
+                                            </p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">
+                                                {participant.isMinor ? (participant.guardianName || 'Not captured yet') : 'Adult participant'}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {participant.isMinor
+                                                    ? participant.guardianRelationship || 'Relationship not captured yet'
+                                                    : participant.identityVerified
+                                                        ? 'Identity verified for roster confidence'
+                                                        : 'Identity verification is optional for this profile right now'}
+                                            </p>
                                         </div>
                                         <div className="rounded-xl border border-border/50 bg-background/70 p-3">
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</p>
-                                                    <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</p>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                                        {participant.isMinor ? 'Guardian Phone' : 'Identity Notes'}
+                                                    </p>
+                                                    <p className="mt-1 text-sm font-bold text-foreground">
+                                                        {participant.isMinor ? (participant.guardianPhone || 'Not captured yet') : (participant.identityNotes || 'No special identity notes')}
+                                                    </p>
                                                 </div>
-                                                {participant.guardianPhone ? (
+                                                {participant.isMinor && participant.guardianPhone ? (
                                                     <a
                                                         href={`tel:${participant.guardianPhone}`}
                                                         className="inline-flex min-h-11 items-center rounded-xl bg-primary px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
@@ -405,6 +461,16 @@ export function ParticipantProfilePage() {
                                             </div>
                                         </div>
                                     </div>
+                                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Email</p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.email || 'Not captured yet'}</p>
+                                        </div>
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Age</p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.age ?? 'Not captured yet'}</p>
+                                        </div>
+                                    </div>
                                     {participant.notes ? (
                                         <div className="mt-3 rounded-xl border border-border/50 bg-muted/15 p-3">
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Internal Note</p>
@@ -412,6 +478,69 @@ export function ParticipantProfilePage() {
                                         </div>
                                     ) : null}
                                 </div>
+
+                                {participant.hasSpecialRequests ? (
+                                    <div className="surface-panel rounded-[1.2rem] p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <ClipboardList className="h-4 w-4 text-primary" />
+                                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Special Request</h3>
+                                            </div>
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[10px] font-black uppercase tracking-[0.16em] ${
+                                                    openSpecialRequestNotes.length > 0
+                                                        ? 'border-amber-500/30 bg-amber-500/10 text-amber-700'
+                                                        : resolvedSpecialRequestNotes.length > 0
+                                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+                                                            : ''
+                                                }`}
+                                            >
+                                                {openSpecialRequestNotes.length > 0
+                                                    ? 'Open'
+                                                    : resolvedSpecialRequestNotes.length > 0
+                                                        ? 'Closed'
+                                                        : 'Needs Review'}
+                                            </Badge>
+                                        </div>
+                                        <div className="mt-3 rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Details</p>
+                                            <p className="mt-1 text-sm leading-6 text-foreground/80">
+                                                {participant.specialRequestRaw || 'A special request flag came through sync, but no raw details were attached.'}
+                                            </p>
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {openSpecialRequestNotes[0] ? (
+                                                <Button
+                                                    variant="outline"
+                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                    onClick={() => resolveNote.mutate(openSpecialRequestNotes[0].id)}
+                                                    disabled={resolveNote.isPending}
+                                                >
+                                                    {resolveNote.isPending ? 'Closing...' : 'Mark Request Closed'}
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                    onClick={() => {
+                                                        setActiveTab('workspace');
+                                                        setNoteCategory('special_request');
+                                                        setNoteContent((current) => current || participant.specialRequestRaw || '');
+                                                        setShowNoteForm(true);
+                                                    }}
+                                                >
+                                                    Log Request Review
+                                                </Button>
+                                            )}
+                                            {resolvedSpecialRequestNotes.length > 0 ? (
+                                                <p className="self-center text-xs text-muted-foreground">
+                                                    {resolvedSpecialRequestNotes.length} closed request note{resolvedSpecialRequestNotes.length > 1 ? 's' : ''} on file.
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                ) : null}
 
                                 {participant.siblings && participant.siblings.length > 0 ? (
                                     <div className="surface-panel rounded-[1.2rem] p-4">
@@ -453,7 +582,7 @@ export function ParticipantProfilePage() {
                                             className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
                                             onClick={() => setShowNoteForm(!showNoteForm)}
                                         >
-                                            {showNoteForm ? 'Cancel' : 'Add Note'}
+                                            {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
                                         </Button>
                                     </div>
 
@@ -467,7 +596,7 @@ export function ParticipantProfilePage() {
                                                         onClick={() => setNoteCategory(cat)}
                                                         className={`min-h-11 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${noteCategory === cat ? 'bg-primary text-primary-foreground' : 'surface-metric text-muted-foreground'}`}
                                                     >
-                                                        {cat.replace('_', ' ')}
+                                                        {cat === 'special_request' ? 'special request' : cat.replace('_', ' ')}
                                                     </button>
                                                 ))}
                                             </div>
@@ -564,11 +693,11 @@ export function ParticipantProfilePage() {
                                                         <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
                                                             {act.role || 'Performer'}
                                                         </Badge>
-                                                        <Badge variant="outline" className="text-[9px] h-5 font-black uppercase">
-                                                            {act.arrivalStatus?.replace(/_/g, ' ') || 'Registered'}
-                                                        </Badge>
                                                     </div>
                                                     <p className="mt-2 text-lg font-black tracking-tight text-foreground">{act.name}</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Linked to this participant record for lineup, approvals, and intro readiness.
+                                                    </p>
                                                 </div>
                                                 <button
                                                     onClick={() => removeFromAct.mutate(act.id)}

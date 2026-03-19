@@ -85,6 +85,11 @@ function sortRequirementRows(rows: RequirementRow[]) {
 
 export function buildParticipantRequirementRows(participant: any): RequirementRow[] {
     const rows: RequirementRow[] = [];
+    const specialRequestNotes = Array.isArray(participant?.operationalNotes)
+        ? participant.operationalNotes.filter((note: any) => note.category === 'special_request')
+        : [];
+    const unresolvedSpecialRequests = specialRequestNotes.filter((note: any) => !note.isResolved);
+    const resolvedSpecialRequests = specialRequestNotes.filter((note: any) => note.isResolved);
 
     if (participant?.isMinor) {
         const guardianStatus = getParticipantAssignmentStatus(participant, 'guardian_contact_complete')
@@ -103,14 +108,24 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
 
     if (participant?.hasSpecialRequests) {
         const specialRequestStatus = getParticipantAssignmentStatus(participant, 'special_request_reviewed')
-            || ((participant.operationalNotes || []).some((note: any) => note.category === 'special_request') ? 'approved' : 'missing');
+            || (unresolvedSpecialRequests.length > 0
+                ? 'pending_review'
+                : resolvedSpecialRequests.length > 0
+                    ? 'approved'
+                    : 'missing');
         rows.push({
             key: 'special-request',
             label: 'Special Request Review',
             detail: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
-                ? 'A request note is already attached to this participant record.'
-                : 'Special request follow-up should be logged before performance day.',
-            actionLabel: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete' ? 'Open Notes' : 'Add Note',
+                ? 'The special request has been reviewed and closed on this participant record.'
+                : specialRequestStatus === 'pending_review'
+                    ? 'A special request follow-up is open and still needs closure.'
+                    : 'Special request follow-up should be logged before performance day.',
+            actionLabel: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
+                ? 'View Closure'
+                : specialRequestStatus === 'pending_review'
+                    ? 'Resolve Request'
+                    : 'Log Review',
             status: specialRequestStatus,
             tone: getRequirementStatusMeta(specialRequestStatus).tone,
         });
@@ -141,10 +156,10 @@ export function buildParticipantReadinessSummary(participant: any): ParticipantR
         return {
             status: 'attention',
             badgeLabel: 'Needs Placement',
-            followUpLabel: 'Needs Placement',
+            followUpLabel: 'Choose a Performance',
             followUpDetail: 'This participant is not assigned to an act yet.',
             followUpTone: 'border-orange-500/25 bg-orange-500/5 text-orange-700',
-            quickReadLabel: 'Unplaced',
+            quickReadLabel: 'Rostered only',
             quickReadDetail: docsOpenCount > 0 ? `${docsOpenCount} approval item${docsOpenCount > 1 ? 's' : ''} open` : 'Ready to place into an act',
             openCount: Math.max(1, docsOpenCount),
         };

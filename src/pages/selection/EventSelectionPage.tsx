@@ -10,6 +10,24 @@ import { ShieldAlert } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { OperationalMetricCard } from '@/components/ui/OperationalCards';
 
+function formatDateOnly(value: string | null | undefined) {
+    if (!value) return 'No Date Set';
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return value;
+
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date(year, month - 1, day));
+}
+
+function formatDateRange(startDate?: string | null, endDate?: string | null) {
+    if (!startDate) return 'No Date Set';
+    if (!endDate || endDate === startDate) return formatDateOnly(startDate);
+    return `${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}`;
+}
+
 export default function EventSelectionPage() {
     const [events, setEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +169,7 @@ export default function EventSelectionPage() {
                                             <div>
                                                 <p className="font-black text-lg text-foreground leading-tight">{event.name}</p>
                                                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mt-1">
-                                                    {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'No Date Set'}
+                                                    {formatDateRange(event.start_date, event.end_date)}
                                                     {event.timezone ? ` • ${event.timezone.split('/').pop()?.replace('_', ' ')}` : ''}
                                                 </p>
                                             </div>

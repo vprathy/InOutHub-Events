@@ -3,6 +3,30 @@ import { supabase } from '@/lib/supabase';
 import type { Participant, ParticipantDetail } from '@/types/domain';
 import { inferParticipantImportProfile, mapImportedParticipantRow } from '@/lib/participantImportMapping';
 
+function extractTaggedValue(notes: string | null | undefined, tag: string) {
+    if (!notes) return null;
+    const match = notes.match(new RegExp(`\\[${tag}:\\s*([^\\]]+)\\]`, 'i'));
+    return match?.[1]?.trim() || null;
+}
+
+function extractParticipantEmail(row: any) {
+    return (
+        row.email ||
+        row.src_raw?.email ||
+        row.src_raw?.['email address'] ||
+        row.src_raw?.['parent email'] ||
+        row.src_raw?.['guardian email'] ||
+        extractTaggedValue(row.notes, 'Email')
+    ) || null;
+}
+
+function extractParticipantAge(row: any) {
+    const rawAge = row.age ?? extractTaggedValue(row.notes, 'Age');
+    if (rawAge === null || rawAge === undefined || rawAge === '') return null;
+    const parsed = Number(rawAge);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function mapRequirementAssignments(rows: any[] | null | undefined) {
     return (rows || []).map((assignment: any) => ({
         id: assignment.id,
@@ -26,7 +50,7 @@ export function useParticipantsQuery(eventId: string) {
                 .select(`
                     *,
                     act_participants(count),
-                    participant_assets(status),
+                    participant_assets(status, type, file_url),
                     participant_notes(category, is_resolved),
                     requirement_assignments(
                         id,
@@ -42,11 +66,19 @@ export function useParticipantsQuery(eventId: string) {
             if (error) throw error;
 
             return (data as any[]).map((row): Participant => {
+                const participantAssets = (row as any).participant_assets || [];
+                const participantNotes = (row as any).participant_notes || [];
+                const preferredPhoto =
+                    participantAssets.find((asset: any) => asset.type === 'photo' && asset.status === 'approved' && asset.file_url) ||
+                    participantAssets.find((asset: any) => asset.type === 'photo' && ['uploaded', 'pending_review'].includes(asset.status) && asset.file_url) ||
+                    null;
+                const openSpecialRequestCount = participantNotes.filter((note: any) => note.category === 'special_request' && !note.is_resolved).length || 0;
+                const resolvedSpecialRequestCount = participantNotes.filter((note: any) => note.category === 'special_request' && note.is_resolved).length || 0;
                 const assetStats = {
-                    total: (row as any).participant_assets?.length || 0,
-                    approved: (row as any).participant_assets?.filter((a: any) => a.status === 'approved').length || 0,
-                    pending: (row as any).participant_assets?.filter((a: any) => a.status === 'pending_review' || a.status === 'uploaded').length || 0,
-                    missing: (row as any).participant_assets?.filter((a: any) => a.status === 'rejected' || !a.status).length || 0,
+                    total: participantAssets.length || 0,
+                    approved: participantAssets.filter((a: any) => a.status === 'approved').length || 0,
+                    pending: participantAssets.filter((a: any) => a.status === 'pending_review' || a.status === 'uploaded').length || 0,
+                    missing: participantAssets.filter((a: any) => a.status === 'rejected' || !a.status).length || 0,
                 };
                 const requirementAssignments = mapRequirementAssignments((row as any).requirement_assignments);
                 const hasDocsBridge = assetStats.total > 0;
@@ -56,14 +88,20 @@ export function useParticipantsQuery(eventId: string) {
                     eventId: row.event_id,
                     firstName: row.first_name,
                     lastName: row.last_name,
-                    age: (row as any).age,
+                    age: extractParticipantAge(row),
+                    email: extractParticipantEmail(row),
                     isMinor: !!row.is_minor,
                     guardianName: row.guardian_name,
                     guardianPhone: row.guardian_phone,
                     guardianRelationship: row.guardian_relationship,
+                    identityVerified: !!(row as any).identity_verified,
+                    identityNotes: (row as any).identity_notes,
+                    photoUrl: preferredPhoto?.file_url || null,
                     notes: row.notes,
                     hasSpecialRequests: !!row.has_special_requests,
                     specialRequestRaw: row.special_request_raw,
+                    openSpecialRequestCount,
+                    resolvedSpecialRequestCount,
                     sourceSystem: row.source_system,
                     sourceInstance: row.source_instance,
                     sourceAnchorType: row.source_anchor_type,
@@ -388,7 +426,8 @@ export function useParticipantDetail(participantId: string) {
                 eventId: p.event_id,
                 firstName: p.first_name,
                 lastName: p.last_name,
-                age: (p as any).age,
+                age: extractParticipantAge(p),
+                email: extractParticipantEmail(p),
                 guardianName: p.guardian_name,
                 guardianPhone: p.guardian_phone,
                 notes: p.notes,
@@ -441,6 +480,8 @@ export function useParticipantDetail(participantId: string) {
                     resolvedBy: n.resolved_by,
                     createdAt: n.created_at
                 })),
+                openSpecialRequestCount: (opNotes || []).filter((n: any) => n.category === 'special_request' && !n.is_resolved).length || 0,
+                resolvedSpecialRequestCount: (opNotes || []).filter((n: any) => n.category === 'special_request' && n.is_resolved).length || 0,
                 requirementAssignments,
                 auditLogs: mappedLogs,
             };

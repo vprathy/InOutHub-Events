@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useActDetail, useUpdateActStatus, useAddActReadinessPractice, useAddActReadinessItem, useAddActReadinessIssue } from '@/hooks/useActs';
+import { useActDetail, useAddActReadinessPractice, useAddActReadinessItem, useAddActReadinessIssue } from '@/hooks/useActs';
 import {
     Users,
     Settings,
@@ -16,19 +16,19 @@ import {
     ChevronRight,
     CalendarClock,
     ListChecks,
-    TriangleAlert
+    TriangleAlert,
+    Sparkles
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
-import { StatusPicker } from '@/components/acts/StatusPicker';
 import { IntroVideoBuilder } from '@/components/acts/IntroVideoBuilder';
 import { UploadActAssetModal } from '@/components/acts/UploadActAssetModal';
 import { AddParticipantToActModal } from '@/components/acts/AddParticipantToActModal';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { formatReadinessDate } from '@/lib/actReadiness';
+import { formatReadinessDate, getActReadinessLabel } from '@/lib/actReadiness';
 import { buildActRequirementRows, getRequirementStatusMeta } from '@/lib/requirementsPrototype';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
@@ -50,7 +50,6 @@ export function PerformanceProfilePage() {
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
     const [previewAsset, setPreviewAsset] = useState<{ url: string; title: string } | null>(null);
     const { data: act, isLoading } = useActDetail(actId || null);
-    const { mutate: updateStatus, isPending } = useUpdateActStatus();
 
     if (isLoading) {
         return (
@@ -74,6 +73,13 @@ export function PerformanceProfilePage() {
     const requirementRows = buildActRequirementRows(act);
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
     const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
+    const introRequirement = (act.requirements || []).find((requirement: any) => requirement.requirementType === 'IntroComposition');
+    const headerSummaryItems = [
+        { label: 'Cast', value: `${act.participants.length}`, helper: act.participants.length === 1 ? 'assigned person' : 'assigned people', icon: Users },
+        { label: 'Show', value: `${act.durationMinutes}m`, helper: 'scheduled performance', icon: Timer },
+        { label: 'Setup', value: `${act.setupTimeMinutes}m`, helper: 'operator-managed handoff', icon: Clock },
+        { label: 'Intro', value: introRequirement?.fulfilled ? 'Approved' : introRequirement ? 'Draft' : 'Open', helper: introRequirement?.fulfilled ? 'ready for console' : 'review in intro studio', icon: MonitorPlay },
+    ];
     const handleRequirementAction = (rowKey: string) => {
         setActiveTab(getActRequirementTarget(rowKey));
     };
@@ -93,57 +99,62 @@ export function PerformanceProfilePage() {
 
                 <PageHeader
                     title={act.name}
-                    subtitle={`${act.participants.length} cast members assigned • ${act.arrivalStatus === 'Ready' ? 'show ready' : 'still in prep'}`}
+                    subtitle={`${act.participants.length} cast members assigned • ${getActReadinessLabel(act.readinessSummary?.state)} • ${introRequirement?.fulfilled ? 'intro approved' : 'intro still needs review'}`}
                     status={
-                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/40 bg-muted/20 p-2">
-                            <div className="min-w-[180px]">
-                                <StatusPicker
-                                    currentStatus={act.arrivalStatus}
-                                    onStatusChange={(status) => updateStatus({ actId: act.id, status })}
-                                    isLoading={isPending}
-                                />
+                        <div className="w-full rounded-2xl border border-border/40 bg-muted/20 p-3">
+                            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                                {headerSummaryItems.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <div key={item.label} className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                <Icon className="h-3.5 w-3.5" />
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em]">{item.label}</p>
+                                            </div>
+                                            <p className="mt-2 text-lg font-black tracking-tight text-foreground">{item.value}</p>
+                                            <p className="mt-1 text-xs font-medium text-muted-foreground">{item.helper}</p>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <Badge variant="outline" className={`min-h-11 rounded-xl border-none px-3 text-[10px] font-black uppercase tracking-[0.16em] ${act.arrivalStatus === 'Ready' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
-                                {act.arrivalStatus === 'Ready' ? 'Show Ready' : 'Working'}
-                            </Badge>
-                            <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-muted px-3 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                <Clock size={12} className="mr-1.5" />
-                                {act.durationMinutes}m show
-                            </Badge>
-                            <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-muted px-3 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                <Users size={12} className="mr-1.5" />
-                                {act.participants.length} cast
-                            </Badge>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-emerald-500/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">
+                                    {getActReadinessLabel(act.readinessSummary?.state)}
+                                </Badge>
+                                <Badge variant="outline" className="min-h-11 rounded-xl border-none bg-muted px-3 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                    Live status changes like wait, in, back, and ready belong in show-day execution, not this prep screen.
+                                </Badge>
+                            </div>
                         </div>
                     }
                 />
             </div>
 
             <div className="relative">
-                <div className="flex items-center space-x-1 bg-muted/40 p-1 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
+                <div className="flex items-center space-x-1 bg-muted/40 p-1.5 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
                     <button
                         onClick={() => setActiveTab('workspace')}
                         data-tab="overview"
-                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'workspace' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                        className={`whitespace-nowrap px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 border ${activeTab === 'workspace' ? 'bg-background text-primary shadow-lg border-primary/20 scale-[1.02]' : 'border-transparent text-muted-foreground hover:border-border/60 hover:bg-background/60 hover:text-foreground'}`}
                     >
                         <Info size={14} />
-                        Prep
+                        Prep Tasks
                     </button>
                     <button
                         onClick={() => setActiveTab('cast')}
                         data-tab="cast"
-                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                        className={`whitespace-nowrap px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 border ${activeTab === 'cast' ? 'bg-background text-primary shadow-lg border-primary/20 scale-[1.02]' : 'border-transparent text-muted-foreground hover:border-border/60 hover:bg-background/60 hover:text-foreground'}`}
                     >
                         <Users size={14} />
-                        Cast
+                        Team
                     </button>
                     <button
                         onClick={() => setActiveTab('assets')}
                         data-tab="assets"
-                        className={`whitespace-nowrap px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border border-primary/20 scale-[1.02]' : 'text-muted-foreground/60 hover:text-foreground'}`}
+                        className={`whitespace-nowrap px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] rounded-xl transition-all flex-shrink-0 snap-center flex items-center gap-2 border ${activeTab === 'assets' ? 'bg-background text-primary shadow-lg border-primary/20 scale-[1.02]' : 'border-transparent text-muted-foreground hover:border-border/60 hover:bg-background/60 hover:text-foreground'}`}
                     >
                         <Music size={14} />
-                        Media
+                        Intro & Media
                     </button>
                 </div>
                 <div className="pointer-events-none absolute inset-y-1 left-1 w-6 rounded-l-2xl bg-gradient-to-r from-background/75 to-transparent sm:hidden" />
@@ -175,7 +186,7 @@ export function PerformanceProfilePage() {
                 eventId={act.eventId}
                 role={addRole}
                 roleOptions={addRole === 'Manager' ? ['Manager', 'Choreographer', 'Support', 'Crew'] : ['Performer']}
-                title={addRole === 'Manager' ? `Add Team Member to: ${act.name}` : `Add Performer to: ${act.name}`}
+                title={addRole === 'Manager' ? `Add Performance Team Member to: ${act.name}` : `Add Performer to: ${act.name}`}
             />
             <AssetPreviewModal
                 isOpen={!!previewAsset}
@@ -604,9 +615,11 @@ function ReadinessTab({ act }: { act: any }) {
 
 
 function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: any; onRequirementAction: (rowKey: string) => void; nextRequirementRow: any }) {
-    const readinessState = act.readinessSummary?.state || 'On Track';
+    const readinessState = getActReadinessLabel(act.readinessSummary?.state);
     const openIssueCount = act.readinessSummary?.openIssueCount || 0;
     const openPrepCount = act.readinessSummary?.incompleteChecklistCount || act.readinessSummary?.missingChecklistCount || 0;
+    const introRequirement = (act.requirements || []).find((requirement: any) => requirement.requirementType === 'IntroComposition');
+    const introActionLabel = introRequirement?.fulfilled ? 'Open Approved Intro' : introRequirement ? 'Review Intro Draft' : 'Prepare Performance Intro';
 
     return (
         <div className="space-y-4">
@@ -630,11 +643,33 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
             )}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <OperationalMetricCard label="State" value={readinessState} icon={CheckCircle} tone={readinessState === 'Blocked' ? 'critical' : readinessState === 'At Risk' ? 'warning' : 'good'} />
+                <OperationalMetricCard label="Prep State" value={readinessState} icon={CheckCircle} tone={readinessState === 'Needs Attention' ? 'critical' : readinessState === 'Watch List' ? 'warning' : 'good'} />
                 <OperationalMetricCard label="Open Prep" value={openPrepCount} icon={ListChecks} tone={openPrepCount > 0 ? 'warning' : 'good'} />
                 <OperationalMetricCard label="Open Issues" value={openIssueCount} icon={TriangleAlert} tone={openIssueCount > 0 ? 'critical' : 'good'} />
                 <OperationalMetricCard label="Next Practice" value={act.readinessSummary?.nextPractice ? 'Scheduled' : 'None'} icon={CalendarClock} tone={act.readinessSummary?.nextPractice ? 'info' : 'default'} />
             </div>
+
+            <Card className="overflow-hidden border-rose-500/20 bg-gradient-to-br from-neutral-950 via-neutral-950 to-rose-950/30 text-white">
+                <div className="p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300">Intro Approval</p>
+                            <h3 className="mt-2 text-xl font-black tracking-tight">{introRequirement?.fulfilled ? 'Approved intro is ready for stage' : introRequirement ? 'Draft is waiting for admin approval' : 'No approved intro is attached yet'}</h3>
+                            <p className="mt-2 max-w-2xl text-sm font-medium text-white/70">
+                                Keep intro approval visible here so admins do not have to dig through multiple taps before deciding what to approve.
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-2xl border-white/15 bg-white/10 px-4 text-[10px] font-black uppercase tracking-[0.18em] text-white hover:bg-white/15"
+                            onClick={() => onRequirementAction('intro-approved')}
+                        >
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            {introActionLabel}
+                        </Button>
+                    </div>
+                </div>
+            </Card>
 
             <ReadinessTab act={act} />
 
@@ -663,11 +698,13 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
                         <Clock size={22} className="text-primary mb-1" />
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Setup Time</p>
                         <h4 className="text-2xl font-black">{act.setupTimeMinutes} <span className="text-sm font-medium">mins</span></h4>
+                        <p className="text-[11px] font-medium text-muted-foreground">Operator-managed handoff buffer</p>
                     </Card>
                     <Card className="p-5 flex flex-col items-center justify-center text-center space-y-1.5 border-primary/10 bg-primary/[0.02]">
                         <Timer size={22} className="text-primary mb-1" />
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Show Time</p>
                         <h4 className="text-2xl font-black">{act.durationMinutes} <span className="text-sm font-medium">mins</span></h4>
+                        <p className="text-[11px] font-medium text-muted-foreground">Operator-managed scheduled duration</p>
                     </Card>
                 </div>
             </div>
@@ -688,7 +725,7 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
                 <div className="p-6 border-b border-primary/10 flex items-center justify-between">
                     <h3 className="text-lg font-bold flex items-center gap-2">
                         <Settings size={20} className="text-primary" />
-                        Performance Team
+                        Performance Team Managers
                     </h3>
                     <div className="flex gap-2">
                         <Button
@@ -759,7 +796,10 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
 }
 
 function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
-    const hasApprovedAssets = Array.isArray(p.assets) && p.assets.length > 0 && p.assets.every((a: any) => a.status === 'approved');
+    const assets = Array.isArray(p.assets) ? p.assets : [];
+    const approvedPhotos = assets.filter((a: any) => a.type === 'photo' && a.status === 'approved').length;
+    const pendingPhotos = assets.filter((a: any) => a.type === 'photo' && ['pending_review', 'uploaded'].includes(a.status)).length;
+    const statusLabel = approvedPhotos > 0 ? 'Ready' : pendingPhotos > 0 ? 'Photo Review' : 'Photo Missing';
 
     return (
         <div
@@ -784,19 +824,19 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
                     </div>
                 </div>
             </div>
-            <div className="flex items-center gap-6">
-                <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-0.5">Contact</p>
-                    <p className="text-xs font-bold">{p.guardianPhone || "No Phone"}</p>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-card">
-                    {hasApprovedAssets ? (
+                <div className="flex items-center gap-6">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-0.5">Follow-Up</p>
+                        <p className="text-xs font-bold">{p.guardianPhone || "Needs contact info"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-card">
+                    {approvedPhotos > 0 ? (
                         <CheckCircle size={12} className="text-emerald-500" />
                     ) : (
                         <AlertCircle size={12} className="text-amber-500" />
                     )}
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {hasApprovedAssets ? 'Ready' : 'Incomplete'}
+                        {statusLabel}
                     </span>
                 </div>
             </div>
@@ -859,7 +899,7 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
                     <div>
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 <Music size={20} className="text-primary" />
-                            Media Workspace
+                            Intro and Media Workspace
                             </h3>
                         <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
                             Keep all performance media and intro review in one lane instead of splitting it into separate sections.

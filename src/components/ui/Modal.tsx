@@ -9,11 +9,22 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+    React.useEffect(() => {
+        if (!isOpen) return
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose()
+        }
+
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [isOpen, onClose])
+
     if (!isOpen) return null
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
             onClick={onClose}
         >
             {/* Backdrop */}
@@ -23,7 +34,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
             {/* Modal */}
             <div
-                className="relative w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-200"
+                className="relative my-8 flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 fade-in duration-200"
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="flex items-center justify-between mb-2">
@@ -36,7 +47,9 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
                     </button>
                 </div>
 
-                {children}
+                <div className="min-h-0 overflow-y-auto pr-1">
+                    {children}
+                </div>
             </div>
         </div>
     )

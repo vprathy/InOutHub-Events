@@ -13,12 +13,12 @@ export async function getDemoEvent(): Promise<DemoEventContext> {
     const { data: event, error } = await supabase
         .from('events')
         .select('id, organization_id')
-        .eq('name', 'ZiffyVolve Talent Showcase MVP 2026')
+        .eq('name', 'Demo Event')
         .single();
 
     if (error || !event) {
         throw new Error(
-            `Demo Event "ZiffyVolve Talent Showcase MVP 2026" not found. ` +
+            `Demo Event "Demo Event" not found. ` +
             `Please run the seed script or click "Reset Demo Event" on the Dev Login page.`
         );
     }

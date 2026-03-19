@@ -94,6 +94,12 @@ CREATE TABLE participants (
     special_request_source_column TEXT,
     has_special_requests BOOLEAN DEFAULT false,
     src_raw JSONB,
+    status TEXT NOT NULL DEFAULT 'active', -- Maps to participant_status enum
+    identity_verified BOOLEAN DEFAULT false,
+    identity_notes TEXT,
+    is_minor BOOLEAN DEFAULT false,
+    guardian_relationship TEXT,
+    age INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, source_system, source_instance, source_anchor_type, source_anchor_value)
 );
@@ -183,7 +189,8 @@ CREATE TABLE act_requirements (
     description TEXT NOT NULL,
     file_url TEXT, 
     fulfilled BOOLEAN DEFAULT false, 
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE act_readiness_practices (

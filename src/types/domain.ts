@@ -320,6 +320,7 @@ export interface Participant {
     firstName: string;
     lastName: string;
     age: number | null;
+    email?: string | null;
     isMinor: boolean;
     guardianName: string | null;
     guardianPhone: string | null;
@@ -327,9 +328,12 @@ export interface Participant {
     notes: string | null;
     hasSpecialRequests?: boolean;
     specialRequestRaw?: string | null;
+    openSpecialRequestCount?: number;
+    resolvedSpecialRequestCount?: number;
     status: 'active' | 'inactive' | 'withdrawn' | 'refunded' | 'missing_from_source';
     identityVerified?: boolean;
     identityNotes?: string | null;
+    photoUrl?: string | null;
     // Operational metadata (injected for roster/summary)
     actCount?: number;
     assetStats?: {

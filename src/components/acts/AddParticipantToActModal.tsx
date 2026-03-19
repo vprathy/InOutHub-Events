@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { useParticipantsQuery, useCreateParticipant } from '@/hooks/useParticipants';
 import { useAddParticipantToAct } from '@/hooks/useActs';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
-import { Search, UserPlus, Loader2, Upload, Download, Plus } from 'lucide-react';
+import { Search, UserPlus, Loader2, Upload, Download, Plus, X } from 'lucide-react';
 
 interface AddParticipantToActModalProps {
     isOpen: boolean;
@@ -194,7 +194,7 @@ export function AddParticipantToActModal({
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `${actName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-team-template.csv`);
+        link.setAttribute('download', 'performance-team-import-template.csv');
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -371,7 +371,7 @@ export function AddParticipantToActModal({
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Create</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Create one new person and attach them to this performance immediately.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Create one new person and attach them to this performance immediately. Choose the role above first so intro credits and staffing stay accurate.</p>
                         </div>
                         <Button
                             type="button"
@@ -379,7 +379,7 @@ export function AddParticipantToActModal({
                             className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
                             onClick={() => setShowQuickAdd((current) => !current)}
                         >
-                            <Plus className="mr-1.5 h-4 w-4" />
+                            {showQuickAdd ? <X className="mr-1.5 h-4 w-4" /> : <Plus className="mr-1.5 h-4 w-4" />}
                             {showQuickAdd ? 'Hide' : 'Quick Add'}
                         </Button>
                     </div>
@@ -426,7 +426,7 @@ export function AddParticipantToActModal({
                                     disabled={createParticipant.isPending || addParticipant.isPending || !quickFirstName.trim() || !quickLastName.trim()}
                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
                                 >
-                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Adding...' : `Create ${selectedRole}`}
+                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Adding...' : `Create ${selectedRole === 'Manager' ? 'Team Member' : selectedRole}`}
                                 </Button>
                             </div>
                         </div>
@@ -437,7 +437,7 @@ export function AddParticipantToActModal({
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Bulk Team Upload</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Import a crew or team sheet, match existing people, create missing ones, and assign them here.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Import a cast or crew sheet, match existing people, create missing ones, and assign them here.</p>
                         </div>
                         <Button
                             type="button"

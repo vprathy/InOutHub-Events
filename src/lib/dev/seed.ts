@@ -28,7 +28,7 @@ async function seed() {
     console.log('🏢 Creating Demo Organization...');
     const { data: org, error: orgError } = await supabase
         .from('organizations')
-        .insert({ name: 'ZiffyVolve Productions' })
+        .insert({ name: 'Demo Productions' })
         .select()
         .single();
 
@@ -55,7 +55,7 @@ async function seed() {
         .from('events')
         .insert({
             organization_id: org.id,
-            name: 'ZiffyVolve Talent Showcase MVP 2026',
+            name: 'Demo Event',
             start_date: new Date().toISOString().split('T')[0],
             end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
         })
