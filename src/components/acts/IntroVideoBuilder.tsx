@@ -17,6 +17,7 @@ import {
   Music4,
 } from 'lucide-react';
 import type { IntroComposition, IntroCurationItem } from '@/types/domain';
+import { IntroVideoPlayer } from '@/components/console/IntroVideoPlayer';
 import {
   approveIntroComposition,
   buildIntroComposition,
@@ -34,6 +35,10 @@ interface ParticipantAsset {
   file_url: string;
   status: string | null;
   participant_id: string;
+  participant?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 }
 
 interface IntroVideoBuilderProps {
@@ -44,7 +49,8 @@ interface IntroVideoBuilderProps {
 const BACKGROUND_POLL_LIMIT = 12;
 const BACKGROUND_POLL_INTERVAL_MS = 5000;
 function getAssetDisplayLabel(asset: ParticipantAsset, index: number) {
-  return asset.name?.trim() || `Performer ${index + 1}`;
+  const participantName = [asset.participant?.first_name, asset.participant?.last_name].filter(Boolean).join(' ').trim();
+  return participantName || asset.name?.trim() || `Performer ${index + 1}`;
 }
 
 function BrokenAssetTile({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -146,6 +152,32 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
   const actFailureRate = actSuccessRate != null
     ? Math.max(0, 100 - actSuccessRate)
     : null;
+  const previewParticipants = assets.map((asset, index) => ({
+    id: asset.participant_id,
+    firstName: asset.participant?.first_name || getAssetDisplayLabel(asset, index),
+    lastName: asset.participant?.last_name || '',
+    assets: [{ id: asset.id, fileUrl: asset.file_url }],
+  }));
+  const playbackComposition: IntroComposition | null = compositionState
+    ? {
+        ...compositionState,
+        selectedAssetIds: selectedIds,
+        curation: curationSuggestions,
+        background: {
+          ...compositionState.background,
+          fileUrl: backgroundUrl,
+          source: backgroundSource,
+        },
+        audio: {
+          ...compositionState.audio,
+          fileUrl: audioUrl,
+          source: audioSource,
+        },
+      }
+    : null;
+  const totalStoryboardSeconds = curationSuggestions.reduce((sum, suggestion) => sum + (suggestion.timing || 3), 0);
+  const hasTimingChanges = JSON.stringify(curationSuggestions.map(({ id, timing }) => ({ id, timing })))
+    !== JSON.stringify((compositionState?.curation || []).map(({ id, timing }) => ({ id, timing })));
 
   const syncFromComposition = (composition: IntroComposition, nextCompositionId: string | null) => {
     setCompositionState(composition);
@@ -238,7 +270,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
     const { data: participantAssets, error: assetError } = await supabase
       .from('participant_assets')
-      .select('*')
+      .select('id, name, file_url, status, participant_id, participant:participants(first_name, last_name)')
       .in('participant_id', pIds)
       .eq('type', 'photo')
       .eq('status', 'approved');
@@ -513,6 +545,14 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
 
   const markAssetBroken = (id: string) => {
     setBrokenAssetIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const updateSceneTiming = (assetId: string, timing: number) => {
+    setCurationSuggestions((current) =>
+      current.map((suggestion) =>
+        suggestion.id === assetId ? { ...suggestion, timing } : suggestion,
+      ),
+    );
   };
 
   if (isLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" /></div>;
@@ -801,6 +841,27 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
             </div>
 
             <div className="space-y-3">
+              {curationSuggestions.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Scenes</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">{curationSuggestions.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Timing</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">{totalStoryboardSeconds}s total</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Audio</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">{audioSourceLabel}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Backdrop</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">{backgroundSourceLabel}</p>
+                  </div>
+                </div>
+              ) : null}
+
               {compositionState?.credits && compositionState.credits.length > 0 ? (
                 <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Credits</p>
@@ -820,12 +881,42 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Frame {idx + 1}</p>
                   <p className="mt-1 text-sm font-bold text-foreground">{suggestion.narrative || 'Spotlight moment'}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{suggestion.pacing || 'Cinematic'} • {suggestion.focalPoint || 'Center'} • {suggestion.timing || 3}s</p>
+                  {!isApproved ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[2, 3, 4, 5].map((seconds) => (
+                        <button
+                          key={`${suggestion.id}-${seconds}`}
+                          type="button"
+                          onClick={() => updateSceneTiming(suggestion.id, seconds)}
+                          className={`min-h-[36px] rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors ${
+                            (suggestion.timing || 3) === seconds
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                          }`}
+                        >
+                          {seconds}s
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {curationSuggestions.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                   Intro prep will arrange the approved cast photos automatically.
                 </div>
+              ) : null}
+
+              {hasTimingChanges && !isApproved ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void saveComposition()}
+                  disabled={isSaving || isPreparing}
+                  className="min-h-[44px] rounded-2xl border-primary/30 bg-primary/5 px-4 font-bold text-primary"
+                >
+                  {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                  Save Preview Timing
+                </Button>
               ) : null}
             </div>
 
@@ -920,7 +1011,7 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
         </div>
       </Card>
 
-      <Modal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="Intro Preview">
+      <Modal isOpen={isPreviewOpen && !playbackComposition} onClose={() => setIsPreviewOpen(false)} title="Intro Preview">
         <div className="space-y-4">
           <div className="relative aspect-video overflow-hidden rounded-[1.5rem] border border-border/60 bg-slate-950">
             {backgroundUrl && !isBackgroundBroken ? (
@@ -976,6 +1067,16 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
           ) : null}
         </div>
       </Modal>
+
+      {isPreviewOpen && playbackComposition ? (
+        <IntroVideoPlayer
+          composition={playbackComposition}
+          actName={compositionState?.credits?.find((line) => line.key === 'performance')?.value || 'Performance Intro'}
+          participants={previewParticipants}
+          onClose={() => setIsPreviewOpen(false)}
+          defaultFullscreen={false}
+        />
+      ) : null}
     </>
   );
 };
