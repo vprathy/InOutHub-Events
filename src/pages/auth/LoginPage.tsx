@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { buildLoginRedirectTo } from '@/lib/authConfig';
-import { logAuthEvent, queuePendingAuthEvent, rememberMagicLinkRequest } from '@/lib/authTelemetry';
+import { flushPendingAuthEvents, logAuthEvent, queuePendingAuthEvent, rememberMagicLinkRequest } from '@/lib/authTelemetry';
 import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 function isStandaloneDisplayMode() {
@@ -123,6 +123,7 @@ export default function LoginPage() {
             return;
         }
 
+        await flushPendingAuthEvents();
         await logAuthEvent('email_code_verified', {
             metadata: {
                 email: codeRequestedFor,

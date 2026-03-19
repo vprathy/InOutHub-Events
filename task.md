@@ -200,8 +200,8 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 - [x] Supabase operational field hardening
 
 ## Current Next Work
-- [ ] Complete OTP-first pilot validation on mobile browser and installed PWA flow.
-- [ ] Apply `supabase/migrations/20260319_expand_auth_events_metadata.sql` to the live Supabase project before relying on enriched auth telemetry.
+- [x] Complete OTP-first pilot validation on mobile browser and installed PWA flow.
+- [x] Apply `supabase/migrations/20260319_expand_auth_events_metadata.sql` to the live Supabase project before relying on enriched auth telemetry.
 - [ ] Gate 17: verify cinematic storyboard / playback timing polish for the approved intro path.
 - [ ] Keep signed-in account profile work disabled for now; do not reintroduce profile confirmation/update UX unless explicitly prioritized again.
 

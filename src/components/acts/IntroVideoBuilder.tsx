@@ -48,6 +48,9 @@ interface IntroVideoBuilderProps {
 
 const BACKGROUND_POLL_LIMIT = 12;
 const BACKGROUND_POLL_INTERVAL_MS = 5000;
+const TITLE_CARD_SECONDS = 3;
+const OUTRO_HOLD_SECONDS = 2;
+
 function getAssetDisplayLabel(asset: ParticipantAsset, index: number) {
   const participantName = [asset.participant?.first_name, asset.participant?.last_name].filter(Boolean).join(' ').trim();
   return participantName || asset.name?.trim() || `Performer ${index + 1}`;
@@ -77,6 +80,13 @@ function formatElapsedSince(value?: string | null) {
   const diffMs = Date.now() - new Date(value).getTime();
   if (!Number.isFinite(diffMs) || diffMs < 0) return null;
   return formatDurationMs(diffMs);
+}
+
+function formatStoryboardTimestamp(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) => {
@@ -176,8 +186,31 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
       }
     : null;
   const totalStoryboardSeconds = curationSuggestions.reduce((sum, suggestion) => sum + (suggestion.timing || 3), 0);
+  const totalPlaybackSeconds = curationSuggestions.length > 0
+    ? TITLE_CARD_SECONDS + totalStoryboardSeconds + OUTRO_HOLD_SECONDS
+    : 0;
   const hasTimingChanges = JSON.stringify(curationSuggestions.map(({ id, timing }) => ({ id, timing })))
     !== JSON.stringify((compositionState?.curation || []).map(({ id, timing }) => ({ id, timing })));
+  const storyboardFrames = curationSuggestions.map((suggestion, index) => {
+    const asset = assets.find((candidate) => candidate.id === suggestion.id);
+    const cueStartSeconds = TITLE_CARD_SECONDS
+      + curationSuggestions
+        .slice(0, index)
+        .reduce((sum, item) => sum + (item.timing || 3), 0);
+
+    return {
+      id: suggestion.id,
+      index,
+      asset,
+      label: asset ? getAssetDisplayLabel(asset, index) : `Performer ${index + 1}`,
+      cueStartSeconds,
+      cueStartLabel: formatStoryboardTimestamp(cueStartSeconds),
+      timing: suggestion.timing || 3,
+      pacing: suggestion.pacing || 'Cinematic',
+      focalPoint: suggestion.focalPoint || 'Center',
+      narrative: suggestion.narrative || 'Spotlight moment',
+    };
+  });
 
   const syncFromComposition = (composition: IntroComposition, nextCompositionId: string | null) => {
     setCompositionState(composition);
@@ -849,7 +882,12 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Timing</p>
-                    <p className="mt-1 text-sm font-bold text-foreground">{totalStoryboardSeconds}s total</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">{totalPlaybackSeconds > 0 ? `${totalPlaybackSeconds}s playback` : 'Awaiting scenes'}</p>
+                    {totalPlaybackSeconds > 0 ? (
+                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                        {TITLE_CARD_SECONDS}s title • {totalStoryboardSeconds}s scenes • {OUTRO_HOLD_SECONDS}s close
+                      </p>
+                    ) : null}
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-background/80 px-3 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Audio</p>
@@ -876,31 +914,73 @@ export const IntroVideoBuilder: React.FC<IntroVideoBuilderProps> = ({ actId }) =
                 </div>
               ) : null}
 
-              {curationSuggestions.slice(0, 3).map((suggestion, idx) => (
-                <div key={`${suggestion.id}-${idx}`} className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Frame {idx + 1}</p>
-                  <p className="mt-1 text-sm font-bold text-foreground">{suggestion.narrative || 'Spotlight moment'}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{suggestion.pacing || 'Cinematic'} • {suggestion.focalPoint || 'Center'} • {suggestion.timing || 3}s</p>
-                  {!isApproved ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {[2, 3, 4, 5].map((seconds) => (
-                        <button
-                          key={`${suggestion.id}-${seconds}`}
-                          type="button"
-                          onClick={() => updateSceneTiming(suggestion.id, seconds)}
-                          className={`min-h-[36px] rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors ${
-                            (suggestion.timing || 3) === seconds
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                          }`}
-                        >
-                          {seconds}s
-                        </button>
-                      ))}
+              {storyboardFrames.length > 0 ? (
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Storyboard Timeline</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        Playback matches this cue order when the operator taps preview or stage intro.
+                      </p>
                     </div>
-                  ) : null}
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      Opens with a {TITLE_CARD_SECONDS}s title card at 0:00
+                    </p>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {storyboardFrames.map((frame) => (
+                      <div key={`${frame.id}-${frame.index}`} className="rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Frame {frame.index + 1}</p>
+                              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
+                                Cue {frame.cueStartLabel}
+                              </span>
+                              <span className="rounded-full bg-background px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-foreground/70">
+                                {frame.timing}s hold
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-foreground">{frame.narrative}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {frame.label} • {frame.pacing} • {frame.focalPoint}
+                            </p>
+                          </div>
+
+                          {!isApproved ? (
+                            <div className="flex flex-wrap gap-2">
+                              {[2, 3, 4, 5].map((seconds) => (
+                                <button
+                                  key={`${frame.id}-${seconds}`}
+                                  type="button"
+                                  onClick={() => updateSceneTiming(frame.id, seconds)}
+                                  className={`min-h-[36px] rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                    frame.timing === seconds
+                                      ? 'border-primary bg-primary/10 text-primary'
+                                      : 'border-border/70 bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                                  }`}
+                                >
+                                  {seconds}s
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-border/50 bg-muted/10 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Final Cue</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        Outro holds at {formatStoryboardTimestamp(TITLE_CARD_SECONDS + totalStoryboardSeconds)} for {OUTRO_HOLD_SECONDS}s
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              ) : null}
               {curationSuggestions.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                   Intro prep will arrange the approved cast photos automatically.

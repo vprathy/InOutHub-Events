@@ -48,6 +48,9 @@ export function ManageOrgAccessModal({ isOpen, onClose }: ManageOrgAccessModalPr
                 </div>
 
                 <div className="overflow-y-auto p-6 space-y-6">
+                    <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-[11px] font-medium leading-5 text-primary">
+                        Organization roles apply across the tenant. Stage and act operations should be assigned at the event level, not here.
+                    </div>
                     <div className="space-y-3">
                         <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Members</h3>
                         {isLoading ? (

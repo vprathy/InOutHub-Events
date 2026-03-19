@@ -49,7 +49,7 @@ CREATE TABLE organization_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE, 
-    role TEXT NOT NULL DEFAULT 'Member' CHECK (role IN ('Owner', 'Admin', 'StageManager', 'ActAdmin')),
+    role TEXT NOT NULL DEFAULT 'Member' CHECK (role IN ('Owner', 'Admin', 'Member')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(organization_id, user_id)
 );
@@ -68,7 +68,7 @@ CREATE TABLE event_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'Member' CHECK (role IN ('EventAdmin', 'StageManager', 'Member')),
+    role TEXT NOT NULL DEFAULT 'Member' CHECK (role IN ('EventAdmin', 'StageManager', 'ActAdmin', 'Member')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, user_id)
 );
@@ -502,6 +502,38 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION enforce_requirement_policy_scope()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_org_id UUID;
+BEGIN
+    IF NEW.event_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT organization_id INTO v_org_id
+    FROM events
+    WHERE id = NEW.event_id;
+
+    IF v_org_id IS NULL THEN
+        RAISE EXCEPTION 'Requirement policy event is not linked to a valid organization';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM requirement_policies rp
+        WHERE rp.organization_id = v_org_id
+          AND rp.event_id IS NULL
+          AND rp.code = NEW.code
+          AND rp.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+    ) THEN
+        RAISE EXCEPTION 'Event policy % cannot override inherited organization policy', NEW.code;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ==========================================
@@ -556,6 +588,11 @@ CREATE POLICY "requirement_assignments_manage" ON requirement_assignments FOR AL
     OR (act_id IS NOT NULL AND auth_event_role(get_act_event_id(act_id)) = 'EventAdmin')
     OR (participant_id IS NOT NULL AND auth_event_role(get_participant_event_id(participant_id)) = 'EventAdmin')
 );
+
+DROP TRIGGER IF EXISTS trg_enforce_requirement_policy_scope ON requirement_policies;
+CREATE TRIGGER trg_enforce_requirement_policy_scope
+BEFORE INSERT OR UPDATE ON requirement_policies
+FOR EACH ROW EXECUTE FUNCTION enforce_requirement_policy_scope();
 
 ALTER TABLE app_super_admins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "super_admins_select_self" ON app_super_admins FOR SELECT USING (auth.uid() = user_id OR auth_is_super_admin());

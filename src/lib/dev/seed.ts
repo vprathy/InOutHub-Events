@@ -42,7 +42,7 @@ async function seed() {
         const members = users.map(u => ({
             organization_id: org.id,
             user_id: u.id,
-            role: u.email === 'vinay.prathy@ziffyvolve.com' ? 'Owner' : 'StageManager'
+            role: u.email === 'vinay.prathy@ziffyvolve.com' ? 'Owner' : 'Member'
         }));
         await supabase.from('organization_members').insert(members);
     } else {

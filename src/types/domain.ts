@@ -9,8 +9,7 @@ import type { Database } from '@/types/database.types';
 export const OrganizationRole = {
     Owner: 'Owner',
     Admin: 'Admin',
-    StageManager: 'StageManager',
-    ActAdmin: 'ActAdmin',
+    Member: 'Member',
 } as const;
 export type OrganizationRole = typeof OrganizationRole[keyof typeof OrganizationRole];
 

@@ -50,7 +50,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
                 <div className="bg-primary/5 border-b border-primary/10 px-6 py-3 flex items-start sm:items-center space-x-2 shrink-0">
                     <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5 sm:mt-0" />
                     <span className="text-[11px] font-medium text-primary leading-tight">
-                        Org Owners and Admins have implicit Event Admin access automatically.
+                        Org Owners and Admins inherit Event Admin authority automatically. Stage and act operations are granted here at the event layer.
                     </span>
                 </div>
 
@@ -116,6 +116,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
                             >
                                 <option value="EventAdmin">Event Admin</option>
                                 <option value="StageManager">Stage Manager</option>
+                                <option value="ActAdmin">Act Admin</option>
                                 <option value="Member">Member</option>
                             </select>
                         </div>
