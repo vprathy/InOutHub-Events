@@ -10,7 +10,7 @@ It is intentionally explicit about:
 - which worktree is canonical
 - what is actually verified
 - what was intentionally disabled
-- what local changes are still dirty and unsynced
+- what local changes, if any, still need attention
 - what should **not** be redone
 
 ---
@@ -128,23 +128,13 @@ Interpretation:
 
 ---
 
-## What Is Still Dirty Locally Right Now
+## Local Cleanliness
 
-Current unsynced local changes in the canonical worktree:
-- `database_schema.sql`
-- `src/components/auth/ProfileConfirmationGate.tsx`
-- `supabase/migrations/20260319_add_update_own_profile_rpc.sql`
-
-Also still untracked locally:
-- `public/icon-source.jpeg`
+At the time of this handoff rewrite, the parked profile-confirmation experiment has been removed from the canonical tree.
 
 Meaning:
-- there is partially implemented follow-up work for a profile RPC path
-- it is **not live**
-- it is **not pushed**
-- it should be treated as parked / unfinished unless the user explicitly wants to resume it
-
-Do not assume that local dirty profile work is production intent.
+- the disabled profile-confirmation flow is not hiding a second unfinished implementation in the repo
+- future chats should treat that work as intentionally stopped, not partially active
 
 ---
 
@@ -249,7 +239,6 @@ Do not redo:
 Do not assume:
 - `codex/mobile-readiness-redesign` is the active branch
 - the profile/update flow is currently enabled
-- local dirty files are already shipped
 
 ---
 
@@ -260,7 +249,6 @@ In `/Users/vinay/dev/InOutHub-Events-main`:
 1. `git status --short`
 2. confirm branch/worktree context
 3. check whether the user wants:
-- sync / cleanup of dirty local profile files
 - OTP testing
 - telemetry migration application
 - or a different Phase 1 pilot issue

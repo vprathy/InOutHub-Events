@@ -198,6 +198,13 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 - [x] Dashboard Readiness Radar & Compliance summary
 - [x] Performance Workspace (Deep-dive routes)
 - [x] Supabase operational field hardening
+
+## Current Next Work
+- [ ] Complete OTP-first pilot validation on mobile browser and installed PWA flow.
+- [ ] Apply `supabase/migrations/20260319_expand_auth_events_metadata.sql` to the live Supabase project before relying on enriched auth telemetry.
+- [ ] Gate 17: verify cinematic storyboard / playback timing polish for the approved intro path.
+- [ ] Keep signed-in account profile work disabled for now; do not reintroduce profile confirmation/update UX unless explicitly prioritized again.
+
 ## 🔴 Gate 10: Stability Audit (STOPPED LOGO WORK)
 *Halting all AI-generated branding. Ensuring core stability.*
 - [x] STOP all logo/icon activity (Requested by User)
