@@ -53,6 +53,23 @@ Expected git markers:
   - `pilot-freeze-2026-03-18`
   - `phase1-operator-rollout-2026-03-18`
 
+## Worktree / Tooling Note
+
+This repo currently has multiple git worktrees:
+- `/Users/vinay/dev/InOutHub-Events-main` on `main`
+- `/Users/vinay/dev/InOutHub-Events` on `codex/mobile-readiness-redesign`
+
+Important:
+- git worktrees share history, but they do **not** share `node_modules` automatically
+- the `main` worktree originally failed `npm run build` with `tsc: command not found` because it had no local install
+
+Current low-disk fix:
+- `/Users/vinay/dev/InOutHub-Events-main/node_modules` is a symlink to `/Users/vinay/dev/InOutHub-Events/node_modules`
+
+Implication for future chats:
+- if `main` reports missing local build tools, check the symlink before reinstalling dependencies
+- do **not** blindly run a second full `npm install` in the `main` worktree unless the lockfiles diverge or the shared install is intentionally being removed
+
 ## Phase 1 Rollout Status In Plain English
 
 Phase 1 operator rollout is ready enough to use as the primary app.
