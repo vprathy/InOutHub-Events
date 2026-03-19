@@ -116,7 +116,7 @@ export function Header() {
     }, [profile?.email, profile?.first_name, profile?.last_name, user?.email]);
 
     const emailLabel = profile?.email || user?.email || null;
-    const appVariantLabel = (import.meta.env.VITE_APP_VARIANT_LABEL || 'Preview').trim();
+    const appVariantLabel = (import.meta.env.VITE_APP_VARIANT_LABEL || '').trim();
     const initials = useMemo(() => {
         const source = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || displayName;
         return source
@@ -134,9 +134,11 @@ export function Header() {
                 <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <BrandMark size="sm" className="shrink-0 sm:hidden" />
                     <BrandMark size="sm" showLabel className="hidden shrink-0 sm:flex" />
-                    <span className="inline-flex min-h-[22px] items-center rounded-full border border-border/60 bg-muted/45 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/80">
-                        {appVariantLabel}
-                    </span>
+                    {appVariantLabel ? (
+                        <span className="inline-flex min-h-[22px] items-center rounded-full border border-border/60 bg-muted/45 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/80">
+                            {appVariantLabel}
+                        </span>
+                    ) : null}
                 </div>
 
                 {selectionNames?.orgName && (
