@@ -94,6 +94,62 @@
     border: 1px solid hsl(var(--border) / 0.58);
   }
 
+  .surface-section-dashboard {
+    background:
+      radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(14, 165, 233, 0.16);
+  }
+
+  .surface-section-participants {
+    background:
+      radial-gradient(circle at top left, rgba(99, 102, 241, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(79, 70, 229, 0.16);
+  }
+
+  .surface-section-performances {
+    background:
+      radial-gradient(circle at top left, rgba(217, 70, 239, 0.11), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(217, 70, 239, 0.16);
+  }
+
+  .surface-section-show-flow {
+    background:
+      radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(245, 158, 11, 0.18);
+  }
+
+  .surface-section-console {
+    background:
+      radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(16, 185, 129, 0.16);
+  }
+
+  .surface-section-admin {
+    background:
+      radial-gradient(circle at top left, rgba(71, 85, 105, 0.15), transparent 36%),
+      linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.76));
+    border: 1px solid rgba(71, 85, 105, 0.18);
+  }
+
+  .surface-section-access {
+    background:
+      radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(20, 184, 166, 0.16);
+  }
+
+  .surface-section-requirements {
+    background:
+      radial-gradient(circle at top left, rgba(244, 63, 94, 0.12), transparent 34%),
+      linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74));
+    border: 1px solid rgba(244, 63, 94, 0.16);
+  }
+
   .surface-good {
     background: hsl(var(--success) / 0.1);
     border: 1px solid hsl(var(--success) / 0.28);
@@ -141,5 +197,16 @@
   .dark .surface-metric {
     background: hsl(var(--secondary) / 0.8);
     border-color: hsl(var(--border) / 0.82);
+  }
+
+  .dark .surface-section-dashboard,
+  .dark .surface-section-participants,
+  .dark .surface-section-performances,
+  .dark .surface-section-show-flow,
+  .dark .surface-section-console,
+  .dark .surface-section-admin,
+  .dark .surface-section-access,
+  .dark .surface-section-requirements {
+    box-shadow: 0 18px 40px -28px rgba(2, 6, 23, 0.9);
   }
 }

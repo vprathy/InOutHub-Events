@@ -171,7 +171,7 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            <div className="surface-panel rounded-[1.35rem] p-3">
+            <div className="surface-panel surface-section-dashboard rounded-[1.35rem] p-3">
                 <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Show Snapshot</p>
                 <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {metrics.map((metric) => (

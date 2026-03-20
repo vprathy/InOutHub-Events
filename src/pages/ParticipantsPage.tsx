@@ -292,7 +292,7 @@ export default function ParticipantsPage() {
             </div>
 
             {/* Search, Sort and Quick Filters */}
-            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+            <div className="surface-panel surface-section-participants space-y-3 rounded-[1.35rem] p-3">
                 {highestPriorityResponse ? (
                     <button
                         onClick={() => updateFilter(highestPriorityResponse.key)}
@@ -336,7 +336,7 @@ export default function ParticipantsPage() {
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                     <button
                         onClick={() => updateFilter('all')}
-                        className={`min-h-11 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
+                        className={`min-h-11 rounded-full px-4 text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-indigo-600 text-primary-foreground shadow-md shadow-indigo-600/20' : 'surface-metric text-muted-foreground hover:bg-accent'}`}
                     >
                         All
                         <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${activeFilter === 'all' ? 'bg-white/15 text-white' : 'bg-muted text-foreground'}`}>{stats.total}</span>

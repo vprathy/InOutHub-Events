@@ -101,7 +101,7 @@ export default function AccessPage() {
             ) : null}
 
             <div className="grid gap-4 lg:grid-cols-[0.95fr,1.05fr]">
-                <div className="surface-panel rounded-[1.35rem] p-4">
+                <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Grant</p>
                         <p className="text-sm text-muted-foreground">
@@ -137,7 +137,7 @@ export default function AccessPage() {
                     </div>
                 </div>
 
-                <div className="surface-panel rounded-[1.35rem] p-4">
+                <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                     <div className="flex items-center justify-between gap-3">
                         <div className="space-y-1">
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Search Access</p>
@@ -162,7 +162,7 @@ export default function AccessPage() {
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[0.9fr,1.1fr]">
-                <section className="surface-panel rounded-[1.35rem] p-4">
+                <section className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4 text-primary" />
                         <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Pending Access</h2>
@@ -187,7 +187,7 @@ export default function AccessPage() {
                     )}
                 </section>
 
-                <section className="surface-panel rounded-[1.35rem] p-4">
+                <section className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4 text-primary" />
                         <h2 className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">Current Event Access</h2>

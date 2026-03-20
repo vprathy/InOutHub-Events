@@ -332,7 +332,7 @@ export default function LineupPage() {
                 />
             )}
 
-            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+            <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] p-3">
                 <div className="flex items-center justify-between gap-3 px-1">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
@@ -379,7 +379,7 @@ export default function LineupPage() {
             </div>
 
             {lineup && lineup.length > 0 && (
-                <div className="surface-panel rounded-[1.35rem] p-3">
+                <div className="surface-panel surface-section-show-flow rounded-[1.35rem] p-3">
                     <div className="space-y-1 px-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Run Snapshot</p>
                         <p className="text-sm font-semibold text-foreground">

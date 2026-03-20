@@ -48,7 +48,7 @@ export default function AdminPage() {
                 subtitle="Administrative controls for event staffing and readiness policy management."
             />
 
-            <div className="surface-panel rounded-[1.35rem] p-4 sm:p-5">
+            <div className="surface-panel surface-section-admin rounded-[1.35rem] p-4 sm:p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="space-y-1.5">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Admin Module</p>

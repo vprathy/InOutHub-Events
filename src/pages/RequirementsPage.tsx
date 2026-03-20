@@ -451,7 +451,7 @@ export default function RequirementsPage() {
                 </div>
             </div>
 
-            <div className="surface-panel rounded-[1.2rem] border p-3.5">
+            <div className="surface-panel surface-section-requirements rounded-[1.2rem] border p-3.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">

@@ -301,8 +301,8 @@ export function ParticipantProfilePage() {
                         </div>
                     }
                     status={
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                        <div className="surface-section-participants grid grid-cols-1 gap-2 rounded-2xl p-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Roster Status</p>
                                 <select
                                     value={participant.status || 'active'}
@@ -324,7 +324,7 @@ export function ParticipantProfilePage() {
                                 <p className="mt-2 text-xs text-muted-foreground">{getParticipantStatusLabel(participant.status)}</p>
                             </div>
 
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile Type</p>
                                 <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
                                     <p className="text-sm font-black text-foreground">
@@ -342,7 +342,7 @@ export function ParticipantProfilePage() {
                                 </p>
                             </div>
 
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Performance Links</p>
                                 <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
                                     <p className="text-sm font-black text-foreground">
@@ -354,7 +354,7 @@ export function ParticipantProfilePage() {
                                 </p>
                             </div>
 
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-3">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Files & Approvals</p>
                                 <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
                                     <p className="text-sm font-black text-foreground">
@@ -378,7 +378,7 @@ export function ParticipantProfilePage() {
                 <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 rounded-l-2xl bg-gradient-to-r from-background via-background/90 to-transparent sm:hidden" />
                     <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 rounded-r-2xl bg-gradient-to-l from-background via-background/90 to-transparent sm:hidden" />
-                    <div className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-border/40 bg-muted/20 p-1 shadow-inner scrollbar-hide">
+                    <div className="surface-section-participants flex items-center gap-1 overflow-x-auto rounded-2xl p-1 shadow-inner scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('workspace')}
                             className={`flex min-h-11 flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${activeTab === 'workspace' ? 'border border-primary/20 bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}

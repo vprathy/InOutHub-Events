@@ -124,7 +124,7 @@ export default function StageConsolePage() {
                 </div>
             ) : null}
 
-            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+            <div className="surface-panel surface-section-console space-y-3 rounded-[1.35rem] p-3">
                 <div className="px-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
                     <p className="text-sm font-semibold text-foreground">Pick the stage you are actively calling.</p>

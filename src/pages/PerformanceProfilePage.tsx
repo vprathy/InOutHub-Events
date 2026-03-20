@@ -102,12 +102,12 @@ export function PerformanceProfilePage() {
                     title={act.name}
                     subtitle={`${act.participants.length} cast members assigned • ${getActReadinessLabel(act.readinessSummary?.state)} • ${introRequirement?.fulfilled ? 'intro approved' : 'intro still needs review'}`}
                     status={
-                        <div className="w-full rounded-2xl border border-border/40 bg-muted/20 p-3">
+                        <div className="surface-section-performances w-full rounded-2xl p-3">
                             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                                 {headerSummaryItems.map((item) => {
                                     const Icon = item.icon;
                                     return (
-                                        <div key={item.label} className="rounded-2xl border border-border/50 bg-background/80 p-3">
+                                        <div key={item.label} className="rounded-2xl border border-fuchsia-500/10 bg-background/80 p-3">
                                             <div className="flex items-center gap-2 text-muted-foreground">
                                                 <Icon className="h-3.5 w-3.5" />
                                                 <p className="text-[10px] font-black uppercase tracking-[0.18em]">{item.label}</p>
@@ -132,7 +132,7 @@ export function PerformanceProfilePage() {
             </div>
 
             <div className="relative">
-                <div className="flex items-center space-x-1 bg-muted/40 p-1.5 rounded-2xl border border-border/40 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
+                <div className="surface-section-performances flex items-center space-x-1 rounded-2xl p-1.5 w-full overflow-x-auto scrollbar-hide snap-x snap-mandatory antialiased shadow-inner">
                     <button
                         onClick={() => setActiveTab('workspace')}
                         data-tab="overview"

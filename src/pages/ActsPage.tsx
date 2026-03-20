@@ -189,7 +189,7 @@ export default function ActsPage() {
                 ) : null}
             </div>
 
-            <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
+            <div className="surface-panel surface-section-performances space-y-3 rounded-[1.35rem] p-3">
                 {highestPriorityResponse ? (
                     <button
                         onClick={() => updateFilter(highestPriorityResponse.key)}
@@ -219,7 +219,7 @@ export default function ActsPage() {
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                     <button
                         onClick={() => updateFilter('all')}
-                        className={`flex min-h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'bg-card border border-border text-muted-foreground'}`}
+                        className={`flex min-h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-fuchsia-600 text-primary-foreground shadow-md shadow-fuchsia-600/20' : 'bg-card border border-border text-muted-foreground'}`}
                     >
                         <Users className="w-3.5 h-3.5" />
                         All
