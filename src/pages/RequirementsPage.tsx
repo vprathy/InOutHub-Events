@@ -407,56 +407,10 @@ export default function RequirementsPage() {
                 </div>
             ) : null}
 
-            <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 rounded-[1.15rem] bg-muted/35 p-1.5">
-                    <button
-                        onClick={() => setScope('event')}
-                        className={`min-h-[44px] rounded-xl px-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${
-                            scope === 'event' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
-                        }`}
-                    >
-                        This Event
-                    </button>
-                    <button
-                        onClick={() => setScope('org')}
-                        className={`min-h-[44px] rounded-xl px-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${
-                            scope === 'org' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
-                        }`}
-                    >
-                        All Events In Org
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 rounded-[1.15rem] bg-muted/35 p-1.5">
-                    <button
-                        onClick={() => setSubjectTab('participants')}
-                        className={`min-h-[44px] rounded-xl px-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${
-                            subjectTab === 'participants'
-                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                : 'text-muted-foreground'
-                        }`}
-                    >
-                        Participants
-                    </button>
-                    <button
-                        onClick={() => setSubjectTab('acts')}
-                        className={`min-h-[44px] rounded-xl px-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${
-                            subjectTab === 'acts'
-                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                : 'text-muted-foreground'
-                        }`}
-                    >
-                        Acts / Performances
-                    </button>
-                </div>
-            </div>
-
             <div className="surface-panel surface-section-requirements rounded-[1.2rem] border p-3.5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),auto] lg:items-start">
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                            Preset Coverage
-                        </p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Preset Coverage</p>
                         <p className="text-sm font-semibold text-foreground">
                             {summary.blocking > 0
                                 ? `${summary.blocking} blocking rules are active for ${
@@ -470,20 +424,64 @@ export default function RequirementsPage() {
                                 : 'Organization rules become the baseline for every event in this organization.'}
                         </p>
                     </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2 lg:w-[320px]">
+                        <div className="grid grid-cols-2 gap-2 rounded-[1.05rem] bg-muted/35 p-1.5">
+                            <button
+                                onClick={() => setScope('event')}
+                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                    scope === 'event' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
+                                }`}
+                            >
+                                Event
+                            </button>
+                            <button
+                                onClick={() => setScope('org')}
+                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                    scope === 'org' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
+                                }`}
+                            >
+                                Org
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 rounded-[1.05rem] bg-muted/35 p-1.5">
+                            <button
+                                onClick={() => setSubjectTab('participants')}
+                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                    subjectTab === 'participants'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-muted-foreground'
+                                }`}
+                            >
+                                People
+                            </button>
+                            <button
+                                onClick={() => setSubjectTab('acts')}
+                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
+                                    subjectTab === 'acts'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-muted-foreground'
+                                }`}
+                            >
+                                Acts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <SummaryPill label="Active" value={summary.total} tone="default" compact />
+                    <SummaryPill label="Blocking" value={summary.blocking} tone={summary.blocking > 0 ? 'critical' : 'good'} compact />
+                    <SummaryPill label="Review" value={summary.review} tone={summary.review > 0 ? 'warning' : 'good'} compact />
+                    <SummaryPill label="Bulk" value={summary.bulk} tone={summary.bulk > 0 ? 'info' : 'default'} compact />
                     <button
                         onClick={() => navigate(subjectTab === 'participants' ? '/participants' : '/performances')}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 text-[10px] font-black uppercase tracking-[0.18em] text-primary"
+                        className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-primary/20 bg-primary/5 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
                     >
                         Open {destinationLabel}
                         <ChevronRight className="h-4 w-4" />
                     </button>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <SummaryPill label="Active" value={summary.total} tone="default" />
-                    <SummaryPill label="Blocking" value={summary.blocking} tone={summary.blocking > 0 ? 'critical' : 'good'} />
-                    <SummaryPill label="Needs Review" value={summary.review} tone={summary.review > 0 ? 'warning' : 'good'} />
-                    <SummaryPill label="Bulk Actions" value={summary.bulk} tone={summary.bulk > 0 ? 'info' : 'default'} />
                 </div>
             </div>
 
@@ -688,10 +686,12 @@ function SummaryPill({
     label,
     value,
     tone,
+    compact = false,
 }: {
     label: string;
     value: number;
     tone: 'default' | 'good' | 'warning' | 'critical' | 'info';
+    compact?: boolean;
 }) {
     const toneClasses = {
         default: 'bg-muted/60 text-foreground',
@@ -702,9 +702,9 @@ function SummaryPill({
     };
 
     return (
-        <div className={`rounded-[1rem] px-3 py-3 ${toneClasses[tone]}`}>
+        <div className={`${compact ? 'rounded-full px-3 py-2' : 'rounded-[1rem] px-3 py-3'} ${toneClasses[tone]}`}>
             <p className="text-[9px] font-black uppercase tracking-[0.18em]">{label}</p>
-            <p className="mt-1 text-lg font-black tracking-tight">{value}</p>
+            <p className={`${compact ? 'mt-0.5 text-sm' : 'mt-1 text-lg'} font-black tracking-tight`}>{value}</p>
         </div>
     );
 }

@@ -143,22 +143,22 @@ export function SectionIdentityStrip() {
     const Icon = section.icon;
 
     return (
-        <div className={`sticky top-14 z-40 -mx-4 border-b px-4 py-2.5 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:px-6 ${section.shellClassName}`}>
+        <div className={`sticky top-14 z-40 -mx-4 border-b px-4 py-1.5 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:px-6 sm:py-2 ${section.shellClassName}`}>
             <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${section.iconClassName}`}>
-                        <Icon className="h-4.5 w-4.5" />
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border shadow-sm ${section.iconClassName}`}>
+                        <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                             {section.group}
                         </p>
-                        <p className="truncate text-sm font-black tracking-tight text-foreground">
+                        <p className="truncate text-[13px] font-black tracking-tight text-foreground sm:text-sm">
                             {section.label}
                         </p>
                     </div>
                 </div>
-                <div className={`hidden min-h-[36px] items-center rounded-full border px-3 text-[10px] font-black uppercase tracking-[0.18em] sm:inline-flex ${section.badgeClassName}`}>
+                <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>
                     {section.hint}
                 </div>
             </div>

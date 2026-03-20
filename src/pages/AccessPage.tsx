@@ -100,62 +100,60 @@ export default function AccessPage() {
                 </div>
             ) : null}
 
-            <div className="grid gap-4 lg:grid-cols-[0.95fr,1.05fr]">
-                <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
+            <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Grant</p>
                         <p className="text-sm text-muted-foreground">
                             Grant event access in one step. Org membership is added automatically if needed.
                         </p>
                     </div>
-                    <form onSubmit={handleQuickGrant} className="mt-4 space-y-3">
+                    <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-left sm:text-center">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current</p>
+                        <p className="text-lg font-black text-foreground">{members.length}</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleQuickGrant} className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.2fr),180px,170px]">
+                    <div className="relative lg:col-span-1">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                             type="email"
                             placeholder="Email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className="min-h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             required
                         />
-                        <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value as AccessRole)}
-                            className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                        >
-                            <option value="EventAdmin">Event Admin</option>
-                            <option value="StageManager">Stage Manager</option>
-                            <option value="ActAdmin">Act Admin</option>
-                            <option value="Member">Member</option>
-                        </select>
-                        <Button type="submit" className="h-11 w-full" disabled={isAssigning || !email.trim()}>
-                            {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                            Grant Access
-                        </Button>
-                    </form>
-                    <div className="mt-4 rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-[11px] font-medium leading-5 text-primary">
+                    </div>
+                    <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as AccessRole)}
+                        className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                        <option value="EventAdmin">Event Admin</option>
+                        <option value="StageManager">Stage Manager</option>
+                        <option value="ActAdmin">Act Admin</option>
+                        <option value="Member">Member</option>
+                    </select>
+                    <Button type="submit" className="h-11 w-full" disabled={isAssigning || !email.trim()}>
+                        {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                        Grant Access
+                    </Button>
+                </form>
+
+                <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr),auto] lg:items-center">
+                    <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-[11px] font-medium leading-5 text-primary">
                         If the email has not signed in yet, access stays pending until first sign-in.
                     </div>
-                </div>
-
-                <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Search Access</p>
-                            <p className="text-sm text-muted-foreground">Find current event roles and pending access by email.</p>
-                        </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-center">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current</p>
-                            <p className="text-lg font-black text-foreground">{members.length}</p>
-                        </div>
-                    </div>
-                    <div className="relative mt-4">
+                    <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                             type="text"
                             placeholder="Search email or role"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="min-h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className="min-h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 lg:w-[280px]"
                         />
                     </div>
                 </div>

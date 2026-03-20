@@ -23,13 +23,11 @@ export function PageHeader({
     return (
         <div className={`space-y-2 ${isCentered ? 'text-center' : ''}`}>
             <div className={`flex flex-col gap-2 ${isCentered ? 'items-center' : 'sm:flex-row sm:items-end sm:justify-between'}`}>
-                <div className={`space-y-1 ${section ? 'rounded-[1.35rem] border px-4 py-3 shadow-sm' : ''} ${section?.shellClassName || ''}`}>
+                <div className="space-y-1">
                     {section ? (
-                        <div className={`inline-flex min-h-[32px] items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${section.badgeClassName}`}>
+                        <div className={`inline-flex min-h-[26px] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${section.badgeClassName}`}>
                             {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                            <span>{section.group}</span>
-                            <span className="opacity-55">/</span>
-                            <span>{section.hint}</span>
+                            <span>{section.label}</span>
                         </div>
                     ) : null}
                     <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
