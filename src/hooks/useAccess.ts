@@ -32,13 +32,14 @@ export function useAssignOrgRole(organizationId: string | null) {
         mutationFn: async ({ email, role }: { email: string, role: string }) => {
             if (!organizationId) throw new Error('No organization selected');
 
-            const { error } = await supabase.rpc('assign_org_role', {
+            const { data, error } = await supabase.rpc('assign_org_role', {
                 p_org_id: organizationId,
                 p_target_email: email,
                 p_role: role
             });
 
             if (error) throw error;
+            return data as { outcome?: string; message?: string } | null;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-members', organizationId] });
@@ -77,9 +78,31 @@ export function useEventMembers(eventId: string | null) {
                 .select(`
                     id,
                     role,
+                    grant_type,
                     user_profiles:user_id ( id, email, first_name, last_name )
                 `)
+                .order('role')
                 .eq('event_id', eventId);
+
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!eventId
+    });
+}
+
+export function usePendingEventAccess(eventId: string | null) {
+    return useQuery({
+        queryKey: ['pending-event-access', eventId],
+        queryFn: async () => {
+            if (!eventId) return [];
+
+            const { data, error } = await supabase
+                .from('pending_event_access')
+                .select('id, normalized_email, target_role, grant_type, source_type, status, created_at')
+                .eq('event_id', eventId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
             return data || [];
@@ -96,16 +119,19 @@ export function useAssignEventRole(eventId: string | null) {
         mutationFn: async ({ email, role }: { email: string, role: string }) => {
             if (!eventId) throw new Error('No event selected');
 
-            const { error } = await supabase.rpc('assign_event_role', {
+            const { data, error } = await supabase.rpc('assign_event_role', {
                 p_event_id: eventId,
                 p_target_email: email,
                 p_role: role
             });
 
             if (error) throw error;
+            return data as { outcome?: string; message?: string } | null;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['event-members', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['pending-event-access', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['org-members'] });
         }
     });
 }
@@ -125,6 +151,7 @@ export function useRemoveEventMember(eventId: string | null) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['event-members', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['pending-event-access', eventId] });
         }
     });
 }

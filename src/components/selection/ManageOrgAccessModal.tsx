@@ -26,8 +26,8 @@ export function ManageOrgAccessModal({ isOpen, onClose }: ManageOrgAccessModalPr
         setError('');
         setNotice('');
         assignRole({ email, role }, {
-            onSuccess: () => {
-                setNotice(`${role} access granted to ${email}.`);
+            onSuccess: (result) => {
+                setNotice(result?.message || `${role} access granted to ${email}.`);
                 setEmail('');
                 setRole('Member');
             },

@@ -69,8 +69,26 @@ CREATE TABLE event_members (
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
     role TEXT NOT NULL DEFAULT 'Member' CHECK (role IN ('EventAdmin', 'StageManager', 'ActAdmin', 'Member')),
+    grant_type TEXT NOT NULL DEFAULT 'manual' CHECK (grant_type IN ('automated', 'manual')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, user_id)
+);
+
+CREATE TABLE pending_event_access (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    normalized_email TEXT NOT NULL,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    target_role TEXT NOT NULL DEFAULT 'Member' CHECK (target_role IN ('EventAdmin', 'StageManager', 'ActAdmin', 'Member')),
+    grant_type TEXT NOT NULL DEFAULT 'automated' CHECK (grant_type IN ('automated', 'manual')),
+    source_type TEXT,
+    source_participant_id UUID,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'fulfilled', 'revoked')),
+    fulfilled_user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(normalized_email, event_id)
 );
 
 -- ==========================================
@@ -103,6 +121,10 @@ CREATE TABLE participants (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, source_system, source_instance, source_anchor_type, source_anchor_value)
 );
+
+ALTER TABLE pending_event_access
+    ADD CONSTRAINT pending_event_access_source_participant_id_fkey
+    FOREIGN KEY (source_participant_id) REFERENCES participants(id) ON DELETE SET NULL;
 
 CREATE TABLE participant_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -431,6 +453,404 @@ RETURNS BOOLEAN AS $$
   SELECT auth_is_super_admin() OR auth_event_role(p_event_id) IN ('EventAdmin', 'StageManager');
 $$ LANGUAGE sql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION normalize_email(p_email TEXT)
+RETURNS TEXT AS $$
+  SELECT NULLIF(lower(trim(p_email)), '');
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION is_valid_email(p_email TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT COALESCE(normalize_email(p_email) ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$', FALSE);
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION extract_participant_contact_email(p_src_raw JSONB, p_notes TEXT)
+RETURNS TEXT AS $$
+  SELECT normalize_email(COALESCE(
+      NULLIF(p_src_raw->>'email', ''),
+      NULLIF(p_src_raw->>'Email', ''),
+      NULLIF(p_src_raw->>'email address', ''),
+      NULLIF(p_src_raw->>'Email Address', ''),
+      NULLIF(p_src_raw->>'parent email', ''),
+      NULLIF(p_src_raw->>'Parent Email', ''),
+      NULLIF(p_src_raw->>'guardian email', ''),
+      NULLIF(p_src_raw->>'Guardian Email', ''),
+      (regexp_match(COALESCE(p_notes, ''), '\[Email:\s*([^\]]+)\]', 'i'))[1]
+  ));
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION ensure_org_member(p_org_id UUID, p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    INSERT INTO organization_members (organization_id, user_id, role)
+    VALUES (p_org_id, p_user_id, 'Member')
+    ON CONFLICT (organization_id, user_id) DO NOTHING;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION upsert_pending_event_access(
+    p_email TEXT,
+    p_org_id UUID,
+    p_event_id UUID,
+    p_target_role TEXT,
+    p_grant_type TEXT,
+    p_source_type TEXT DEFAULT NULL,
+    p_source_participant_id UUID DEFAULT NULL,
+    p_status TEXT DEFAULT 'pending'
+)
+RETURNS VOID AS $$
+DECLARE
+    v_email TEXT;
+BEGIN
+    v_email := normalize_email(p_email);
+
+    IF NOT is_valid_email(v_email) THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO pending_event_access (
+        normalized_email,
+        organization_id,
+        event_id,
+        target_role,
+        grant_type,
+        source_type,
+        source_participant_id,
+        status
+    ) VALUES (
+        v_email,
+        p_org_id,
+        p_event_id,
+        p_target_role,
+        p_grant_type,
+        p_source_type,
+        p_source_participant_id,
+        p_status
+    )
+    ON CONFLICT (normalized_email, event_id) DO UPDATE
+    SET organization_id = EXCLUDED.organization_id,
+        target_role = CASE
+            WHEN pending_event_access.grant_type = 'manual' AND EXCLUDED.grant_type = 'automated'
+                THEN pending_event_access.target_role
+            ELSE EXCLUDED.target_role
+        END,
+        grant_type = CASE
+            WHEN pending_event_access.grant_type = 'manual' AND EXCLUDED.grant_type = 'automated'
+                THEN pending_event_access.grant_type
+            ELSE EXCLUDED.grant_type
+        END,
+        source_type = COALESCE(EXCLUDED.source_type, pending_event_access.source_type),
+        source_participant_id = COALESCE(EXCLUDED.source_participant_id, pending_event_access.source_participant_id),
+        status = CASE
+            WHEN pending_event_access.grant_type = 'manual' AND EXCLUDED.grant_type = 'automated'
+                THEN pending_event_access.status
+            ELSE EXCLUDED.status
+        END,
+        updated_at = NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION revoke_automated_event_access_for_email(p_event_id UUID, p_email TEXT)
+RETURNS VOID AS $$
+DECLARE
+    v_email TEXT;
+    v_user_id UUID;
+BEGIN
+    v_email := normalize_email(p_email);
+
+    IF NOT is_valid_email(v_email) THEN
+        RETURN;
+    END IF;
+
+    SELECT id INTO v_user_id
+    FROM user_profiles
+    WHERE normalize_email(email) = v_email
+    LIMIT 1;
+
+    IF v_user_id IS NOT NULL THEN
+        DELETE FROM event_members
+        WHERE event_id = p_event_id
+          AND user_id = v_user_id
+          AND role = 'Member'
+          AND grant_type = 'automated';
+    END IF;
+
+    UPDATE pending_event_access
+    SET status = 'revoked',
+        updated_at = NOW()
+    WHERE normalized_email = v_email
+      AND event_id = p_event_id
+      AND grant_type = 'automated'
+      AND status = 'pending';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION fulfill_pending_event_access_for_user(p_user_id UUID, p_email TEXT)
+RETURNS VOID AS $$
+DECLARE
+    v_email TEXT;
+    pending_row RECORD;
+    existing_member RECORD;
+BEGIN
+    v_email := normalize_email(p_email);
+
+    IF NOT is_valid_email(v_email) THEN
+        RETURN;
+    END IF;
+
+    FOR pending_row IN
+        SELECT *
+        FROM pending_event_access
+        WHERE normalized_email = v_email
+          AND status = 'pending'
+        ORDER BY created_at ASC
+    LOOP
+        PERFORM ensure_org_member(pending_row.organization_id, p_user_id);
+
+        SELECT id, role, grant_type
+        INTO existing_member
+        FROM event_members
+        WHERE event_id = pending_row.event_id
+          AND user_id = p_user_id
+        LIMIT 1;
+
+        IF existing_member.id IS NULL THEN
+            INSERT INTO event_members (event_id, user_id, role, grant_type)
+            VALUES (pending_row.event_id, p_user_id, pending_row.target_role, pending_row.grant_type);
+        ELSIF pending_row.grant_type = 'manual' THEN
+            UPDATE event_members
+            SET role = pending_row.target_role,
+                grant_type = 'manual'
+            WHERE id = existing_member.id;
+        END IF;
+
+        UPDATE pending_event_access
+        SET status = 'fulfilled',
+            fulfilled_user_id = p_user_id,
+            updated_at = NOW()
+        WHERE id = pending_row.id;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION reconcile_source_participant_access(p_participant_id UUID, p_previous_email TEXT DEFAULT NULL)
+RETURNS VOID AS $$
+DECLARE
+    v_participant RECORD;
+    v_org_id UUID;
+    v_email TEXT;
+    v_user_id UUID;
+    v_existing_member RECORD;
+BEGIN
+    SELECT *
+    INTO v_participant
+    FROM participants
+    WHERE id = p_participant_id;
+
+    IF v_participant.id IS NULL THEN
+        RETURN;
+    END IF;
+
+    IF v_participant.source_system IS NULL OR v_participant.source_system = 'manual' THEN
+        RETURN;
+    END IF;
+
+    v_email := extract_participant_contact_email(v_participant.src_raw, v_participant.notes);
+
+    IF p_previous_email IS NOT NULL AND normalize_email(p_previous_email) IS DISTINCT FROM v_email THEN
+        PERFORM revoke_automated_event_access_for_email(v_participant.event_id, p_previous_email);
+    END IF;
+
+    IF NOT is_valid_email(v_email) THEN
+        RETURN;
+    END IF;
+
+    SELECT organization_id INTO v_org_id
+    FROM events
+    WHERE id = v_participant.event_id;
+
+    IF v_participant.status = 'active' THEN
+        SELECT id INTO v_user_id
+        FROM user_profiles
+        WHERE normalize_email(email) = v_email
+        LIMIT 1;
+
+        IF v_user_id IS NULL THEN
+            PERFORM upsert_pending_event_access(
+                v_email,
+                v_org_id,
+                v_participant.event_id,
+                'Member',
+                'automated',
+                'participant',
+                v_participant.id,
+                'pending'
+            );
+            RETURN;
+        END IF;
+
+        PERFORM ensure_org_member(v_org_id, v_user_id);
+
+        SELECT id, role, grant_type
+        INTO v_existing_member
+        FROM event_members
+        WHERE event_id = v_participant.event_id
+          AND user_id = v_user_id
+        LIMIT 1;
+
+        IF v_existing_member.id IS NULL THEN
+            INSERT INTO event_members (event_id, user_id, role, grant_type)
+            VALUES (v_participant.event_id, v_user_id, 'Member', 'automated');
+        END IF;
+
+        UPDATE pending_event_access
+        SET status = 'fulfilled',
+            fulfilled_user_id = v_user_id,
+            updated_at = NOW()
+        WHERE normalized_email = v_email
+          AND event_id = v_participant.event_id
+          AND status = 'pending'
+          AND grant_type = 'automated';
+    ELSE
+        PERFORM revoke_automated_event_access_for_email(v_participant.event_id, v_email);
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION trg_reconcile_source_participant_access()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_previous_email TEXT;
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        v_previous_email := extract_participant_contact_email(OLD.src_raw, OLD.notes);
+    END IF;
+
+    PERFORM reconcile_source_participant_access(NEW.id, v_previous_email);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION assign_org_role(p_org_id UUID, p_target_email TEXT, p_role TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    v_normalized_email TEXT;
+    v_target_user_id UUID;
+BEGIN
+    IF NOT (auth_is_super_admin() OR auth_org_role(p_org_id) IN ('Owner', 'Admin')) THEN
+        RAISE EXCEPTION 'Not authorized to manage organization access';
+    END IF;
+
+    v_normalized_email := normalize_email(p_target_email);
+
+    IF NOT is_valid_email(v_normalized_email) THEN
+        RAISE EXCEPTION 'A valid email address is required';
+    END IF;
+
+    SELECT id INTO v_target_user_id
+    FROM user_profiles
+    WHERE normalize_email(email) = v_normalized_email
+    LIMIT 1;
+
+    IF v_target_user_id IS NULL THEN
+        RAISE EXCEPTION 'User must sign in once before org access can be granted';
+    END IF;
+
+    INSERT INTO organization_members (organization_id, user_id, role)
+    VALUES (p_org_id, v_target_user_id, p_role)
+    ON CONFLICT (organization_id, user_id) DO UPDATE
+    SET role = EXCLUDED.role;
+
+    RETURN jsonb_build_object(
+        'outcome', 'Granted',
+        'message', format('%s org access granted to %s.', p_role, v_normalized_email)
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION assign_event_role(p_event_id UUID, p_target_email TEXT, p_role TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    v_org_id UUID;
+    v_normalized_email TEXT;
+    v_target_user_id UUID;
+    v_existing_member RECORD;
+    v_outcome TEXT := 'Granted';
+BEGIN
+    IF NOT (auth_is_super_admin() OR auth_event_role(p_event_id) = 'EventAdmin') THEN
+        RAISE EXCEPTION 'Not authorized to manage event access';
+    END IF;
+
+    SELECT organization_id INTO v_org_id
+    FROM events
+    WHERE id = p_event_id;
+
+    v_normalized_email := normalize_email(p_target_email);
+
+    IF NOT is_valid_email(v_normalized_email) THEN
+        RAISE EXCEPTION 'A valid email address is required';
+    END IF;
+
+    SELECT id, role, grant_type
+    INTO v_existing_member
+    FROM event_members em
+    JOIN user_profiles up ON up.id = em.user_id
+    WHERE em.event_id = p_event_id
+      AND normalize_email(up.email) = v_normalized_email
+    LIMIT 1;
+
+    SELECT id INTO v_target_user_id
+    FROM user_profiles
+    WHERE normalize_email(email) = v_normalized_email
+    LIMIT 1;
+
+    IF v_target_user_id IS NULL THEN
+        PERFORM upsert_pending_event_access(
+            v_normalized_email,
+            v_org_id,
+            p_event_id,
+            p_role,
+            'manual',
+            'manual_grant',
+            NULL,
+            'pending'
+        );
+
+        RETURN jsonb_build_object(
+            'outcome', 'Pending',
+            'message', format('%s access is pending until %s signs in.', p_role, v_normalized_email)
+        );
+    END IF;
+
+    PERFORM ensure_org_member(v_org_id, v_target_user_id);
+
+    INSERT INTO event_members (event_id, user_id, role, grant_type)
+    VALUES (p_event_id, v_target_user_id, p_role, 'manual')
+    ON CONFLICT (event_id, user_id) DO UPDATE
+    SET role = EXCLUDED.role,
+        grant_type = 'manual';
+
+    IF v_existing_member.id IS NOT NULL THEN
+        v_outcome := CASE
+            WHEN v_existing_member.role = p_role AND COALESCE(v_existing_member.grant_type, 'manual') = 'manual' THEN 'No Change'
+            ELSE 'Updated'
+        END;
+    END IF;
+
+    UPDATE pending_event_access
+    SET status = 'fulfilled',
+        fulfilled_user_id = v_target_user_id,
+        updated_at = NOW()
+    WHERE normalized_email = v_normalized_email
+      AND event_id = p_event_id
+      AND status = 'pending';
+
+    RETURN jsonb_build_object(
+        'outcome', v_outcome,
+        'message', format('%s access saved for %s.', p_role, v_normalized_email)
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
 CREATE OR REPLACE FUNCTION map_legacy_act_requirement_code(p_requirement_type TEXT)
 RETURNS TEXT AS $$
     SELECT CASE p_requirement_type
@@ -534,6 +954,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email)
+  VALUES (new.id, new.email)
+  ON CONFLICT (id) DO NOTHING;
+
+  PERFORM fulfill_pending_event_access_for_user(new.id, new.email);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ==========================================
@@ -604,6 +1036,14 @@ CREATE POLICY "organizations_update" ON organizations FOR UPDATE USING (auth_is_
 
 ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "organization_members_select" ON organization_members FOR SELECT USING (auth_is_super_admin() OR auth_org_role(organization_id) IS NOT NULL);
+
+ALTER TABLE pending_event_access ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "pending_event_access_select" ON pending_event_access FOR SELECT USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
+CREATE POLICY "pending_event_access_manage" ON pending_event_access FOR ALL USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
 
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "events_select" ON events FOR SELECT USING (auth_is_super_admin() OR auth_event_role(id) IS NOT NULL);
@@ -695,11 +1135,18 @@ CREATE TRIGGER audit_act_readiness_practices AFTER INSERT OR UPDATE OR DELETE ON
 CREATE TRIGGER audit_act_readiness_items AFTER INSERT OR UPDATE OR DELETE ON act_readiness_items FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_act_readiness_issues AFTER INSERT OR UPDATE OR DELETE ON act_readiness_issues FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 
+DROP TRIGGER IF EXISTS trg_reconcile_source_participant_access ON participants;
+CREATE TRIGGER trg_reconcile_source_participant_access
+AFTER INSERT OR UPDATE OF status, notes, src_raw, source_system ON participants
+FOR EACH ROW EXECUTE FUNCTION trg_reconcile_source_participant_access();
+
 -- ==========================================
 -- 9. PERFORMANCE OPTIMIZATION (Indexes)
 -- ==========================================
 CREATE INDEX IF NOT EXISTS idx_organization_members_organization_id ON organization_members(organization_id);
 CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_pending_event_access_event_status ON pending_event_access(event_id, status);
+CREATE INDEX IF NOT EXISTS idx_pending_event_access_email ON pending_event_access(normalized_email);
 CREATE INDEX IF NOT EXISTS idx_events_organization_id ON events(organization_id);
 CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
 CREATE INDEX IF NOT EXISTS idx_stages_event_id ON stages(event_id);

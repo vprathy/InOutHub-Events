@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Loader2, UserPlus, Trash2, Calendar, ShieldCheck } from 'lucide-react';
-import { useEventMembers, useAssignEventRole, useRemoveEventMember } from '@/hooks/useAccess';
+import { useEventMembers, useAssignEventRole, usePendingEventAccess, useRemoveEventMember } from '@/hooks/useAccess';
 import { useSelection } from '@/context/SelectionContext';
 
 interface ManageEventAccessModalProps {
@@ -11,6 +11,7 @@ interface ManageEventAccessModalProps {
 export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessModalProps) {
     const { eventId } = useSelection();
     const { data: members, isLoading } = useEventMembers(eventId);
+    const { data: pendingAccess = [], isLoading: isLoadingPending } = usePendingEventAccess(eventId);
     const { mutate: assignRole, isPending: isAssigning } = useAssignEventRole(eventId);
     const { mutate: removeMember, isPending: isRemoving } = useRemoveEventMember(eventId);
 
@@ -26,8 +27,8 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
         setError('');
         setNotice('');
         assignRole({ email, role }, {
-            onSuccess: () => {
-                setNotice(`${role} access granted to ${email}.`);
+            onSuccess: (result) => {
+                setNotice(result?.message || `${role} access granted to ${email}.`);
                 setEmail('');
                 setRole('StageManager');
             },
@@ -50,13 +51,39 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
                 <div className="bg-primary/5 border-b border-primary/10 px-6 py-3 flex items-start sm:items-center space-x-2 shrink-0">
                     <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5 sm:mt-0" />
                     <span className="text-[11px] font-medium text-primary leading-tight">
-                        Org Owners and Admins inherit Event Admin authority automatically. Stage and act operations are granted here at the event layer.
+                        Granting event access here also adds org membership automatically when needed. If the email has not signed in yet, access stays pending until first sign-in.
                     </span>
                 </div>
 
                 <div className="overflow-y-auto p-6 space-y-6">
                     <div className="space-y-3">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Explicit Event Members</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Pending Access</h3>
+                        {isLoadingPending ? (
+                            <div className="flex justify-center py-6">
+                                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                            </div>
+                        ) : pendingAccess.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-2">No pending sign-ins for this event.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {pendingAccess.map((pending) => (
+                                    <div key={pending.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-xl border border-primary/10">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">{pending.normalized_email}</p>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                {pending.target_role} • {pending.grant_type === 'manual' ? 'Pending Admin Grant' : 'Pending Baseline'}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                                            Pending
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="space-y-3">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Event Access</h3>
                         {isLoading ? (
                             <div className="flex justify-center py-8">
                                 <Loader2 className="w-6 h-6 text-primary animate-spin" />
@@ -73,23 +100,31 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-foreground">{member.user_profiles?.email}</p>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{member.role}</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                    {member.role} • {member.grant_type === 'manual' ? 'Manual' : 'Automated Baseline'}
+                                                </p>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                setError('');
-                                                setNotice('');
-                                                removeMember(member.id, {
-                                                    onSuccess: () => setNotice(`Removed ${member.user_profiles?.email || 'member'} from this event.`),
-                                                    onError: (err: any) => setError(err.message || 'Failed to remove member'),
-                                                });
-                                            }}
-                                            disabled={isRemoving}
-                                            className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {member.grant_type === 'manual' ? (
+                                            <button
+                                                onClick={() => {
+                                                    setError('');
+                                                    setNotice('');
+                                                    removeMember(member.id, {
+                                                        onSuccess: () => setNotice(`Removed ${member.user_profiles?.email || 'member'} from this event.`),
+                                                        onError: (err: any) => setError(err.message || 'Failed to remove member'),
+                                                    });
+                                                }}
+                                                disabled={isRemoving}
+                                                className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        ) : (
+                                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                Source
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -99,7 +134,7 @@ export function ManageEventAccessModal({ isOpen, onClose }: ManageEventAccessMod
 
                 <div className="px-6 py-4 border-t border-border bg-muted/30 shrink-0">
                     <form onSubmit={handleAssign} className="space-y-3">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Add to Event</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Quick Grant</h3>
                         <div className="space-y-2">
                             <input
                                 type="email"

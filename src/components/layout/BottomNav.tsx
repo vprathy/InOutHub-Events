@@ -1,14 +1,23 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { PRIMARY_NAV_ITEMS } from '@/components/layout/NavItems';
+import { useSelection } from '@/context/SelectionContext';
+import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
+import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 
 export const BottomNav: React.FC = () => {
     const version = import.meta.env.VITE_APP_VERSION || '1.0.0';
+    const { eventId, organizationId } = useSelection();
+    const { data: currentEventRole } = useCurrentEventRole(eventId || null);
+    const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
+    const canManageAccess =
+        currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+    const navItems = PRIMARY_NAV_ITEMS.filter((item) => item.href !== '/access' || canManageAccess);
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
             <div className="max-w-md mx-auto flex items-stretch justify-around h-16 px-4">
-                {PRIMARY_NAV_ITEMS.map((item) => (
+                {navItems.map((item) => (
                     <NavLink
                         key={item.href}
                         to={item.href}

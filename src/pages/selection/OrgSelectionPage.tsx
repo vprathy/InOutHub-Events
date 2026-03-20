@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Landmark, Plus, Loader2, ChevronRight, Edit2, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Landmark, Plus, Loader2, ChevronRight, Edit2, ArrowLeft, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
 import { CreateOrgModal } from '@/components/selection/CreateOrgModal';
@@ -9,7 +9,6 @@ import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModa
 import { ShieldAlert } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { isDevLoginEnabled } from '@/lib/authConfig';
-import { OperationalMetricCard } from '@/components/ui/OperationalCards';
 
 export default function OrgSelectionPage() {
     const [orgs, setOrgs] = useState<any[]>([]);
@@ -92,27 +91,59 @@ export default function OrgSelectionPage() {
                 subtitle="Choose the organization you want to work in."
             />
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <OperationalMetricCard label="Organizations" value={isLoading ? '...' : orgs.length} icon={Landmark} tone="default" />
-                <OperationalMetricCard label="Access" value={isSuperAdmin ? 'Admin' : 'Member'} icon={ShieldAlert} tone={isSuperAdmin ? 'info' : 'default'} />
+            <div className="surface-panel rounded-[1.35rem] p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Organization Triage</p>
+                        <h2 className="text-lg font-black tracking-tight text-foreground">Pick the organization that owns the event work you need right now.</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Keep this screen focused on selection. Admin actions stay secondary and only appear when needed.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        <span className="rounded-full border border-border/70 bg-background px-3 py-2">
+                            {isLoading ? 'Loading' : `${orgs.length} ${orgs.length === 1 ? 'Org' : 'Orgs'}`}
+                        </span>
+                        <span className="rounded-full border border-border/70 bg-background px-3 py-2">
+                            {isSuperAdmin ? 'Admin Access' : 'Member Access'}
+                        </span>
+                    </div>
+                </div>
             </div>
 
-            <div className="surface-panel rounded-[1.35rem] p-4">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Access Context</p>
-                    <h2 className="text-lg font-black tracking-tight text-foreground">Choose the organization tied to the events you need to manage.</h2>
-                    <p className="text-sm text-muted-foreground">If you only work with one organization, this should usually be quick.</p>
+            <div className="flex items-center justify-between px-1">
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Available Organizations</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Tap a card to continue to event selection.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => void fetchOrgs()}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        <span>Refresh</span>
+                    </button>
+                    {isSuperAdmin ? (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/10"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>Create</span>
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {isLoading ? (
-                        <div className="surface-panel col-span-full flex justify-center rounded-[2rem] py-12">
+                        <div className="surface-panel col-span-full flex justify-center rounded-[1.5rem] py-12">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         </div>
                     ) : orgs.length === 0 ? (
-                        <div className="surface-panel col-span-full rounded-[2rem] p-8 text-center">
-                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                        <div className="surface-panel col-span-full rounded-[1.5rem] p-8 text-center">
+                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/60 bg-background text-muted-foreground">
                                 <Landmark className="h-7 w-7" />
                             </div>
                             <h2 className="text-xl font-black text-foreground">No organizations available</h2>
@@ -122,24 +153,24 @@ export default function OrgSelectionPage() {
                                     : 'This account signed in successfully, but it does not have organization access yet. Ask an administrator to add access, then refresh this screen or try a different account.'}
                             </p>
                             <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
-                                <button
-                                    onClick={() => navigate('/login', { replace: true })}
-                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                                >
-                                    <ArrowLeft className="h-4 w-4" />
-                                    <span>{isDevLoginEnabled ? 'Use Another Account' : 'Back to Sign In'}</span>
-                                </button>
-                                <button
-                                    onClick={() => void fetchOrgs()}
-                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary-foreground transition-opacity hover:opacity-90"
-                                >
-                                    <RefreshCw className="h-4 w-4" />
-                                    <span>Refresh Organizations</span>
-                                </button>
+                                    <button
+                                        onClick={() => navigate('/login', { replace: true })}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        <span>{isDevLoginEnabled ? 'Use Another Account' : 'Back to Sign In'}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => void fetchOrgs()}
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-primary-foreground transition-opacity hover:opacity-90"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        <span>Refresh Organizations</span>
+                                    </button>
                                 {isSuperAdmin && (
                                     <button
                                         onClick={() => setIsCreateModalOpen(true)}
-                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary transition-colors hover:bg-primary/5"
+                                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/5"
                                     >
                                         <Plus className="h-4 w-4" />
                                         <span>Create Organization</span>
@@ -156,42 +187,57 @@ export default function OrgSelectionPage() {
                                     tabIndex={0}
                                     onClick={() => handleSelect(org.id)}
                                     onKeyDown={(event) => handleCardKeyDown(event, org.id)}
-                                    className="group surface-panel flex items-center justify-between p-6 rounded-[2rem] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all text-left min-h-[44px]"
+                                    className="group surface-panel rounded-[1.5rem] p-4 text-left transition-colors hover:border-primary/40"
                                 >
-                                    <div className="flex items-center space-x-5">
-                                        <div className="p-4 rounded-2xl bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                            <Landmark className="w-6 h-6" />
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex min-w-0 items-start gap-3">
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background text-primary">
+                                                    <Landmark className="h-5 w-5" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-lg font-black leading-tight text-foreground">{org.name}</p>
+                                                    <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                                        {isSuperAdmin ? 'Super Admin' : org.organization_members[0]?.role || 'Owner'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                                         </div>
-                                        <div>
-                                            <p className="font-black text-lg text-foreground leading-tight">{org.name}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mt-1">
-                                                {isSuperAdmin ? 'Super Admin' : org.organization_members[0]?.role || 'Owner'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <ChevronRight className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-1" />
-                                        <div onClick={(e) => e.stopPropagation()}>
-                                            <ActionMenu
-                                                options={[
-                                                    {
-                                                        label: 'Edit Name',
-                                                        icon: <Edit2 className="w-4 h-4" />,
-                                                        onClick: () => {
-                                                            setEditingOrg({ id: org.id, name: org.name });
-                                                            setIsCreateModalOpen(true);
+
+                                        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => {
+                                                    setOrganizationId(org.id);
+                                                    setIsManageAccessOpen(true);
+                                                }}
+                                                className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl border border-border/70 bg-background px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                            >
+                                                <ShieldCheck className="h-4 w-4" />
+                                                <span>Access</span>
+                                            </button>
+                                            <div>
+                                                <ActionMenu
+                                                    options={[
+                                                        {
+                                                            label: 'Edit Name',
+                                                            icon: <Edit2 className="w-4 h-4" />,
+                                                            onClick: () => {
+                                                                setEditingOrg({ id: org.id, name: org.name });
+                                                                setIsCreateModalOpen(true);
+                                                            }
+                                                        },
+                                                        {
+                                                            label: 'Manage Access',
+                                                            icon: <ShieldAlert className="w-4 h-4" />,
+                                                            onClick: () => {
+                                                                setOrganizationId(org.id);
+                                                                setIsManageAccessOpen(true);
+                                                            }
                                                         }
-                                                    },
-                                                    {
-                                                        label: 'Manage Access',
-                                                        icon: <ShieldAlert className="w-4 h-4" />,
-                                                        onClick: () => {
-                                                            setOrganizationId(org.id);
-                                                            setIsManageAccessOpen(true);
-                                                        }
-                                                    }
-                                                ]}
-                                            />
+                                                    ]}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -199,7 +245,7 @@ export default function OrgSelectionPage() {
 
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="surface-panel flex items-center justify-center space-x-3 rounded-[2rem] border-2 border-dashed border-muted p-6 text-xs font-black uppercase tracking-widest text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary min-h-[44px]"
+                                className="surface-panel flex items-center justify-center space-x-3 rounded-[1.5rem] border-2 border-dashed border-muted p-6 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary min-h-[44px]"
                             >
                                 <Plus className="w-6 h-6" />
                                 <span>Create New Organization</span>

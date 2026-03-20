@@ -336,6 +336,7 @@ export type Database = {
                 Row: {
                     created_at: string
                     event_id: string
+                    grant_type: string
                     id: string
                     role: string
                     user_id: string
@@ -343,6 +344,7 @@ export type Database = {
                 Insert: {
                     created_at?: string
                     event_id: string
+                    grant_type?: string
                     id?: string
                     role: string
                     user_id: string
@@ -350,6 +352,7 @@ export type Database = {
                 Update: {
                     created_at?: string
                     event_id?: string
+                    grant_type?: string
                     id?: string
                     role?: string
                     user_id?: string
@@ -367,6 +370,90 @@ export type Database = {
                         columns: ["user_id"]
                         isOneToOne: false
                         referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            pending_event_access: {
+                Row: {
+                    created_at: string
+                    created_by: string | null
+                    event_id: string
+                    fulfilled_user_id: string | null
+                    grant_type: string
+                    id: string
+                    normalized_email: string
+                    organization_id: string
+                    source_participant_id: string | null
+                    source_type: string | null
+                    status: string
+                    target_role: string
+                    updated_at: string
+                }
+                Insert: {
+                    created_at?: string
+                    created_by?: string | null
+                    event_id: string
+                    fulfilled_user_id?: string | null
+                    grant_type?: string
+                    id?: string
+                    normalized_email: string
+                    organization_id: string
+                    source_participant_id?: string | null
+                    source_type?: string | null
+                    status?: string
+                    target_role?: string
+                    updated_at?: string
+                }
+                Update: {
+                    created_at?: string
+                    created_by?: string | null
+                    event_id?: string
+                    fulfilled_user_id?: string | null
+                    grant_type?: string
+                    id?: string
+                    normalized_email?: string
+                    organization_id?: string
+                    source_participant_id?: string | null
+                    source_type?: string | null
+                    status?: string
+                    target_role?: string
+                    updated_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "pending_event_access_created_by_fkey"
+                        columns: ["created_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "pending_event_access_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "pending_event_access_fulfilled_user_id_fkey"
+                        columns: ["fulfilled_user_id"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "pending_event_access_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "pending_event_access_source_participant_id_fkey"
+                        columns: ["source_participant_id"]
+                        isOneToOne: false
+                        referencedRelation: "participants"
                         referencedColumns: ["id"]
                     },
                 ]
@@ -1129,11 +1216,11 @@ export type Database = {
             }
             assign_event_role: {
                 Args: { p_event_id: string; p_role: string; p_target_email: string }
-                Returns: undefined
+                Returns: Json
             }
             assign_org_role: {
                 Args: { p_org_id: string; p_role: string; p_target_email: string }
-                Returns: undefined
+                Returns: Json
             }
             auth_event_role: { Args: { p_event_id: string }; Returns: string }
             auth_is_super_admin: { Args: never; Returns: boolean }

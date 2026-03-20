@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, ClipboardCheck } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, ClipboardCheck, UsersRound } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
@@ -186,6 +186,17 @@ export function Header() {
             <div className="ml-2 flex shrink-0 items-center space-x-1 sm:space-x-2">
                 {canManageEventAccess && eventId ? (
                     <button
+                        onClick={() => navigate('/access')}
+                        className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-background px-2.5 text-[9px] font-black uppercase tracking-[0.18em] text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary sm:min-h-[44px] sm:px-3"
+                        aria-label="Open Access"
+                        title="Open Access"
+                    >
+                        <UsersRound className="h-3.5 w-3.5" />
+                        <span>Access</span>
+                    </button>
+                ) : null}
+                {canManageEventAccess && eventId ? (
+                    <button
                         onClick={() => navigate('/requirements')}
                         className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-2.5 text-[9px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/10 sm:min-h-[44px] sm:px-3"
                         aria-label="Manage Requirements"
@@ -246,6 +257,18 @@ export function Header() {
                                     >
                                         <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
                                         <span>Manage Org Access</span>
+                                    </button>
+                                ) : null}
+                                {canManageEventAccess && eventId ? (
+                                    <button
+                                        onClick={() => {
+                                            setIsProfileMenuOpen(false);
+                                            navigate('/access');
+                                        }}
+                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                                    >
+                                        <UsersRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <span>Access</span>
                                     </button>
                                 ) : null}
                                 {canManageEventAccess && eventId ? (
