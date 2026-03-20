@@ -25,20 +25,14 @@ Canonical branch:
 - `main`
 
 Current HEAD:
-- `6d837f8305f5d7b8adf4a2794db380aa06b7cce7`
-- `6d837f8 Strengthen page identity across app surfaces`
+- `270c8e1d3d742e7cc92681b31b96671408c4af1e`
+- `270c8e1 Tighten admin mobile surfaces and refresh handoff`
 
 Current git status:
-- remote `main` is at `6d837f8`
-- there is additional local-only work in progress on:
-  - [PageHeader.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/PageHeader.tsx)
-  - [sectionIdentity.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/sectionIdentity.tsx)
-  - [AccessPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/AccessPage.tsx)
-  - [RequirementsPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/RequirementsPage.tsx)
-- plus this handoff doc, still intentionally untracked until explicitly committed
+- clean working tree
 
 Remote sync:
-- `origin/main` includes commit `6d837f8`
+- `origin/main` includes commit `270c8e1`
 
 Local dev server:
 - Vite was observed listening on `http://localhost:5173`
@@ -105,13 +99,17 @@ The remaining roadmap should be interpreted from [task.md](/Users/vinay/dev/InOu
 
 ### Immediate
 
-- fix and validate mobile usability for:
+- manually validate mobile usability for:
   - `Admin > Access`
   - `Admin > Requirements`
-- trim nonessential vertical chrome from top-of-screen surfaces where it delays actual work rows
+- decide whether further chrome reduction is still needed after the shipped compaction pass
 - mobile review of the page-identity pass:
   - verify Participants vs Performances distinction on a real phone
   - verify sticky section strip does not feel noisy on long-scroll screens
+- patch repo-side backend drift identified by Antigravity:
+  - fix ambiguous `id` reference in `assign_event_role` SQL source if repo still differs from live DB
+  - restore/replace act requirement sync path so legacy `act_requirements` updates feed readiness assignments
+  - backfill act-side `requirement_assignments` for live data if missing
 - launch access lifecycle smoke tests:
   - manual quick grant for existing user
   - pending access for not-yet-signed-in email
@@ -135,6 +133,7 @@ The remaining roadmap should be interpreted from [task.md](/Users/vinay/dev/InOu
 - bulk access workflows:
   - selection-based bulk role changes for known people
   - upload-based bulk grant / pending creation from email list
+- participant-side automatic assignment alignment if product still wants source-managed participant requirement assignment beyond the current bridges
 - keep auth/profile friction out of the operator path unless explicitly reprioritized
 
 ### Deferred architecture
@@ -471,15 +470,64 @@ What that local pass does:
   - workspace jump
 
 Important status:
-- this compaction pass is **not pushed yet**
-- local build passes after the changes
-- next chat should start by deciding whether to:
-  - continue refining the mobile-admin surfaces
-  - or ship the current compaction pass to remote for device validation
+- this compaction pass **was pushed** in:
+  - `270c8e1 Tighten admin mobile surfaces and refresh handoff`
+- local/remote are currently aligned
+- next chat should start with mobile validation on a real device, not another blind UI iteration
 
 Guardrail:
 - do not re-expand header chrome while fixing mobile usability
 - preserve screen distinction, but make the distinction lighter and subordinate to the actual work content
+
+### 13. Antigravity validation results changed the priority
+
+Antigravity ran a backend-first validation sweep and brief UI RBAC checks.
+
+Access management result:
+- **READY WITH CAVEATS**, but functionally strong
+- verified:
+  - manual quick grant for existing user
+  - pending access for not-yet-signed-in email
+  - pending fulfillment on login
+  - automated baseline creation from active participant
+  - automated baseline revoke on inactive participant
+  - manual elevated role survival through source churn
+  - reactivation behavior without duplicate role creation
+
+Requirements result:
+- structurally sound, but **act-side sync is not fully trustworthy yet**
+
+Critical backend caveat:
+- act-side readiness assignments are not being kept in sync from the legacy `act_requirements` path
+- symptom:
+  - `requirement_assignments` for acts can be `NULL`
+  - readiness dashboard/workspace may show missing follow-up even when legacy act requirement data exists
+- likely cause identified by Antigravity:
+  - disabled or missing bridge/sync trigger from legacy `act_requirements` into assignment/readiness state
+
+Additional repo/live drift caveat:
+- Antigravity hit an ambiguous column reference in `assign_event_role`
+- it was fixed live for testing
+- repo SQL should be checked and patched so source control matches live behavior
+
+Antigravity UI RBAC conclusions:
+- `EventAdmin`: full access
+- `ActAdmin`: correct prep-scope access
+- `StageManager`: correct execution-context access, prep edits blocked
+
+Priority implication:
+- backend is no longer the main unknown for access lifecycle
+- UI polish is still needed, but blind redesign is lower leverage than:
+  - real-device validation
+  - fixing the act requirement sync gap
+  - syncing repo SQL with live DB where drift was found
+
+Recommended next-chat order:
+1. verify current mobile `Access` and `Requirements` on device
+2. patch repo-side SQL drift:
+   - `assign_event_role`
+   - act requirement sync/backfill path
+3. only then do another narrow UI pass if still needed
 
 ---
 

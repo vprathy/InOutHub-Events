@@ -359,7 +359,7 @@ BEGIN
         RAISE EXCEPTION 'A valid email address is required';
     END IF;
 
-    SELECT id, role, grant_type
+    SELECT em.id, em.role, em.grant_type
     INTO v_existing_member
     FROM public.event_members em
     JOIN public.user_profiles up ON up.id = em.user_id

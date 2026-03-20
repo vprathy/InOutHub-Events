@@ -790,7 +790,7 @@ BEGIN
         RAISE EXCEPTION 'A valid email address is required';
     END IF;
 
-    SELECT id, role, grant_type
+    SELECT em.id, em.role, em.grant_type
     INTO v_existing_member
     FROM event_members em
     JOIN user_profiles up ON up.id = em.user_id
@@ -1139,6 +1139,11 @@ DROP TRIGGER IF EXISTS trg_reconcile_source_participant_access ON participants;
 CREATE TRIGGER trg_reconcile_source_participant_access
 AFTER INSERT OR UPDATE OF status, notes, src_raw, source_system ON participants
 FOR EACH ROW EXECUTE FUNCTION trg_reconcile_source_participant_access();
+
+DROP TRIGGER IF EXISTS trg_bridge_act_requirements_sync ON act_requirements;
+CREATE TRIGGER trg_bridge_act_requirements_sync
+AFTER INSERT OR UPDATE OR DELETE ON act_requirements
+FOR EACH ROW EXECUTE FUNCTION bridge_act_requirements_sync();
 
 -- ==========================================
 -- 9. PERFORMANCE OPTIMIZATION (Indexes)
