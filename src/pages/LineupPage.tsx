@@ -25,6 +25,7 @@ import { formatEventTime } from '@/lib/eventTime';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 function SortableLineupItem({
     slot,
@@ -37,8 +38,8 @@ function SortableLineupItem({
     slot: LineupSlot;
     orderIndex: number;
     risk?: ReturnType<typeof scanLineup>[number];
-    onRemove: () => void;
-    onMoveToTop: () => void;
+    onRemove?: () => void;
+    onMoveToTop?: () => void;
     lockedReason?: string | null;
 }) {
     const dragControls = useDragControls();
@@ -68,6 +69,7 @@ function SortableLineupItem({
 
 export default function LineupPage() {
     const { eventId } = useSelection();
+    const capabilities = useEventCapabilities(eventId || null, null);
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isStageModalOpen, setIsStageModalOpen] = useState(false);
@@ -300,13 +302,19 @@ export default function LineupPage() {
                             </Button>
                         )}
                         {selectedStageId && (
-                            <Button onClick={() => setIsAddModalOpen(true)} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
+                            <Button onClick={() => setIsAddModalOpen(true)} disabled={!capabilities.canManageLineup} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
                                 <Plus size={18} /> Add Performance
                             </Button>
                         )}
                     </div>
                 }
             />
+
+            {!capabilities.canManageLineup ? (
+                <div className="surface-panel rounded-[1.2rem] border border-amber-500/20 bg-amber-500/5 p-3.5 text-sm font-medium text-amber-700">
+                    Show Flow is view-only for your current access level. EventAdmin is required to add stages, change order, or remove performances.
+                </div>
+            ) : null}
 
             {criticalRisks > 0 ? (
                 <OperationalResponseCard
@@ -334,6 +342,7 @@ export default function LineupPage() {
                         <Button
                             variant="outline"
                             onClick={() => setIsStageModalOpen(true)}
+                            disabled={!capabilities.canManageLineup}
                             className="min-h-11 gap-2 rounded-2xl border-border px-4 text-[11px] font-black uppercase tracking-[0.18em] text-foreground"
                         >
                             <Settings2 size={16} />
@@ -342,7 +351,7 @@ export default function LineupPage() {
                         <Button
                             variant="outline"
                             onClick={() => selectedStageId && setIsAddModalOpen(true)}
-                            disabled={!selectedStageId}
+                            disabled={!selectedStageId || !capabilities.canManageLineup}
                             className="min-h-11 gap-2 rounded-2xl border-primary/20 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/15"
                         >
                             Add To Flow
@@ -433,7 +442,7 @@ export default function LineupPage() {
                                                 orderIndex={index + 1}
                                                 risk={risk}
                                                 lockedReason={lockedReason}
-                                                onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                                onRemove={capabilities.canManageLineup ? () => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId }) : undefined}
                                             />
                                         );
                                     })}
@@ -444,7 +453,7 @@ export default function LineupPage() {
                                 <Reorder.Group
                                     axis="y"
                                     values={reorderableItems}
-                                    onReorder={handleReorder}
+                                    onReorder={capabilities.canManageLineup ? handleReorder : () => undefined}
                                     className="space-y-3"
                                 >
                                     <AnimatePresence mode="popLayout">
@@ -457,8 +466,8 @@ export default function LineupPage() {
                                                     slot={slot}
                                                     orderIndex={overallIndex}
                                                     risk={risk}
-                                                    onMoveToTop={() => moveSlotToTop(slot.id)}
-                                                    onRemove={() => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId })}
+                                                    onMoveToTop={capabilities.canManageLineup ? () => moveSlotToTop(slot.id) : undefined}
+                                                    onRemove={capabilities.canManageLineup ? () => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId }) : undefined}
                                                 />
                                             );
                                         })}
@@ -477,6 +486,7 @@ export default function LineupPage() {
                                 variant="outline"
                                 className="mt-6 border-border hover:bg-accent"
                                 onClick={() => setIsAddModalOpen(true)}
+                                disabled={!capabilities.canManageLineup}
                             >
                                 <Plus size={18} className="mr-2" /> Add the first performance
                             </Button>

@@ -4,6 +4,7 @@ import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
 import { localInputToEventIso } from '@/lib/eventTime';
+import { fetchResolvedRequirementPolicies } from '@/lib/requirementPolicies';
 
 function hasActAudioSource(row: any) {
     const requirements = row.act_requirements || [];
@@ -22,6 +23,7 @@ export function useActsQuery(eventId: string) {
     const query = useQuery({
         queryKey: ['acts', eventId],
         queryFn: async () => {
+            const activeRequirementPolicies = await fetchResolvedRequirementPolicies(eventId, 'act');
             const { data, error } = await supabase
                 .from('acts')
                 .select(`
@@ -170,6 +172,7 @@ export function useActsQuery(eventId: string) {
                     openIssueCount: readinessSummary.openIssueCount,
                     missingChecklistCount: readinessSummary.incompleteChecklistCount,
                     introEligible,
+                    activeRequirementPolicies,
                 };
             });
         },
@@ -377,6 +380,7 @@ export function useActDetail(actId: string | null) {
             if (error) throw error;
 
             const row = data as any;
+            const activeRequirementPolicies = await fetchResolvedRequirementPolicies(row.event_id, 'act');
 
             // Map to domain model
             const readinessPractices = (row.act_readiness_practices || []).map((practice: any) => ({
@@ -486,6 +490,7 @@ export function useActDetail(actId: string | null) {
                         requirement.requirement_type === 'IntroComposition' && requirement.fulfilled
                     ),
                 }),
+                activeRequirementPolicies,
             };
 
             return actDetails;

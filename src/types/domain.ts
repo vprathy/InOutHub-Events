@@ -1,4 +1,5 @@
 import type { Database } from '@/types/database.types';
+import type { ResolvedRequirementPolicy } from '@/lib/requirementPolicies';
 
 // ==========================================
 // 1. CONSTANTS & TYPES
@@ -136,6 +137,7 @@ export interface ActDetails extends Act {
     readinessItems?: ActReadinessItem[];
     readinessIssues?: ActReadinessIssue[];
     readinessSummary?: ActReadinessSummary;
+    activeRequirementPolicies?: ResolvedRequirementPolicy[];
 }
 
 /**
@@ -173,6 +175,7 @@ export interface ActWithCounts extends Act {
     openIssueCount?: number;
     missingChecklistCount?: number;
     introEligible?: boolean;
+    activeRequirementPolicies?: ResolvedRequirementPolicy[];
 }
 
 /**
@@ -353,6 +356,8 @@ export interface Participant {
         blockingLevel?: string | null;
         source?: 'bridge';
     }>;
+    assets?: ParticipantAsset[];
+    activeRequirementPolicies?: ResolvedRequirementPolicy[];
     // Trust-First Source Tracking
     sourceSystem: string | null;
     sourceInstance: string | null;

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Participant, ParticipantDetail } from '@/types/domain';
 import { inferParticipantImportProfile, mapImportedParticipantRow } from '@/lib/participantImportMapping';
+import { fetchResolvedRequirementPolicies } from '@/lib/requirementPolicies';
 
 function extractTaggedValue(notes: string | null | undefined, tag: string) {
     if (!notes) return null;
@@ -45,12 +46,13 @@ export function useParticipantsQuery(eventId: string) {
     return useQuery({
         queryKey: ['participants', eventId],
         queryFn: async () => {
+            const activeRequirementPolicies = await fetchResolvedRequirementPolicies(eventId, 'participant');
             const { data, error } = await supabase
                 .from('participants')
                 .select(`
                     *,
                     act_participants(count),
-                    participant_assets(status, type, file_url),
+                    participant_assets(id, template_id, name, status, type, file_url, review_notes, created_at),
                     participant_notes(category, is_resolved),
                     requirement_assignments(
                         id,
@@ -112,6 +114,17 @@ export function useParticipantsQuery(eventId: string) {
                     srcRaw: row.src_raw,
                     actCount: (row as any).act_participants?.[0]?.count || 0,
                     assetStats,
+                    assets: participantAssets.map((asset: any) => ({
+                        id: asset.id || `${row.id}-${asset.type}-${asset.file_url || asset.status || 'asset'}`,
+                        participantId: row.id,
+                        templateId: asset.template_id || null,
+                        name: asset.type || 'asset',
+                        type: asset.type || 'other',
+                        fileUrl: asset.file_url || null,
+                        status: asset.status || 'missing',
+                        reviewNotes: asset.review_notes || null,
+                        createdAt: asset.created_at || row.created_at || new Date().toISOString(),
+                    })),
                     requirementAssignments: [
                         ...requirementAssignments,
                         ...(hasDocsBridge ? [{
@@ -133,6 +146,7 @@ export function useParticipantsQuery(eventId: string) {
                             source: 'bridge' as const,
                         }] : []),
                     ],
+                    activeRequirementPolicies,
                 };
             });
         },
@@ -280,6 +294,7 @@ export function useParticipantDetail(participantId: string) {
 
             if (eDataError) throw eDataError;
             const orgId = eventData.organization_id;
+            const activeRequirementPolicies = await fetchResolvedRequirementPolicies(eventId, 'participant');
 
             // 4. Fetch ALL applicable Asset Templates (Org, Event, or Act scope)
             const { data: templates, error: tError } = await (supabase as any)
@@ -483,6 +498,7 @@ export function useParticipantDetail(participantId: string) {
                 openSpecialRequestCount: (opNotes || []).filter((n: any) => n.category === 'special_request' && !n.is_resolved).length || 0,
                 resolvedSpecialRequestCount: (opNotes || []).filter((n: any) => n.category === 'special_request' && n.is_resolved).length || 0,
                 requirementAssignments,
+                activeRequirementPolicies,
                 auditLogs: mappedLogs,
             };
         },

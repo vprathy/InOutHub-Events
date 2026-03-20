@@ -1,5 +1,8 @@
+import { ACT_POLICY_REQUIREMENT_TYPE_MAP } from '@/lib/requirementPolicies';
+
 export type RequirementTone = 'default' | 'good' | 'warning' | 'critical' | 'info';
 export type RequirementStatus = 'missing' | 'submitted' | 'pending_review' | 'approved' | 'rejected' | 'auto_complete';
+export type RequirementTarget = 'workspace' | 'assets' | 'cast';
 
 export interface RequirementRow {
     key: string;
@@ -8,6 +11,8 @@ export interface RequirementRow {
     actionLabel: string;
     status: RequirementStatus;
     tone: RequirementTone;
+    target: RequirementTarget;
+    policyCode?: string | null;
 }
 
 export interface ParticipantReadinessSummary {
@@ -46,6 +51,42 @@ function mapParticipantAssetStatusToRequirementStatus(status?: string | null): R
     if (status === 'rejected') return 'rejected';
     if (status === 'uploaded') return 'submitted';
     return 'missing';
+}
+
+function buildGenericRequirementRow({
+    key,
+    label,
+    detail,
+    actionLabel,
+    status,
+    target,
+    policyCode,
+}: {
+    key: string;
+    label: string;
+    detail: string;
+    actionLabel: string;
+    status: RequirementStatus;
+    target: RequirementTarget;
+    policyCode?: string | null;
+}): RequirementRow {
+    return {
+        key,
+        label,
+        detail,
+        actionLabel,
+        status,
+        tone: getRequirementStatusMeta(status).tone,
+        target,
+        policyCode: policyCode || null,
+    };
+}
+
+function getPolicyTarget(inputType?: string | null, category?: string | null): RequirementTarget {
+    if (inputType === 'file_upload' || category === 'media' || category === 'waiver' || category === 'technical') {
+        return 'assets';
+    }
+    return 'workspace';
 }
 
 function getParticipantAssignmentStatus(participant: any, code: string): RequirementStatus | null {
@@ -90,46 +131,107 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
         : [];
     const unresolvedSpecialRequests = specialRequestNotes.filter((note: any) => !note.isResolved);
     const resolvedSpecialRequests = specialRequestNotes.filter((note: any) => note.isResolved);
+    const unresolvedSpecialRequestCount = unresolvedSpecialRequests.length || participant?.openSpecialRequestCount || 0;
+    const resolvedSpecialRequestCount = resolvedSpecialRequests.length || participant?.resolvedSpecialRequestCount || 0;
+    const activePolicies = Array.isArray(participant?.activeRequirementPolicies) ? participant.activeRequirementPolicies : [];
+    const waiverAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'waiver');
 
-    if (participant?.isMinor) {
-        const guardianStatus = getParticipantAssignmentStatus(participant, 'guardian_contact_complete')
-            || (!!participant.guardianName && !!participant.guardianPhone ? 'auto_complete' : 'missing');
-        rows.push({
-            key: 'guardian-contact',
-            label: 'Guardian Contact',
-            detail: guardianStatus === 'approved' || guardianStatus === 'auto_complete'
-                ? 'Guardian name and phone are captured for this participant.'
-                : 'Guardian name and phone are still required before this participant is cleared.',
-            actionLabel: guardianStatus === 'approved' || guardianStatus === 'auto_complete' ? 'View' : 'Update',
-            status: guardianStatus,
-            tone: getRequirementStatusMeta(guardianStatus).tone,
-        });
-    }
+    activePolicies.forEach((policy: any) => {
+        if (policy.code === 'guardian_contact_complete') {
+            const guardianStatus = getParticipantAssignmentStatus(participant, policy.code)
+                || (!!participant.guardianName && !!participant.guardianPhone ? 'auto_complete' : 'missing');
+            rows.push(buildGenericRequirementRow({
+                key: 'guardian-contact',
+                label: policy.label,
+                detail: guardianStatus === 'approved' || guardianStatus === 'auto_complete'
+                    ? 'Guardian name and phone are captured for this participant.'
+                    : 'Guardian name and phone are still required before this participant is cleared.',
+                actionLabel: guardianStatus === 'approved' || guardianStatus === 'auto_complete' ? 'View' : 'Update',
+                status: guardianStatus,
+                target: 'workspace',
+                policyCode: policy.code,
+            }));
+            return;
+        }
 
-    if (participant?.hasSpecialRequests) {
-        const specialRequestStatus = getParticipantAssignmentStatus(participant, 'special_request_reviewed')
-            || (unresolvedSpecialRequests.length > 0
-                ? 'pending_review'
-                : resolvedSpecialRequests.length > 0
-                    ? 'approved'
-                    : 'missing');
-        rows.push({
-            key: 'special-request',
-            label: 'Special Request Review',
-            detail: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
-                ? 'The special request has been reviewed and closed on this participant record.'
-                : specialRequestStatus === 'pending_review'
-                    ? 'A special request follow-up is open and still needs closure.'
-                    : 'Special request follow-up should be logged before performance day.',
-            actionLabel: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
-                ? 'View Closure'
-                : specialRequestStatus === 'pending_review'
-                    ? 'Resolve Request'
-                    : 'Log Review',
-            status: specialRequestStatus,
-            tone: getRequirementStatusMeta(specialRequestStatus).tone,
-        });
-    }
+        if (policy.code === 'special_request_reviewed') {
+            const specialRequestStatus = getParticipantAssignmentStatus(participant, policy.code)
+                || (unresolvedSpecialRequestCount > 0
+                    ? 'pending_review'
+                    : resolvedSpecialRequestCount > 0
+                        ? 'approved'
+                        : 'missing');
+            rows.push(buildGenericRequirementRow({
+                key: 'special-request',
+                label: policy.label,
+                detail: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
+                    ? 'The special request has been reviewed and closed on this participant record.'
+                    : specialRequestStatus === 'pending_review'
+                        ? 'A special request follow-up is open and still needs closure.'
+                        : 'Special request follow-up should be logged before performance day.',
+                actionLabel: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
+                    ? 'View Closure'
+                    : specialRequestStatus === 'pending_review'
+                        ? 'Resolve Request'
+                        : 'Log Review',
+                status: specialRequestStatus,
+                target: 'workspace',
+                policyCode: policy.code,
+            }));
+            return;
+        }
+
+        if (policy.code === 'participant_waiver') {
+            const waiverStatus = getParticipantAssignmentStatus(participant, policy.code)
+                || (() => {
+                    if (waiverAssets.some((asset: any) => asset.status === 'approved')) return 'approved';
+                    if (waiverAssets.some((asset: any) => asset.status === 'pending_review')) return 'pending_review';
+                    if (waiverAssets.some((asset: any) => asset.status === 'uploaded')) return 'submitted';
+                    if (waiverAssets.some((asset: any) => asset.status === 'rejected')) return 'rejected';
+                    return 'missing';
+                })();
+            rows.push(buildGenericRequirementRow({
+                key: 'participant-waiver',
+                label: policy.label,
+                detail: waiverStatus === 'approved' || waiverStatus === 'auto_complete'
+                    ? 'A waiver artifact is already attached for this participant.'
+                    : 'A waiver artifact still needs to be uploaded or reviewed.',
+                actionLabel: waiverStatus === 'approved' || waiverStatus === 'auto_complete' ? 'View Waiver' : 'Upload Waiver',
+                status: waiverStatus,
+                target: 'assets',
+                policyCode: policy.code,
+            }));
+            return;
+        }
+
+        if (policy.code === 'identity_check') {
+            const identityStatus = getParticipantAssignmentStatus(participant, policy.code)
+                || (participant?.identityVerified ? 'approved' : 'missing');
+            rows.push(buildGenericRequirementRow({
+                key: 'identity-check',
+                label: policy.label,
+                detail: identityStatus === 'approved' || identityStatus === 'auto_complete'
+                    ? 'Identity verification is already marked complete.'
+                    : 'Identity verification still needs an operator review.',
+                actionLabel: identityStatus === 'approved' || identityStatus === 'auto_complete' ? 'View' : 'Review',
+                status: identityStatus,
+                target: 'workspace',
+                policyCode: policy.code,
+            }));
+            return;
+        }
+
+        const genericStatus = getParticipantAssignmentStatus(participant, policy.code) || 'missing';
+        rows.push(buildGenericRequirementRow({
+            key: `participant-policy-${policy.code}`,
+            label: policy.label,
+            detail: policy.description || 'Requirement needs follow-up on this participant record.',
+            actionLabel: genericStatus === 'approved' || genericStatus === 'auto_complete' ? 'View' : 'Review',
+            status: genericStatus,
+            target: getPolicyTarget(policy.input_type, policy.category),
+            policyCode: policy.code,
+        }));
+    });
 
     (participant?.templatedAssets || []).forEach(({ template, fulfillment }: any) => {
         const mappedStatus = mapParticipantAssetStatusToRequirementStatus(fulfillment?.status);
@@ -140,6 +242,8 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
             actionLabel: fulfillment ? 'Replace' : 'Upload',
             status: mappedStatus,
             tone: getRequirementStatusMeta(mappedStatus).tone,
+            target: 'assets',
+            policyCode: `template_${template.id}`,
         });
     });
 
@@ -225,78 +329,95 @@ export function buildActRequirementRows(act: any): RequirementRow[] {
     });
     const teamCount = participantRows.filter((participant: any) => ['Manager', 'Choreographer', 'Support', 'Crew'].includes(participant.role)).length;
     const castCount = performers.length;
-    const introAssignmentStatus = getActAssignmentStatus(act, 'ACT_INTRO');
-    const audioAssignmentStatus = getActAssignmentStatus(act, 'ACT_AUDIO');
-    const techAssignmentStatuses = ['ACT_LIGHTING', 'ACT_MICROPHONE', 'ACT_VIDEO']
-        .map((code) => getActAssignmentStatus(act, code))
-        .filter(Boolean) as RequirementStatus[];
-
-    const introStatus =
-        introAssignmentStatus ||
-        (act?.hasApprovedIntro ? 'approved' : act?.hasIntroRequirement ? 'pending_review' : 'missing');
-    const musicStatus =
-        audioAssignmentStatus ||
-        (act?.hasMusicTrack ? 'submitted' : 'missing');
-    const stageTechStatus =
-        techAssignmentStatuses.find((status) => status === 'missing' || status === 'rejected') ||
-        techAssignmentStatuses.find((status) => status === 'pending_review' || status === 'submitted') ||
-        techAssignmentStatuses.find((status) => status === 'approved') ||
-        (act?.hasTechnicalRider ? 'submitted' : 'missing');
-
-    return sortRequirementRows([
+    const activePolicies = Array.isArray(act?.activeRequirementPolicies) ? act.activeRequirementPolicies : [];
+    const rows: RequirementRow[] = [
         {
             key: 'cast-clear',
             label: 'Cast Clearance',
             detail: castCount === 0
                 ? 'No performers are assigned to this performance yet.'
                 : castClear
-                ? 'Assigned cast members are clear on current participant requirements.'
-                : 'One or more assigned participants still have approvals or docs unresolved.',
+                    ? 'Assigned cast members are clear on current participant requirements.'
+                    : 'One or more assigned participants still have approvals or docs unresolved.',
             actionLabel: castCount === 0 ? 'Add Cast' : 'Review Cast',
             status: castCount === 0 ? 'missing' : castClear ? 'approved' : 'pending_review',
             tone: castCount === 0 ? 'critical' : castClear ? 'good' : 'warning',
+            target: 'cast',
+            policyCode: null,
         },
-        {
-            key: 'music-submitted',
-            label: 'Music Submitted',
-            detail: musicStatus === 'approved' || musicStatus === 'submitted'
-                ? 'A music or audio record is already attached to this performance.'
-                : 'This performance still needs a music or audio record.',
-            actionLabel: musicStatus === 'approved' || musicStatus === 'submitted' ? 'View Music' : 'Add Music',
-            status: musicStatus,
-            tone: getRequirementStatusMeta(musicStatus).tone,
-        },
-        {
-            key: 'intro-approved',
-            label: 'Intro Approved',
-            detail: introStatus === 'approved'
+    ];
+
+    activePolicies.forEach((policy: any) => {
+        if (policy.code === 'ACT_SUPPORT_TEAM') {
+            const supportTeamStatus = getActAssignmentStatus(act, policy.code)
+                || (teamCount > 0 ? 'submitted' : castCount > 0 ? 'missing' : 'auto_complete');
+            rows.push(buildGenericRequirementRow({
+                key: 'support-team',
+                label: policy.label,
+                detail: teamCount > 0
+                    ? `${teamCount} team contact${teamCount > 1 ? 's are' : ' is'} already linked to this performance.`
+                    : 'No manager, choreographer, or support contact is linked yet.',
+                actionLabel: teamCount > 0 ? 'View Team' : 'Add Team',
+                status: supportTeamStatus,
+                target: 'cast',
+                policyCode: policy.code,
+            }));
+            return;
+        }
+
+        const legacyRequirementType = ACT_POLICY_REQUIREMENT_TYPE_MAP[policy.code];
+        const assignmentStatus = getActAssignmentStatus(act, policy.code);
+        const matchingRequirement = legacyRequirementType
+            ? (act?.requirements || []).find((requirement: any) => requirement.requirementType === legacyRequirementType)
+            : null;
+        const derivedStatus = assignmentStatus
+            || (() => {
+                if (policy.code === 'ACT_INTRO') {
+                    return act?.hasApprovedIntro ? 'approved' : act?.hasIntroRequirement ? 'pending_review' : 'missing';
+                }
+                if (policy.code === 'ACT_AUDIO') {
+                    return act?.hasMusicTrack ? 'submitted' : 'missing';
+                }
+                if (matchingRequirement?.fulfilled) return 'approved';
+                if (matchingRequirement?.fileUrl || matchingRequirement) return 'submitted';
+                return 'missing';
+            })();
+
+        let detail = policy.description || 'Requirement needs follow-up on this performance.';
+        let actionLabel = 'Review';
+        let target: RequirementTarget = getPolicyTarget(policy.input_type, policy.category);
+
+        if (policy.code === 'ACT_INTRO') {
+            detail = derivedStatus === 'approved'
                 ? 'Intro composition has already been approved for playback.'
-                : introStatus === 'pending_review' || introStatus === 'submitted'
+                : derivedStatus === 'pending_review' || derivedStatus === 'submitted'
                     ? 'An intro exists but still needs approval before showtime.'
-                    : 'No approved intro is attached to this performance yet.',
-            actionLabel: 'Open Intro',
-            status: introStatus,
-            tone: getRequirementStatusMeta(introStatus).tone,
-        },
-        {
-            key: 'stage-tech',
-            label: 'Stage Tech Confirmed',
-            detail: stageTechStatus === 'approved' || stageTechStatus === 'submitted'
-                ? 'A stage-tech requirement or rider record is already attached.'
-                : 'Microphone, lighting, or stage setup details still need confirmation.',
-            actionLabel: 'Review Tech',
-            status: stageTechStatus,
-            tone: getRequirementStatusMeta(stageTechStatus).tone,
-        },
-        {
-            key: 'support-team',
-            label: 'Support Team',
-            detail: teamCount > 0
-                ? `${teamCount} team contact${teamCount > 1 ? 's are' : ' is'} already linked to this performance.`
-                : 'No manager, choreographer, or support contact is linked yet.',
-            actionLabel: teamCount > 0 ? 'View Team' : 'Add Team',
-            status: teamCount > 0 ? 'submitted' : castCount > 0 ? 'missing' : 'auto_complete',
-            tone: teamCount > 0 ? 'info' : castCount > 0 ? 'warning' : 'good',
-        },
-    ]);
+                    : 'No approved intro is attached to this performance yet.';
+            actionLabel = 'Open Intro';
+        } else if (policy.code === 'ACT_AUDIO') {
+            detail = derivedStatus === 'approved' || derivedStatus === 'submitted'
+                ? 'A music or audio record is already attached to this performance.'
+                : 'This performance still needs a music or audio record.';
+            actionLabel = derivedStatus === 'approved' || derivedStatus === 'submitted' ? 'View Music' : 'Add Music';
+        } else if (policy.code === 'ACT_LIGHTING' || policy.code === 'ACT_MICROPHONE' || policy.code === 'ACT_VIDEO') {
+            detail = derivedStatus === 'approved' || derivedStatus === 'submitted'
+                ? 'A technical requirement record is already attached for this show element.'
+                : 'This technical requirement still needs confirmation for the performance.';
+            actionLabel = 'Review Tech';
+        } else if (policy.code === 'ACT_POSTER' || policy.code === 'ACT_GENERATIVE' || policy.code === 'ACT_GENERATIVE_AUDIO' || policy.code === 'ACT_GENERATIVE_VIDEO' || policy.code === 'ACT_WAIVER') {
+            actionLabel = derivedStatus === 'approved' || derivedStatus === 'submitted' ? 'View Media' : 'Add Media';
+        }
+
+        rows.push(buildGenericRequirementRow({
+            key: `act-policy-${policy.code.toLowerCase()}`,
+            label: policy.label,
+            detail,
+            actionLabel,
+            status: derivedStatus,
+            target,
+            policyCode: policy.code,
+        }));
+    });
+
+    return sortRequirementRows(rows);
 }
