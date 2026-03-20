@@ -6,6 +6,7 @@ import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useAssignEventRole, useEventMembers, usePendingEventAccess, useRemoveEventMember } from '@/hooks/useAccess';
 import { Button } from '@/components/ui/Button';
+import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 
 type AccessRole = 'EventAdmin' | 'StageManager' | 'ActAdmin' | 'Member';
 
@@ -13,6 +14,7 @@ export default function AccessPage() {
     const { organizationId, eventId } = useSelection();
     const { data: currentEventRole, isLoading: isLoadingEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole, isLoading: isLoadingOrgRole } = useCurrentOrgRole(organizationId || null);
+    const { data: isSuperAdmin = false, isLoading: isLoadingSuperAdmin } = useIsSuperAdmin();
     const { data: members = [], isLoading: isLoadingMembers } = useEventMembers(eventId || null);
     const { data: pendingAccess = [], isLoading: isLoadingPending } = usePendingEventAccess(eventId || null);
     const { mutateAsync: assignRole, isPending: isAssigning } = useAssignEventRole(eventId || null);
@@ -25,7 +27,7 @@ export default function AccessPage() {
     const [draftRoles, setDraftRoles] = useState<Record<string, AccessRole>>({});
 
     const canManageAccess =
-        currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+        isSuperAdmin || currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
 
     const filteredMembers = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
@@ -45,7 +47,7 @@ export default function AccessPage() {
         );
     }, [pendingAccess, searchQuery]);
 
-    if (!eventId || isLoadingEventRole || isLoadingOrgRole) {
+    if (!eventId || isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

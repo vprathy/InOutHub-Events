@@ -16,6 +16,7 @@ import { isDevLoginEnabled } from '@/lib/authConfig';
 const ParticipantsPage = lazy(() => import('@/pages/ParticipantsPage'));
 const RequirementsPage = lazy(() => import('@/pages/RequirementsPage'));
 const AccessPage = lazy(() => import('@/pages/AccessPage'));
+const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const ParticipantProfilePage = lazy(() => import('@/pages/ParticipantProfilePage').then((module) => ({ default: module.ParticipantProfilePage })));
 const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage').then((module) => ({ default: module.PerformanceProfilePage })));
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
@@ -67,7 +68,15 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: 'requirements',
+                path: 'admin',
+                element: (
+                    <LazyRoute>
+                        <AdminPage />
+                    </LazyRoute>
+                ),
+            },
+            {
+                path: 'admin/requirements',
                 element: (
                     <LazyRoute>
                         <RequirementsPage />
@@ -75,12 +84,20 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: 'access',
+                path: 'admin/access',
                 element: (
                     <LazyRoute>
                         <AccessPage />
                     </LazyRoute>
                 ),
+            },
+            {
+                path: 'requirements',
+                element: <Navigate to="/admin/requirements" replace />,
+            },
+            {
+                path: 'access',
+                element: <Navigate to="/admin/access" replace />,
             },
             {
                 path: 'participants/:participantId',

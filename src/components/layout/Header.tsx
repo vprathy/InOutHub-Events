@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, ClipboardCheck, UsersRound } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import { isDevLoginEnabled } from '@/lib/authConfig';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { ManageOrgAccessModal } from '@/components/selection/ManageOrgAccessModal';
-import { ManageEventAccessModal } from '@/components/selection/ManageEventAccessModal';
+import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 
 export function Header() {
     const { organizationId, eventId } = useSelection();
@@ -19,8 +19,8 @@ export function Header() {
     const { user } = useAuth();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isOrgAccessOpen, setIsOrgAccessOpen] = useState(false);
-    const [isEventAccessOpen, setIsEventAccessOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const { data: isSuperAdmin = false } = useIsSuperAdmin();
 
     const handleLogout = async () => {
         await signOut();
@@ -124,8 +124,8 @@ export function Header() {
             .map((part) => part[0]?.toUpperCase() || '')
             .join('') || 'IU';
     }, [displayName, profile?.first_name, profile?.last_name]);
-    const canManageOrgAccess = currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
-    const canManageEventAccess = currentEventRole === 'EventAdmin' || canManageOrgAccess;
+    const canManageOrgAccess = isSuperAdmin || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+    const canManageEventAccess = isSuperAdmin || currentEventRole === 'EventAdmin' || canManageOrgAccess;
 
     return (
         <header className="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-border bg-background/95 px-3 shadow-sm backdrop-blur sm:h-16 sm:px-6">
@@ -184,28 +184,6 @@ export function Header() {
             </div>
 
             <div className="ml-2 flex shrink-0 items-center space-x-1 sm:space-x-2">
-                {canManageEventAccess && eventId ? (
-                    <button
-                        onClick={() => navigate('/access')}
-                        className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-background px-2.5 text-[9px] font-black uppercase tracking-[0.18em] text-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary sm:min-h-[44px] sm:px-3"
-                        aria-label="Open Access"
-                        title="Open Access"
-                    >
-                        <UsersRound className="h-3.5 w-3.5" />
-                        <span>Access</span>
-                    </button>
-                ) : null}
-                {canManageEventAccess && eventId ? (
-                    <button
-                        onClick={() => navigate('/requirements')}
-                        className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-2.5 text-[9px] font-black uppercase tracking-[0.18em] text-primary transition-colors hover:bg-primary/10 sm:min-h-[44px] sm:px-3"
-                        aria-label="Manage Requirements"
-                        title="Manage Requirements"
-                    >
-                        <ClipboardCheck className="h-3.5 w-3.5" />
-                        <span>Reqs</span>
-                    </button>
-                ) : null}
                 {isDevLoginEnabled ? (
                     <button
                         onClick={() => navigate('/dev/login')}
@@ -263,36 +241,12 @@ export function Header() {
                                     <button
                                         onClick={() => {
                                             setIsProfileMenuOpen(false);
-                                            navigate('/access');
-                                        }}
-                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                                    >
-                                        <UsersRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <span>Access</span>
-                                    </button>
-                                ) : null}
-                                {canManageEventAccess && eventId ? (
-                                    <button
-                                        onClick={() => {
-                                            setIsProfileMenuOpen(false);
-                                            setIsEventAccessOpen(true);
+                                            navigate('/admin');
                                         }}
                                         className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
                                     >
                                         <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <span>Manage Event Access</span>
-                                    </button>
-                                ) : null}
-                                {canManageEventAccess && eventId ? (
-                                    <button
-                                        onClick={() => {
-                                            setIsProfileMenuOpen(false);
-                                            navigate('/requirements');
-                                        }}
-                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                                    >
-                                        <ClipboardCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <span>Manage Requirements</span>
+                                        <span>Admin</span>
                                     </button>
                                 ) : null}
                                 <button
@@ -314,10 +268,6 @@ export function Header() {
             <ManageOrgAccessModal
                 isOpen={isOrgAccessOpen}
                 onClose={() => setIsOrgAccessOpen(false)}
-            />
-            <ManageEventAccessModal
-                isOpen={isEventAccessOpen}
-                onClose={() => setIsEventAccessOpen(false)}
             />
         </header>
     );

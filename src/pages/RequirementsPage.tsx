@@ -8,6 +8,7 @@ import { useSelection } from '@/context/SelectionContext';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { supabase } from '@/lib/supabase';
+import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 
 type SubjectTab = 'participants' | 'acts';
 type Scope = 'event' | 'org';
@@ -203,17 +204,18 @@ export default function RequirementsPage() {
     const { organizationId, eventId } = useSelection();
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
+    const { data: isSuperAdmin = false } = useIsSuperAdmin();
     const [subjectTab, setSubjectTab] = useState<SubjectTab>('participants');
     const [scope, setScope] = useState<Scope>('event');
     const [message, setMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const canManageRequirements =
-        currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+        isSuperAdmin || currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
     const canManageCurrentScope =
         scope === 'org'
-            ? currentOrgRole === 'Owner' || currentOrgRole === 'Admin'
-            : currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+            ? isSuperAdmin || currentOrgRole === 'Owner' || currentOrgRole === 'Admin'
+            : isSuperAdmin || currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
     const subjectType = subjectTab === 'participants' ? 'participant' : 'act';
 
     const presets = useMemo(

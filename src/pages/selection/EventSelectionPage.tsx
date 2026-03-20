@@ -199,7 +199,7 @@ export default function EventSelectionPage() {
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setEventId(event.id, event.timezone);
-                                                        navigate('/access');
+                                                        navigate('/admin/access');
                                                     }}
                                                     className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl border border-border/70 bg-background px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
                                                     aria-label={`Open access for ${event.name}`}
