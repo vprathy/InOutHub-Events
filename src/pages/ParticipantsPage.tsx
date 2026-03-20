@@ -27,10 +27,10 @@ import { Button } from '@/components/ui/Button';
 import { useAssignToAct, useAddParticipantNote } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useEventSources } from '@/hooks/useEventSources';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 function getCardSummary(participant: any) {
     if (participant.openSpecialRequestCount) {
@@ -71,8 +71,10 @@ export default function ParticipantsPage() {
     const [actSearchQuery, setActSearchQuery] = useState('');
     const [noteContent, setNoteContent] = useState('');
     const [noteCategory, setNoteCategory] = useState<'operational' | 'internal' | 'special_request'>('operational');
-    const { data: currentEventRole } = useCurrentEventRole(eventId || null);
-    const canManageSync = currentEventRole === 'EventAdmin';
+    const capabilities = useEventCapabilities(eventId || null, null);
+    const canManageSync = capabilities.canSyncParticipants;
+    const canManageRoster = capabilities.canManageRoster;
+    const canManageParticipantOps = capabilities.canManageParticipantOps;
     const { sources } = useEventSources(eventId || '');
 
     // Mutations/Hooks
@@ -251,7 +253,10 @@ export default function ParticipantsPage() {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setIsAddParticipantOpen(true)}
-                                className="flex h-11 items-center justify-center space-x-2 rounded-xl border border-primary/20 bg-primary/5 px-4 text-[11px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/10"
+                                disabled={!canManageRoster}
+                                className={`flex h-11 items-center justify-center space-x-2 rounded-xl border border-primary/20 px-4 text-[11px] font-black uppercase tracking-widest transition-all ${
+                                    canManageRoster ? 'bg-primary/5 text-primary hover:bg-primary/10' : 'bg-muted text-muted-foreground cursor-not-allowed'
+                                }`}
                             >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Add</span>
@@ -281,7 +286,7 @@ export default function ParticipantsPage() {
                 />
                 {!canManageSync ? (
                     <p className="text-xs font-medium text-muted-foreground">
-                        Sync tools are limited to EventAdmin for this event. Current access: {currentEventRole || 'No event role'}.
+                        Roster changes and sync are limited to EventAdmin for this event. Current access: {capabilities.currentEventRole || 'No event role'}.
                     </p>
                 ) : null}
             </div>
@@ -468,15 +473,17 @@ export default function ParticipantsPage() {
 
                                 <div className="px-3 py-2.5 flex items-center justify-between border-t border-border/50 bg-accent/10">
                                     <div className="flex items-center space-x-2">
-                                        <button
-                                            className="h-11 rounded-xl bg-indigo-600 px-3 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-indigo-500 transition-colors"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setAssigningParticipant(participant.id);
-                                            }}
-                                        >
-                                            {participant.actCount ? 'Manage Link' : 'Link'}
-                                        </button>
+                                        {canManageRoster ? (
+                                            <button
+                                                className="h-11 rounded-xl bg-indigo-600 px-3 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAssigningParticipant(participant.id);
+                                                }}
+                                            >
+                                                {participant.actCount ? 'Manage Link' : 'Link'}
+                                            </button>
+                                        ) : null}
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         {participant.guardianPhone && (
@@ -498,15 +505,17 @@ export default function ParticipantsPage() {
                                                 <Mail className="w-3.5 h-3.5" />
                                             </a>
                                         )}
-                                        <button
-                                            className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setNotingParticipant(participant.id);
-                                            }}
-                                        >
-                                            <MessageSquare className="w-3.5 h-3.5" />
-                                        </button>
+                                        {canManageParticipantOps ? (
+                                            <button
+                                                className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-primary shadow-sm hover:border-primary/50 transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setNotingParticipant(participant.id);
+                                                }}
+                                            >
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                            </button>
+                                        ) : null}
                                         <button
                                             className="flex items-center space-x-1.5 h-11 px-4 bg-background border border-border rounded-xl text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm hover:bg-accent transition-all"
                                             onClick={(e) => {

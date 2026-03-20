@@ -13,7 +13,7 @@ interface LineupItemCardProps {
     slot: LineupSlot;
     orderIndex: number;
     risk?: FlowInsight;
-    onRemove: () => void;
+    onRemove?: () => void;
     onMoveToTop?: () => void;
     onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
     lockedReason?: string | null;
@@ -130,14 +130,16 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                         Top
                                     </Button>
                                 ) : null}
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={onRemove}
-                                    className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
-                                >
-                                    <Trash2 size={18} />
-                                </Button>
+                                {onRemove ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={onRemove}
+                                        className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
+                                    >
+                                        <Trash2 size={18} />
+                                    </Button>
+                                ) : null}
                             </div>
                         </div>
                     </div>

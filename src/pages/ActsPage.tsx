@@ -10,6 +10,7 @@ import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { prepareIntroAutopilot } from '@/lib/introCapabilities';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
@@ -22,6 +23,7 @@ export default function ActsPage() {
     const [batchNotice, setBatchNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
+    const capabilities = useEventCapabilities(eventId || null, null);
 
     useEffect(() => {
         const filterParam = searchParams.get('filter');
@@ -50,7 +52,7 @@ export default function ActsPage() {
         stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
         musicMissing: acts?.filter((act) => !act.hasMusicTrack).length || 0,
     };
-    const canBatchPrepareIntros = currentEventRole === 'EventAdmin';
+    const canBatchPrepareIntros = capabilities.canManageActMedia;
     const performanceResponseItems = [
         {
             key: 'needs_cast' as const,
@@ -161,6 +163,7 @@ export default function ActsPage() {
                             ) : null}
                             <Button
                                 onClick={() => setIsAddModalOpen(true)}
+                                disabled={!capabilities.canCreateActs}
                                 className="h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                             >
                                 <Plus className="w-4 h-4 mr-2" />
@@ -178,6 +181,11 @@ export default function ActsPage() {
                     }`}>
                         {batchNotice.message}
                     </div>
+                ) : null}
+                {!capabilities.canCreateActs ? (
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Creating new performances is limited to EventAdmin for this event. Current access: {currentEventRole || 'No event role'}.
+                    </p>
                 ) : null}
             </div>
 

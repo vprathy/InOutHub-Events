@@ -11,11 +11,13 @@ import { scanLineup } from '@/lib/optimizer';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { OperationalEmptyResponse, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
 
 export default function StageConsolePage() {
     const { eventId } = useSelection();
+    const capabilities = useEventCapabilities(eventId || null, null);
     const navigate = useNavigate();
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
 
@@ -116,6 +118,12 @@ export default function StageConsolePage() {
                 />
             )}
 
+            {!capabilities.canOperateStage ? (
+                <div className="surface-panel rounded-[1.2rem] border border-amber-500/20 bg-amber-500/5 p-3.5 text-sm font-medium text-amber-700">
+                    Console controls are view-only for your current access level. StageManager or EventAdmin is required to drive live state.
+                </div>
+            ) : null}
+
             <div className="surface-panel space-y-3 rounded-[1.35rem] p-3">
                 <div className="px-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
@@ -168,6 +176,7 @@ export default function StageConsolePage() {
                     isOvertime={isOvertime}
                     overtimeMinutes={overtimeMinutes}
                     actions={actions}
+                    isReadOnly={!capabilities.canOperateStage}
                 />
             ) : (
                 <EmptyState

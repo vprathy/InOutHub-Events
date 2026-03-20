@@ -5,6 +5,7 @@ interface StatusPickerProps {
     currentStatus: ArrivalStatus;
     onStatusChange: (status: ArrivalStatus) => void;
     isLoading?: boolean;
+    disabled?: boolean;
 }
 
 const statuses: { label: string; value: ArrivalStatus; icon: any; color: string }[] = [
@@ -14,7 +15,7 @@ const statuses: { label: string; value: ArrivalStatus; icon: any; color: string 
     { label: 'Ready', value: 'Ready', icon: CheckCircle2, color: 'text-emerald-500' },
 ];
 
-export function StatusPicker({ currentStatus, onStatusChange, isLoading }: StatusPickerProps) {
+export function StatusPicker({ currentStatus, onStatusChange, isLoading, disabled }: StatusPickerProps) {
     return (
         <div className="flex w-full bg-muted p-1.5 rounded-full border border-border min-h-[56px]">
             {statuses.map((s) => {
@@ -24,7 +25,7 @@ export function StatusPicker({ currentStatus, onStatusChange, isLoading }: Statu
                 return (
                     <button
                         key={s.value}
-                        disabled={isLoading}
+                        disabled={isLoading || disabled}
                         onClick={() => onStatusChange(s.value)}
                         className={`
               flex-1 flex flex-col items-center justify-center py-2.5 rounded-full transition-all duration-200 min-h-[44px]
@@ -32,7 +33,7 @@ export function StatusPicker({ currentStatus, onStatusChange, isLoading }: Statu
                                 ? 'bg-card shadow-md scale-[1.05] text-primary'
                                 : 'text-muted-foreground hover:bg-accent/50'
                             }
-              ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+              ${isLoading || disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
                     >
                         <Icon className={`w-5 h-5 mb-1 ${isActive ? 'animate-pulse' : ''}`} />

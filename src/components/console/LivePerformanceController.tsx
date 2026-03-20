@@ -28,6 +28,7 @@ interface LivePerformanceControllerProps {
         resumeShow: () => void;
         resetShow: () => void;
     };
+    isReadOnly?: boolean;
 }
 
 const formatSafeTime = (dateString: string | null | undefined) => {
@@ -62,7 +63,8 @@ export function LivePerformanceController({
     current, next, upcoming, status,
     isStageActionPending,
     driftMinutes, isOvertime, overtimeMinutes,
-    actions
+    actions,
+    isReadOnly = false,
 }: LivePerformanceControllerProps) {
     const { mutate: updateStatus, isPending } = useUpdateActStatus();
     const [showIntro, setShowIntro] = useState(false);
@@ -143,10 +145,10 @@ export function LivePerformanceController({
                 <Button
                     size="lg"
                     onClick={actions.startShow}
-                    disabled={isStageActionPending}
+                    disabled={isStageActionPending || isReadOnly}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-12 py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                 >
-                    {isStageActionPending ? 'STARTING...' : 'START SHOW'}
+                    {isReadOnly ? 'VIEW ONLY' : isStageActionPending ? 'STARTING...' : 'START SHOW'}
                 </Button>
                 </div>
             </div>
@@ -258,6 +260,11 @@ export function LivePerformanceController({
                                             {backgroundSourceBadge.label}
                                         </div>
                                     ) : null}
+                                    {isReadOnly ? (
+                                        <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">
+                                            View Only
+                                        </div>
+                                    ) : null}
                                 {isIntroReady && (
                                         <Button 
                                             size="sm" 
@@ -282,24 +289,24 @@ export function LivePerformanceController({
                             <div className="bg-neutral-800/50 border-t border-neutral-800 p-4 lg:p-6 flex flex-col sm:flex-row items-center gap-4 justify-between">
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     {status === 'Active' ? (
-                                        <Button onClick={actions.pauseShow} disabled={isStageActionPending} variant="outline" className="flex-1 sm:flex-none h-11 border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2">
+                                        <Button onClick={actions.pauseShow} disabled={isStageActionPending || isReadOnly} variant="outline" className="flex-1 sm:flex-none h-11 border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 font-bold gap-2">
                                             <Pause size={18} fill="currentColor" /> {isStageActionPending ? 'PAUSING...' : 'PAUSE'}
                                         </Button>
                                     ) : (
-                                        <Button onClick={actions.resumeShow} disabled={isStageActionPending} className="flex-1 sm:flex-none h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2">
-                                            <Play size={18} fill="currentColor" /> {isStageActionPending ? 'RESUMING...' : 'RESUME'}
+                                        <Button onClick={actions.resumeShow} disabled={isStageActionPending || isReadOnly} className="flex-1 sm:flex-none h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2">
+                                            <Play size={18} fill="currentColor" /> {isReadOnly ? 'VIEW ONLY' : isStageActionPending ? 'RESUMING...' : 'RESUME'}
                                         </Button>
                                     )}
-                                    <Button onClick={actions.resetShow} disabled={isStageActionPending} variant="outline" className="h-11 border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold">
+                                    <Button onClick={actions.resetShow} disabled={isStageActionPending || isReadOnly} variant="outline" className="h-11 border-neutral-700 text-neutral-500 hover:text-rose-500 hover:border-rose-500/50 hover:bg-rose-500/10 font-bold">
                                         <Square size={18} fill="currentColor" />
                                     </Button>
                                 </div>
                                 <Button
                                     onClick={actions.nextPerformance}
-                                    disabled={isStageActionPending}
+                                    disabled={isStageActionPending || isReadOnly}
                                     className="w-full sm:w-auto min-h-[56px] rounded-xl bg-primary px-8 text-lg font-black text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] hover:bg-primary/90 gap-2"
                                 >
-                                    <SkipForward size={24} fill="currentColor" /> {isStageActionPending ? 'ADVANCING...' : 'NEXT PERFORMANCE'}
+                                    <SkipForward size={24} fill="currentColor" /> {isReadOnly ? 'VIEW ONLY' : isStageActionPending ? 'ADVANCING...' : 'NEXT PERFORMANCE'}
                                 </Button>
                             </div>
                         </Card>
@@ -334,6 +341,7 @@ export function LivePerformanceController({
                                         currentStatus={next.act.arrivalStatus}
                                         onStatusChange={(status) => updateStatus({ actId: next.act.id, status })}
                                         isLoading={isPending}
+                                        disabled={isReadOnly}
                                     />
                                 </div>
                             </div>

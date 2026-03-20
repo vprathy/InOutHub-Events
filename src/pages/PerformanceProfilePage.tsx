@@ -29,27 +29,25 @@ import { AddParticipantToActModal } from '@/components/acts/AddParticipantToActM
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { formatReadinessDate, getActReadinessLabel } from '@/lib/actReadiness';
-import { buildActRequirementRows, getRequirementStatusMeta } from '@/lib/requirementsPrototype';
+import { buildActRequirementRows, getRequirementStatusMeta, type RequirementRow } from '@/lib/requirementsPrototype';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
+import { useSelection } from '@/context/SelectionContext';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 type TabType = 'workspace' | 'cast' | 'assets';
-
-function getActRequirementTarget(rowKey: string): TabType {
-    if (rowKey === 'cast-clear' || rowKey === 'support-team') return 'cast';
-    if (rowKey === 'stage-tech') return 'workspace';
-    return 'assets';
-}
 
 export function PerformanceProfilePage() {
     const { actId } = useParams();
     const navigate = useNavigate();
+    const { organizationId } = useSelection();
     const [activeTab, setActiveTab] = useState<TabType>('workspace');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
     const [previewAsset, setPreviewAsset] = useState<{ url: string; title: string } | null>(null);
     const { data: act, isLoading } = useActDetail(actId || null);
+    const capabilities = useEventCapabilities(act?.eventId || null, organizationId || null);
 
     if (isLoading) {
         return (
@@ -74,14 +72,17 @@ export function PerformanceProfilePage() {
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
     const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
     const introRequirement = (act.requirements || []).find((requirement: any) => requirement.requirementType === 'IntroComposition');
+    const canManageReadiness = capabilities.canManageReadiness;
+    const canManageActCast = capabilities.canManageActCast;
+    const canManageActMedia = capabilities.canManageActMedia;
     const headerSummaryItems = [
         { label: 'Cast', value: `${act.participants.length}`, helper: act.participants.length === 1 ? 'assigned person' : 'assigned people', icon: Users },
         { label: 'Show', value: `${act.durationMinutes}m`, helper: 'scheduled performance', icon: Timer },
         { label: 'Setup', value: `${act.setupTimeMinutes}m`, helper: 'operator-managed handoff', icon: Clock },
         { label: 'Intro', value: introRequirement?.fulfilled ? 'Approved' : introRequirement ? 'Draft' : 'Open', helper: introRequirement?.fulfilled ? 'ready for console' : 'review in intro studio', icon: MonitorPlay },
     ];
-    const handleRequirementAction = (rowKey: string) => {
-        setActiveTab(getActRequirementTarget(rowKey));
+    const handleRequirementAction = (row: RequirementRow) => {
+        setActiveTab(row.target);
     };
 
     return (
@@ -163,22 +164,22 @@ export function PerformanceProfilePage() {
 
             {/* Tab Content */}
             <div className="mt-2">
-                {activeTab === 'workspace' && <WorkspaceTab act={act} onRequirementAction={handleRequirementAction} nextRequirementRow={nextRequirementRow} />}
-                {activeTab === 'cast' && <CastTab participants={act.participants} onAddParticipant={(role) => {
+                {activeTab === 'workspace' && <WorkspaceTab act={act} onRequirementAction={handleRequirementAction} nextRequirementRow={nextRequirementRow} canManageReadiness={canManageReadiness} />}
+                {activeTab === 'cast' && <CastTab participants={act.participants} canManageActCast={canManageActCast} onAddParticipant={(role) => {
                     setAddRole(role);
                     setIsAddParticipantOpen(true);
                 }} />}
-                {activeTab === 'assets' && <AssetsTab act={act} onOpenAssetManager={() => setIsUploadOpen(true)} onPreviewAsset={(url, title) => setPreviewAsset({ url, title })} />}
+                {activeTab === 'assets' && <AssetsTab act={act} canManageActMedia={canManageActMedia} onOpenAssetManager={() => setIsUploadOpen(true)} onPreviewAsset={(url, title) => setPreviewAsset({ url, title })} />}
             </div>
 
-            <UploadActAssetModal
+            {canManageActMedia ? <UploadActAssetModal
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}
                 actId={act.id}
                 actName={act.name}
                 eventId={act.eventId}
-            />
-            <AddParticipantToActModal
+            /> : null}
+            {canManageActCast ? <AddParticipantToActModal
                 isOpen={isAddParticipantOpen}
                 onClose={() => setIsAddParticipantOpen(false)}
                 actId={act.id}
@@ -187,7 +188,7 @@ export function PerformanceProfilePage() {
                 role={addRole}
                 roleOptions={addRole === 'Manager' ? ['Manager', 'Choreographer', 'Support', 'Crew'] : ['Performer']}
                 title={addRole === 'Manager' ? `Add Performance Team Member to: ${act.name}` : `Add Performer to: ${act.name}`}
-            />
+            /> : null}
             <AssetPreviewModal
                 isOpen={!!previewAsset}
                 onClose={() => setPreviewAsset(null)}
@@ -198,7 +199,7 @@ export function PerformanceProfilePage() {
     );
 }
 
-function ReadinessTab({ act }: { act: any }) {
+function ReadinessTab({ act, canManageReadiness }: { act: any; canManageReadiness: boolean }) {
     const addPractice = useAddActReadinessPractice(act.id, act.eventId);
     const addItem = useAddActReadinessItem(act.id, act.eventId);
     const addIssue = useAddActReadinessIssue(act.id, act.eventId);
@@ -274,15 +275,15 @@ function ReadinessTab({ act }: { act: any }) {
         <div className="space-y-5">
             <div className="surface-panel rounded-[1.2rem] p-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <Button className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowPracticeModal(true)}>
+                    <Button className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowPracticeModal(true)} disabled={!canManageReadiness}>
                     <CalendarClock className="mr-2 h-4 w-4" />
                     Add Practice
                     </Button>
-                    <Button variant="outline" className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowItemModal(true)}>
+                    <Button variant="outline" className="h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowItemModal(true)} disabled={!canManageReadiness}>
                     <ListChecks className="mr-2 h-4 w-4" />
                     Add Checklist Item
                     </Button>
-                    <Button variant="outline" className="h-11 rounded-xl border-amber-500/20 bg-amber-500/5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 hover:bg-amber-500/10" onClick={() => setShowIssueModal(true)}>
+                    <Button variant="outline" className="h-11 rounded-xl border-amber-500/20 bg-amber-500/5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 hover:bg-amber-500/10" onClick={() => setShowIssueModal(true)} disabled={!canManageReadiness}>
                     <TriangleAlert className="mr-2 h-4 w-4" />
                     Raise Issue
                     </Button>
@@ -614,7 +615,7 @@ function ReadinessTab({ act }: { act: any }) {
 }
 
 
-function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: any; onRequirementAction: (rowKey: string) => void; nextRequirementRow: any }) {
+function WorkspaceTab({ act, onRequirementAction, nextRequirementRow, canManageReadiness }: { act: any; onRequirementAction: (row: RequirementRow) => void; nextRequirementRow: RequirementRow | null; canManageReadiness: boolean }) {
     const readinessState = getActReadinessLabel(act.readinessSummary?.state);
     const openIssueCount = act.readinessSummary?.openIssueCount || 0;
     const openPrepCount = act.readinessSummary?.incompleteChecklistCount || act.readinessSummary?.missingChecklistCount || 0;
@@ -632,7 +633,7 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
                         count={meta.label}
                         tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
                         action={nextRequirementRow.actionLabel}
-                        onClick={() => onRequirementAction(nextRequirementRow.key)}
+                        onClick={() => onRequirementAction(nextRequirementRow)}
                     />
                 );
             })() : (
@@ -662,7 +663,10 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
                         <Button
                             variant="outline"
                             className="min-h-11 rounded-2xl border-white/15 bg-white/10 px-4 text-[10px] font-black uppercase tracking-[0.18em] text-white hover:bg-white/15"
-                            onClick={() => onRequirementAction('intro-approved')}
+                            onClick={() => {
+                                const introRow = buildActRequirementRows(act).find((row) => row.policyCode === 'ACT_INTRO');
+                                if (introRow) onRequirementAction(introRow);
+                            }}
                         >
                             <Sparkles className="mr-2 h-4 w-4" />
                             {introActionLabel}
@@ -671,7 +675,7 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
                 </div>
             </Card>
 
-            <ReadinessTab act={act} />
+            <ReadinessTab act={act} canManageReadiness={canManageReadiness} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr,0.8fr]">
                 <Card className={`space-y-3 ${act.notes ? 'p-5' : 'p-4'}`}>
@@ -712,7 +716,7 @@ function WorkspaceTab({ act, onRequirementAction, nextRequirementRow }: { act: a
     );
 }
 
-function CastTab({ participants, onAddParticipant }: { participants: any[]; onAddParticipant: (role: 'Performer' | 'Manager') => void }) {
+function CastTab({ participants, onAddParticipant, canManageActCast }: { participants: any[]; onAddParticipant: (role: 'Performer' | 'Manager') => void; canManageActCast: boolean }) {
     const navigate = useNavigate();
 
     const team = participants.filter(p => ['Manager', 'Choreographer', 'Support', 'Crew'].includes(p.role));
@@ -728,6 +732,7 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
                         Performance Team Managers
                     </h3>
                     <div className="flex gap-2">
+                        {canManageActCast ? (
                         <Button
                             size="sm"
                             variant="outline"
@@ -739,6 +744,7 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
                             <UserPlus size={16} className="sm:mr-2" />
                             <span className="hidden sm:inline">Add Team Member</span>
                         </Button>
+                        ) : null}
                     </div>
                 </div>
                 <div className="divide-y divide-primary/5">
@@ -769,6 +775,7 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
                             <Info size={14} className="sm:mr-1.5" />
                             <span className="hidden sm:inline">Review Unassigned</span>
                         </Button>
+                        {canManageActCast ? (
                         <Button
                             size="sm"
                             className="h-11 w-11 rounded-full px-0 sm:h-10 sm:w-auto sm:rounded-lg sm:px-3 font-black uppercase tracking-widest text-[10px]"
@@ -779,6 +786,7 @@ function CastTab({ participants, onAddParticipant }: { participants: any[]; onAd
                             <UserPlus size={16} className="sm:mr-2" />
                             <span className="hidden sm:inline">Add Performer</span>
                         </Button>
+                        ) : null}
                     </div>
                 </div>
                 <div className="divide-y divide-border">
@@ -844,12 +852,18 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
     );
 }
 
-function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOpenAssetManager: () => void, onPreviewAsset: (url: string, title: string) => void }) {
+function AssetsTab({ act, onOpenAssetManager, onPreviewAsset, canManageActMedia }: { act: any, onOpenAssetManager: () => void, onPreviewAsset: (url: string, title: string) => void, canManageActMedia: boolean }) {
     const requirementRows = buildActRequirementRows(act);
-    const mediaRows = requirementRows.filter((row) => ['music-submitted', 'intro-approved', 'stage-tech'].includes(row.key));
+    const mediaRows = requirementRows.filter((row) =>
+        row.policyCode === 'ACT_AUDIO'
+        || row.policyCode === 'ACT_INTRO'
+        || (row.target === 'assets' && row.policyCode !== null)
+    );
     const fileBackedRequirements = (act.requirements || []).filter((requirement: any) => !!requirement.fileUrl);
     const mediaRecordCount = (act.assets || []).length;
     const nextMediaRow = mediaRows.find((row) => !['approved', 'auto_complete'].includes(row.status)) || mediaRows[0] || null;
+    const introRow = mediaRows.find((row) => row.policyCode === 'ACT_INTRO') || null;
+    const audioRow = mediaRows.find((row) => row.policyCode === 'ACT_AUDIO') || null;
 
     const scrollToIntroBuilder = () => {
         const builder = document.getElementById('intro-builder');
@@ -861,7 +875,7 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
         <div className="space-y-6">
             {nextMediaRow ? (() => {
                 const meta = getRequirementStatusMeta(nextMediaRow.status as any);
-                const isIntro = nextMediaRow.key === 'intro-approved';
+                const isIntro = nextMediaRow.policyCode === 'ACT_INTRO';
                 return (
                     <OperationalResponseCard
                         label="Next Media Action"
@@ -890,8 +904,8 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <OperationalMetricCard label="Media Records" value={mediaRecordCount} icon={Music} tone="default" />
                 <OperationalMetricCard label="Preview Files" value={fileBackedRequirements.length} icon={MonitorPlay} tone={fileBackedRequirements.length > 0 ? 'info' : 'default'} />
-                <OperationalMetricCard label="Intro" value={mediaRows.find((row) => row.key === 'intro-approved')?.status === 'approved' ? 'Ready' : 'Open'} icon={MonitorPlay} tone={mediaRows.find((row) => row.key === 'intro-approved')?.status === 'approved' ? 'good' : 'warning'} />
-                <OperationalMetricCard label="Music" value={mediaRows.find((row) => row.key === 'music-submitted')?.status === 'approved' ? 'Ready' : 'Open'} icon={Music} tone={mediaRows.find((row) => row.key === 'music-submitted')?.status === 'approved' ? 'good' : 'warning'} />
+                <OperationalMetricCard label="Intro" value={introRow?.status === 'approved' ? 'Ready' : 'Open'} icon={MonitorPlay} tone={introRow?.status === 'approved' ? 'good' : 'warning'} />
+                <OperationalMetricCard label="Music" value={audioRow?.status === 'approved' || audioRow?.status === 'submitted' ? 'Ready' : 'Open'} icon={Music} tone={audioRow?.status === 'approved' || audioRow?.status === 'submitted' ? 'good' : 'warning'} />
             </div>
 
             <Card className="p-6 space-y-6">
@@ -914,6 +928,7 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
                         >
                             Open Intro
                         </Button>
+                        {canManageActMedia ? (
                         <Button
                             variant="outline"
                             size="sm"
@@ -922,13 +937,15 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
                         >
                             Add Media
                         </Button>
+                        ) : null}
                     </div>
                 </div>
 
                 <div className="space-y-3">
                     {mediaRows.length > 0 ? mediaRows.map((row) => {
                         const meta = getRequirementStatusMeta(row.status as any);
-                        const isIntro = row.key === 'intro-approved';
+                        const isIntro = row.policyCode === 'ACT_INTRO';
+                        const isAudio = row.policyCode === 'ACT_AUDIO';
                         return (
                             <button
                                 key={row.key}
@@ -942,8 +959,8 @@ function AssetsTab({ act, onOpenAssetManager, onPreviewAsset }: { act: any, onOp
                                 }}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIntro ? 'bg-primary/10 text-primary' : row.key === 'music-submitted' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
-                                        {isIntro ? <MonitorPlay size={16} /> : row.key === 'music-submitted' ? <Music size={16} /> : <Settings size={16} />}
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isIntro ? 'bg-primary/10 text-primary' : isAudio ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                        {isIntro ? <MonitorPlay size={16} /> : isAudio ? <Music size={16} /> : <Settings size={16} />}
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">

@@ -41,9 +41,11 @@ import { Modal } from '@/components/ui/Modal';
 import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ActionMenu } from '@/components/ui/ActionMenu';
-import { buildParticipantRequirementRows, getRequirementStatusMeta } from '@/lib/requirementsPrototype';
+import { buildParticipantRequirementRows, getRequirementStatusMeta, type RequirementRow } from '@/lib/requirementsPrototype';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
+import { useSelection } from '@/context/SelectionContext';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 type Tab = 'workspace' | 'assets';
 
@@ -91,11 +93,6 @@ const formatDate = (dateString: any) => {
     });
 };
 
-function getParticipantRequirementTarget(rowKey: string): 'workspace' | 'assets' {
-    if (rowKey === 'special-request' || rowKey === 'guardian-contact') return 'workspace';
-    return 'assets';
-}
-
 function getParticipantStatusLabel(status: string | null | undefined) {
     if (status === 'missing_from_source') return 'Missing From Source';
     if (!status) return 'Active';
@@ -105,6 +102,7 @@ function getParticipantStatusLabel(status: string | null | undefined) {
 export function ParticipantProfilePage() {
     const { participantId } = useParams<{ participantId: string }>();
     const navigate = useNavigate();
+    const { organizationId } = useSelection();
     const [activeTab, setActiveTab] = useState<Tab>('workspace');
 
     // Form and Action state
@@ -125,6 +123,7 @@ export function ParticipantProfilePage() {
     const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
+    const capabilities = useEventCapabilities(participant?.eventId || null, organizationId || null);
 
     // Available acts for assignment
     const { data: allActs } = useActsQuery(participant?.eventId || '');
@@ -238,10 +237,12 @@ export function ParticipantProfilePage() {
     const requirementRows = buildParticipantRequirementRows(participant);
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
     const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
+    const canManageParticipantRecords = capabilities.canManageParticipantRecords;
+    const canManageParticipantOps = capabilities.canManageParticipantOps;
+    const canManageRoster = capabilities.canManageRoster;
 
-    const handleRequirementAction = (rowKey: string) => {
-        const target = getParticipantRequirementTarget(rowKey);
-        setActiveTab(target);
+    const handleRequirementAction = (row: RequirementRow) => {
+        setActiveTab(row.target === 'assets' ? 'assets' : 'workspace');
     };
 
     return (
@@ -276,14 +277,16 @@ export function ParticipantProfilePage() {
                     subtitle={subtitleParts.join(' • ')}
                     actions={
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                            <Button
-                                className="min-h-11 rounded-xl border border-border/50 px-4 text-[10px] font-bold uppercase tracking-[0.18em]"
-                                variant="outline"
-                                onClick={() => setShowEditModal(true)}
-                            >
-                                <Edit className="mr-1.5 h-3.5 w-3.5" />
-                                Edit Profile
-                            </Button>
+                            {canManageParticipantRecords ? (
+                                <Button
+                                    className="min-h-11 rounded-xl border border-border/50 px-4 text-[10px] font-bold uppercase tracking-[0.18em]"
+                                    variant="outline"
+                                    onClick={() => setShowEditModal(true)}
+                                >
+                                    <Edit className="mr-1.5 h-3.5 w-3.5" />
+                                    Edit Profile
+                                </Button>
+                            ) : null}
                             <div className="col-span-2 flex justify-end sm:col-span-1">
                                 <ActionMenu
                                     options={[
@@ -304,6 +307,7 @@ export function ParticipantProfilePage() {
                                 <select
                                     value={participant.status || 'active'}
                                     onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                                    disabled={!canManageParticipantRecords}
                                     className={`mt-2 min-h-11 w-full rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
                                         ? 'border-destructive/20 bg-destructive/10 text-destructive'
                                         : participant.status === 'missing_from_source'
@@ -406,7 +410,7 @@ export function ParticipantProfilePage() {
                                     count={meta.label}
                                     tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
                                     action={nextRequirementRow.actionLabel}
-                                    onClick={() => handleRequirementAction(nextRequirementRow.key)}
+                                    onClick={() => handleRequirementAction(nextRequirementRow)}
                                 />
                             );
                         })() : (
@@ -510,7 +514,7 @@ export function ParticipantProfilePage() {
                                             </p>
                                         </div>
                                         <div className="mt-3 flex flex-wrap gap-2">
-                                            {openSpecialRequestNotes[0] ? (
+                                            {openSpecialRequestNotes[0] && canManageParticipantOps ? (
                                                 <Button
                                                     variant="outline"
                                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -519,7 +523,7 @@ export function ParticipantProfilePage() {
                                                 >
                                                     {resolveNote.isPending ? 'Closing...' : 'Mark Request Closed'}
                                                 </Button>
-                                            ) : (
+                                            ) : canManageParticipantOps ? (
                                                 <Button
                                                     variant="outline"
                                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -532,7 +536,7 @@ export function ParticipantProfilePage() {
                                                 >
                                                     Log Request Review
                                                 </Button>
-                                            )}
+                                            ) : null}
                                             {resolvedSpecialRequestNotes.length > 0 ? (
                                                 <p className="self-center text-xs text-muted-foreground">
                                                     {resolvedSpecialRequestNotes.length} closed request note{resolvedSpecialRequestNotes.length > 1 ? 's' : ''} on file.
@@ -576,14 +580,16 @@ export function ParticipantProfilePage() {
                                             <FileText className="h-4 w-4 text-primary" />
                                             <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Updates & Follow-Up</h3>
                                         </div>
-                                        <Button
-                                            variant={showNoteForm ? 'ghost' : 'outline'}
-                                            size="sm"
-                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => setShowNoteForm(!showNoteForm)}
-                                        >
-                                            {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
-                                        </Button>
+                                        {canManageParticipantOps ? (
+                                            <Button
+                                                variant={showNoteForm ? 'ghost' : 'outline'}
+                                                size="sm"
+                                                className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                onClick={() => setShowNoteForm(!showNoteForm)}
+                                            >
+                                                {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
+                                            </Button>
+                                        ) : null}
                                     </div>
 
                                     {showNoteForm ? (
@@ -638,7 +644,7 @@ export function ParticipantProfilePage() {
                                                                 {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}
                                                             </p>
                                                         </div>
-                                                        {!note.isResolved ? (
+                                                        {!note.isResolved && canManageParticipantOps ? (
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
@@ -675,6 +681,7 @@ export function ParticipantProfilePage() {
                                 <Button
                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
                                     onClick={() => setShowAssignModal(true)}
+                                    disabled={!canManageRoster}
                                 >
                                     Assign to Performance
                                 </Button>
