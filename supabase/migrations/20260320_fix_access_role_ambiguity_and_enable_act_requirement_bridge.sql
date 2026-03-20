@@ -91,22 +91,36 @@ INSERT INTO public.requirement_assignments (
     status
 )
 SELECT
-    rp.id,
+    backfill.policy_id,
     'act',
-    ar.act_id,
-    CASE WHEN ar.fulfilled THEN 'approved' ELSE 'missing' END
-FROM public.act_requirements ar
-JOIN public.acts a
-    ON a.id = ar.act_id
-JOIN public.events e
-    ON e.id = a.event_id
-JOIN public.requirement_policies rp
-    ON rp.organization_id = e.organization_id
-   AND rp.event_id IS NULL
-   AND rp.subject_type = 'act'
-   AND rp.code = public.map_legacy_act_requirement_code(ar.requirement_type)
-WHERE public.map_legacy_act_requirement_code(ar.requirement_type) IS NOT NULL
-ON CONFLICT (policy_id, act_id) DO UPDATE
+    backfill.act_id,
+    backfill.status
+FROM (
+    SELECT DISTINCT ON (rp.id, ar.act_id)
+        rp.id AS policy_id,
+        ar.act_id,
+        CASE WHEN ar.fulfilled THEN 'approved' ELSE 'missing' END AS status
+    FROM public.act_requirements ar
+    JOIN public.acts a
+        ON a.id = ar.act_id
+    JOIN public.events e
+        ON e.id = a.event_id
+    JOIN public.requirement_policies rp
+        ON rp.organization_id = e.organization_id
+       AND rp.event_id IS NULL
+       AND rp.subject_type = 'act'
+       AND rp.code = public.map_legacy_act_requirement_code(ar.requirement_type)
+    WHERE public.map_legacy_act_requirement_code(ar.requirement_type) IS NOT NULL
+    ORDER BY
+        rp.id,
+        ar.act_id,
+        CASE WHEN ar.fulfilled THEN 1 ELSE 0 END DESC,
+        ar.updated_at DESC,
+        ar.created_at DESC,
+        ar.id DESC
+) AS backfill
+ON CONFLICT (policy_id, act_id)
+WHERE (act_id IS NOT NULL AND participant_id IS NULL) DO UPDATE
 SET status = EXCLUDED.status,
     updated_at = NOW();
 

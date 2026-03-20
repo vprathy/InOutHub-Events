@@ -25,14 +25,14 @@ Canonical branch:
 - `main`
 
 Current HEAD:
-- `270c8e1d3d742e7cc92681b31b96671408c4af1e`
-- `270c8e1 Tighten admin mobile surfaces and refresh handoff`
+- `eef134abfb978aa4acfe5a4408a2ad13affcdb19`
+- `eef134a Patch access SQL drift and restore act requirement bridge`
 
 Current git status:
 - clean working tree
 
 Remote sync:
-- `origin/main` includes commit `270c8e1`
+- `origin/main` includes commit `eef134a`
 
 Local dev server:
 - Vite was observed listening on `http://localhost:5173`
@@ -106,10 +106,12 @@ The remaining roadmap should be interpreted from [task.md](/Users/vinay/dev/InOu
 - mobile review of the page-identity pass:
   - verify Participants vs Performances distinction on a real phone
   - verify sticky section strip does not feel noisy on long-scroll screens
-- patch repo-side backend drift identified by Antigravity:
-  - fix ambiguous `id` reference in `assign_event_role` SQL source if repo still differs from live DB
-  - restore/replace act requirement sync path so legacy `act_requirements` updates feed readiness assignments
-  - backfill act-side `requirement_assignments` for live data if missing
+- apply and verify the corrective Supabase migration now present in repo:
+  - [20260320_fix_access_role_ambiguity_and_enable_act_requirement_bridge.sql](/Users/vinay/dev/InOutHub-Events-main/supabase/migrations/20260320_fix_access_role_ambiguity_and_enable_act_requirement_bridge.sql)
+- confirm live DB now matches repo for:
+  - `assign_event_role` ambiguous `id` fix
+  - act requirement bridge trigger
+  - act-side assignment backfill
 - launch access lifecycle smoke tests:
   - manual quick grant for existing user
   - pending access for not-yet-signed-in email
@@ -340,6 +342,20 @@ What is now true:
 - if target email has not signed in yet, access becomes pending instead of hard-failing
 - participant-linked source automation is the active launch scope
 - crew remains lifecycle-compatible in the model but is not yet first-class automated source scope
+- Access screen validation was run against the local app and confirmed:
+  - authorized vs unauthorized gating
+  - quick grant for signed-in and pending users
+  - manual role updates
+  - automated/source-managed rows remain non-removable
+- the previously observed manual-delete UI sync bug was fixed in:
+  - [useAccess.ts](/Users/vinay/dev/InOutHub-Events-main/src/hooks/useAccess.ts)
+  - `useRemoveEventMember` now prunes the deleted row from the `event-members` React Query cache on successful delete, then invalidates the event-member and pending-access queries
+- narrow revalidation passed for the delete flow:
+  - success notice appears
+  - deleted manual row disappears immediately without a manual refresh
+  - deleted row stays gone after reload
+  - backend row deletion was confirmed
+- temporary pending/manual test records used for this validation were cleaned up
 
 Important operational truth:
 - the old org-screen-then-event-screen staffing workflow is no longer the intended default
@@ -453,7 +469,7 @@ Friday morning review found:
 - the previous identity pass introduced too many stacked orientation layers at the top of the screen
 - some of that chrome was useful for distinction, but not MECE; it consumed space that should have gone to the actual working rows
 
-Current local-only correction in progress:
+Shipped correction:
 - [AccessPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/AccessPage.tsx)
 - [RequirementsPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/RequirementsPage.tsx)
 - [PageHeader.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/PageHeader.tsx)
@@ -524,10 +540,50 @@ Priority implication:
 
 Recommended next-chat order:
 1. verify current mobile `Access` and `Requirements` on device
-2. patch repo-side SQL drift:
-   - `assign_event_role`
-   - act requirement sync/backfill path
+2. keep the March 20 corrective migration normalized between repo SQL and the already-fixed live Supabase state
 3. only then do another narrow UI pass if still needed
+
+### 14. Repo-side SQL drift patch is now shipped
+
+Pushed in:
+- `eef134a Patch access SQL drift and restore act requirement bridge`
+
+Files:
+- [database_schema.sql](/Users/vinay/dev/InOutHub-Events-main/database_schema.sql)
+- [20260320_launch_access_lifecycle.sql](/Users/vinay/dev/InOutHub-Events-main/supabase/migrations/20260320_launch_access_lifecycle.sql)
+- [20260320_fix_access_role_ambiguity_and_enable_act_requirement_bridge.sql](/Users/vinay/dev/InOutHub-Events-main/supabase/migrations/20260320_fix_access_role_ambiguity_and_enable_act_requirement_bridge.sql)
+
+What changed:
+- fixed ambiguous `id` select in `assign_event_role` source:
+  - `SELECT em.id, em.role, em.grant_type`
+- aligned `database_schema.sql` with that fix
+- added corrective migration to:
+  - replace `assign_event_role` with the fixed version
+  - backfill act-side `requirement_assignments` from legacy `act_requirements`
+  - enable `trg_bridge_act_requirements_sync` on `public.act_requirements`
+- the repo migration was later normalized to match the exact live apply behavior:
+  - `ON CONFLICT` now targets the partial unique index with `WHERE (act_id IS NOT NULL AND participant_id IS NULL)`
+  - duplicate-safe backfill prefers `approved` when multiple legacy rows map to the same act/policy pair
+
+Important status:
+- live Supabase is already fixed
+- the original repo migration needed follow-up normalization during live apply
+- the repo migration is now aligned with the corrected live behavior for future environments
+
+### 15. Antigravity prompt guidance
+
+There was a risk that the earlier Antigravity prompt was too long/noisy and may have caused the agent to blank or crash.
+
+If the next chat needs Antigravity again:
+- prefer the shorter migration-apply prompt
+- keep asks linear:
+  1. apply migration
+  2. verify fixed function snippet
+  3. verify trigger exists
+  4. verify backfill evidence
+  5. run one or two focused checks
+
+Do not restart with a giant all-in-one prompt unless necessary.
 
 ---
 
@@ -556,6 +612,8 @@ Verified live:
 - RLS/policies for auth telemetry/session tables
 - RBAC / role-scope migration
 - requirement inheritance trigger
+- March 20 corrective access / act-requirement migration behavior
+- local Access-screen delete-sync fix is implemented and narrowly revalidated
 
 ### OTP Flow
 

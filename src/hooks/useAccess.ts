@@ -149,7 +149,11 @@ export function useRemoveEventMember(eventId: string | null) {
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_, memberId) => {
+            queryClient.setQueryData(['event-members', eventId], (old: any) => {
+                if (!old) return [];
+                return old.filter((m: any) => m.id !== memberId);
+            });
             queryClient.invalidateQueries({ queryKey: ['event-members', eventId] });
             queryClient.invalidateQueries({ queryKey: ['pending-event-access', eventId] });
         }
