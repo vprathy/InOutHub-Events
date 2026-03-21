@@ -18,21 +18,17 @@ export function PageHeader({
 }: PageHeaderProps) {
     const isCentered = align === 'center';
     const section = useSectionIdentity();
-    const Icon = section?.icon;
+    const showTitle = !section;
 
     return (
         <div className={`space-y-2 ${isCentered ? 'text-center' : ''}`}>
             <div className={`flex flex-col gap-2 ${isCentered ? 'items-center' : 'sm:flex-row sm:items-end sm:justify-between'}`}>
                 <div className="space-y-1">
-                    {section ? (
-                        <div className={`inline-flex min-h-[26px] items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${section.badgeClassName}`}>
-                            {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                            <span>{section.label}</span>
-                        </div>
+                    {showTitle ? (
+                        <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
+                            {title}
+                        </h1>
                     ) : null}
-                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
-                        {title}
-                    </h1>
                     {subtitle ? (
                         <p className="text-xs font-semibold text-muted-foreground sm:text-sm">
                             {subtitle}

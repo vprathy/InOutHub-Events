@@ -25,17 +25,21 @@ Canonical branch:
 - `main`
 
 Current HEAD:
-- `eef134abfb978aa4acfe5a4408a2ad13affcdb19`
-- `eef134a Patch access SQL drift and restore act requirement bridge`
+- `b4c1d16`
+- `b4c1d16 Align March 20 migration and fix access delete refresh`
 
 Current git status:
-- clean working tree
+- dirty working tree
+- large local UI/UX stabilization pass is in progress and not yet committed
+- do not restart from clean-tree assumptions
 
 Remote sync:
-- `origin/main` includes commit `eef134a`
+- `origin/main` includes commit `b4c1d16`
 
 Local dev server:
-- Vite was observed listening on `http://localhost:5173`
+- Vite was used locally on:
+  - `http://127.0.0.1:5173`
+  - `http://localhost:5173`
 
 ---
 
@@ -149,6 +153,172 @@ These were intentionally deferred and should not block current MVP delivery:
 Interpretation:
 - the app is now in a “working MVP with hardening” phase
 - the next work should optimize for client-usable workflows first, architectural refinement second
+
+---
+
+## March 20 Late Session: UI/UX Stabilization & Lessons
+
+This late-session work happened **after** the backend/access checkpoint at commit `b4c1d16`.
+
+It is currently **local only** and mixed into the working tree.
+
+### What changed
+
+#### 1. Workspace selection was refactored toward one workspace concept
+
+Main files:
+- [WorkspaceSelectionSurface.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/selection/WorkspaceSelectionSurface.tsx)
+- [OrgSelectionPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/selection/OrgSelectionPage.tsx)
+- [EventSelectionPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/selection/EventSelectionPage.tsx)
+- [CreateEventModal.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/selection/CreateEventModal.tsx)
+
+What is now true locally:
+- org/event selection was reworked into a shared workspace-selection surface
+- the old route split still exists as plumbing, but the UX intent is one workspace-selection experience
+- long org/event names are clamped to avoid creating a third row
+- 3-dot edit affordances replaced simple chevrons on org/event cards
+- create-event date selection now constrains invalid ranges and blocks past starts
+
+#### 2. Shell / header / brand treatment was normalized
+
+Main files:
+- [BrandMark.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/branding/BrandMark.tsx)
+- [Header.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/Header.tsx)
+- [AppShell.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/AppShell.tsx)
+- [BottomNav.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/BottomNav.tsx)
+- [PageHeader.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/PageHeader.tsx)
+- [sectionIdentity.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/layout/sectionIdentity.tsx)
+- [SplashScreen.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/ui/SplashScreen.tsx)
+
+What is now true locally:
+- the shared brand mark was tightened to the approved tile shape
+- the icon/app-name gap was reduced
+- splash screen now uses the shared brand mark
+- selection routes suppress the standard section strip and bottom nav
+- sticky section strip became the primary per-screen identity on main app surfaces
+- header, sticky strip, main content, and bottom nav were aligned to the same outer container logic
+- tapping the sticky strip scrolls to the top of the current surface
+
+#### 3. Dashboard was reworked away from a flat 8-card wall
+
+Main files:
+- [DashboardPage.tsx](/Users/vinay/dev/InOutHub-Events-main/src/pages/DashboardPage.tsx)
+- [OperationalCards.tsx](/Users/vinay/dev/InOutHub-Events-main/src/components/ui/OperationalCards.tsx)
+
+What is now true locally:
+- top snapshot is phase-aware and always shows an even number of primary metrics
+- current pre-show emphasis was shifted toward:
+  - `Participants`
+  - `Performances`
+  - `Need Placement`
+  - `Guardian Gaps`
+- `Need Approval` was moved out of the top metric row
+- `Identity Pending` now only appears when `identity_check` is active in resolved requirement policies
+- Response Queue was rebuilt into category cards:
+  - `Escalations`
+  - `Risks`
+  - `Next Actions`
+  - `Special Requests`
+- only one category expands at a time
+- collapsed queue cards were repeatedly tightened toward a 2-row mobile rule
+- queue rows were moved toward named participant/act records instead of vague aggregates
+- special requests now open participant context directly; inline dashboard resolution was intentionally removed for Phase 1
+- dashboard stores return-focus context so coming back from a participant profile can reopen `Special Requests` and scroll back to the same item
+
+### Important lessons from this session
+
+These are not optional. The next chat should follow them.
+
+1. The source of truth is the **design we agreed on**, not whatever is easiest to code.
+- Figma was used to express that agreement, but the agreement itself is binding.
+
+2. Do not redesign while implementing.
+- Lock one surface in words + design.
+- List the exact deltas.
+- Implement only those deltas.
+
+3. Keep the UI MECE.
+- Do not duplicate a concept in both top metrics and Response Queue.
+- If a queue item is shown, it should be a named actionable record where possible, not a vague aggregate.
+
+4. Respect compactness rules consistently.
+- Response Queue, special-request rows, and owned dashboard copy were repeatedly corrected because 2-row constraints were not applied uniformly.
+
+5. Do not improvise on approved shell details.
+- This caused churn on the workspace flow and header/profile treatment.
+
+### Current local risks / verification still needed
+
+The late-session UI work is not yet fully flow-verified.
+
+Highest-value next checks:
+- validate the workspace-selection flow on device:
+  - org stage
+  - event stage
+  - edit affordances
+  - create org / create event affordances
+- validate dashboard behavior on mobile:
+  - phase-aware metric set
+  - MECE queue behavior
+  - single-open category expansion
+  - 2-row queue compactness
+  - profile return-focus from `Special Requests`
+- verify RBAC on the dashboard:
+  - admin
+  - event ops roles
+  - limited/member roles
+
+### Current dirty UI files
+
+The following areas were touched locally and should be treated as in-progress UI work rather than clean baseline:
+- `src/components/branding/*`
+- `src/components/layout/*`
+- `src/components/selection/*`
+- `src/components/ui/OperationalCards.tsx`
+- `src/pages/DashboardPage.tsx`
+- `src/pages/selection/*`
+- additional page-level polish in:
+  - `src/pages/AccessPage.tsx`
+  - `src/pages/ParticipantsPage.tsx`
+  - `src/pages/RequirementsPage.tsx`
+  - `src/pages/LineupPage.tsx`
+  - `src/pages/StageConsolePage.tsx`
+
+### New Chat Startup Contract
+
+The next chat should **not** start by redesigning or broadly refactoring.
+
+It should start by:
+1. reading:
+   - [AGENTS.md](/Users/vinay/dev/InOutHub-Events-main/AGENTS.md)
+   - [task.md](/Users/vinay/dev/InOutHub-Events-main/task.md)
+   - [session-handoff-2026-03-20-manage-reqs-mvp.md](/Users/vinay/dev/InOutHub-Events-main/docs/codex/session-handoff-2026-03-20-manage-reqs-mvp.md)
+2. checking current git status before editing
+3. treating the agreed surface design as binding
+4. listing exact repo-vs-agreed-design deltas before making UI edits
+5. implementing only those deltas
+
+No-regression rules for the next chat:
+- do not assume the tree is clean
+- do not revert unrelated local UI work
+- do not improvise on already-agreed shell or surface details
+- do not duplicate concepts between top metrics and Response Queue
+- do not let Response Queue or its rows exceed the agreed compactness rules
+- do not broaden scope beyond the active surface without explicit approval
+
+If dashboard work continues, validate all of:
+- phase-aware top metrics
+- MECE queue behavior
+- RBAC visibility
+- single-open category behavior
+- return-focus from participant/profile workflows
+
+If workspace-selection work continues, validate all of:
+- single workspace concept
+- long-name truncation
+- edit/create affordances
+- header/profile consistency
+- route split remaining invisible to the user
 
 ---
 
@@ -644,14 +814,25 @@ Meaning:
 
 ### Secondary follow-up
 
-Manage Requirements still needs practical UI sanity verification:
+The highest-value Phase 1 readiness task is now a mobile operator rehearsal across the actual operator path:
+- `Admin > Access`
+- `Admin > Requirements`
+- participant/performance requirement visibility for supported codes
+- `Show Flow`
+- `Live Console`
+
+Why this is next:
+- the March 20 DB correction is complete
+- the Access admin workflow has been functionally validated
+- the known Access delete-sync bug is closed
+- the remaining risk is cross-screen workflow coherence on a phone, not isolated CRUD behavior
+
+Manage Requirements still needs practical workflow sanity verification within that rehearsal:
 - org scope
 - event scope
 - enabling recommended rules
 - inherited org rule behavior at event scope
 - participant/performance profile visibility for supported requirement codes
-
-This is not a DB/schema blocker now. It is a workflow validation task.
 
 ---
 
@@ -705,11 +886,11 @@ Best next move for the next chat:
 1. Read this file
 2. Confirm `git status --short`
 3. Continue with one of:
-- quick live UI sanity pass for Manage Requirements
+- quick mobile operator rehearsal for the Phase 1 path
 - or Gate 17 revalidation if the user wants intro polish next
 
 Given the client pressure, the likely best sequence is:
-- short Manage Requirements UI sanity pass
+- short Phase 1 operator rehearsal across admin -> readiness -> show-flow -> console
 - then Gate 17 revalidation
 
 ---

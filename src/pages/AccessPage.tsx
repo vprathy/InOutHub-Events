@@ -84,7 +84,7 @@ export default function AccessPage() {
     };
 
     return (
-        <div className="space-y-5 pb-12">
+        <div className="space-y-4 pb-12">
             <PageHeader
                 title="Access"
                 subtitle="Quick event access, pending sign-ins, and current event roles."
@@ -101,14 +101,14 @@ export default function AccessPage() {
             ) : null}
 
             <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Grant</p>
                         <p className="text-sm text-muted-foreground">
                             Grant event access in one step. Org membership is added automatically if needed.
                         </p>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-left sm:text-center">
+                    <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-left sm:min-w-[88px] sm:text-center">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current</p>
                         <p className="text-lg font-black text-foreground">{members.length}</p>
                     </div>
@@ -136,7 +136,7 @@ export default function AccessPage() {
                         <option value="ActAdmin">Act Admin</option>
                         <option value="Member">Member</option>
                     </select>
-                    <Button type="submit" className="h-11 w-full" disabled={isAssigning || !email.trim()}>
+                    <Button type="submit" className="min-h-11 w-full" disabled={isAssigning || !email.trim()}>
                         {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                         Grant Access
                     </Button>
@@ -159,7 +159,7 @@ export default function AccessPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[0.9fr,1.1fr]">
+            <div className="grid gap-4 xl:grid-cols-[0.95fr,1.05fr]">
                 <section className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4 text-primary" />
@@ -203,14 +203,19 @@ export default function AccessPage() {
                                 const isAutomated = member.grant_type === 'automated';
                                 return (
                                     <div key={member.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div>
-                                                <p className="text-sm font-bold text-foreground">{member.user_profiles?.email}</p>
-                                                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                                    {member.role} • {isAutomated ? 'Automated Baseline' : 'Manual'}
-                                                </p>
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-foreground">{member.user_profiles?.email}</p>
+                                                    <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                        {member.role} • {isAutomated ? 'Automated Baseline' : 'Manual'}
+                                                    </p>
+                                                </div>
+                                                <div className="shrink-0 rounded-full border border-border/60 bg-background px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                    {nextRole === member.role ? 'No Change' : 'Draft Change'}
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col gap-2 sm:min-w-[220px]">
+                                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr),auto,auto] sm:items-center">
                                                 <select
                                                     value={nextRole}
                                                     onChange={(e) => setDraftRoles((current) => ({ ...current, [member.id]: e.target.value as AccessRole }))}
@@ -221,44 +226,43 @@ export default function AccessPage() {
                                                     <option value="ActAdmin">Act Admin</option>
                                                     <option value="Member">Member</option>
                                                 </select>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        className="h-11 flex-1"
-                                                        disabled={isAssigning || nextRole === member.role}
-                                                        onClick={async () => {
-                                                            setNotice(null);
-                                                            try {
-                                                                const result = await assignRole({
-                                                                    email: member.user_profiles?.email,
-                                                                    role: nextRole,
-                                                                });
-                                                                setNotice({ tone: 'success', message: result?.message || 'Access updated.' });
-                                                            } catch (error: any) {
-                                                                setNotice({ tone: 'error', message: error?.message || 'Could not update role.' });
-                                                            }
-                                                        }}
-                                                    >
-                                                        Save
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="h-11 px-3"
-                                                        disabled={isRemoving || isAutomated}
-                                                        onClick={async () => {
-                                                            setNotice(null);
-                                                            try {
-                                                                await removeMember(member.id);
-                                                                setNotice({ tone: 'success', message: `Manual event access removed for ${member.user_profiles?.email}.` });
-                                                            } catch (error: any) {
-                                                                setNotice({ tone: 'error', message: error?.message || 'Could not remove manual access.' });
-                                                            }
-                                                        }}
-                                                        title={isAutomated ? 'Automated baseline access is source-managed.' : 'Remove manual event access'}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    className="min-h-11 px-4"
+                                                    disabled={isAssigning || nextRole === member.role}
+                                                    onClick={async () => {
+                                                        setNotice(null);
+                                                        try {
+                                                            const result = await assignRole({
+                                                                email: member.user_profiles?.email,
+                                                                role: nextRole,
+                                                            });
+                                                            setNotice({ tone: 'success', message: result?.message || 'Access updated.' });
+                                                        } catch (error: any) {
+                                                            setNotice({ tone: 'error', message: error?.message || 'Could not update role.' });
+                                                        }
+                                                    }}
+                                                >
+                                                    Save
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="min-h-11 min-w-11 px-3"
+                                                    disabled={isRemoving || isAutomated}
+                                                    onClick={async () => {
+                                                        setNotice(null);
+                                                        try {
+                                                            await removeMember(member.id);
+                                                            setNotice({ tone: 'success', message: `Manual event access removed for ${member.user_profiles?.email}.` });
+                                                        } catch (error: any) {
+                                                            setNotice({ tone: 'error', message: error?.message || 'Could not remove manual access.' });
+                                                        }
+                                                    }}
+                                                    title={isAutomated ? 'Automated baseline access is source-managed.' : 'Remove manual event access'}
+                                                    aria-label={`Remove access for ${member.user_profiles?.email}`}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </div>
                                     </div>

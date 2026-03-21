@@ -202,8 +202,39 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 ## Current Next Work
 - [x] Complete OTP-first pilot validation on mobile browser and installed PWA flow.
 - [x] Apply `supabase/migrations/20260319_expand_auth_events_metadata.sql` to the live Supabase project before relying on enriched auth telemetry.
+- [x] Align `supabase/migrations/20260320_fix_access_role_ambiguity_and_enable_act_requirement_bridge.sql` with the corrected live Supabase apply behavior.
+- [x] Validate the Access admin workflow on the local app, including pending grants, role updates, and manual deletion refresh behavior.
 - [ ] Gate 17: verify cinematic storyboard / playback timing polish for the approved intro path.
+- [ ] Validate the new workspace-selection flow on device:
+  - `select-org`
+  - `select-event`
+  - long-name truncation
+  - edit affordances
+  - create org / create event affordances
+- [ ] Validate the refactored Dashboard on mobile:
+  - phase-aware top metrics
+  - MECE Response Queue behavior
+  - single-open category expansion
+  - 2-row compactness across queue surfaces
+  - return-focus from `Special Requests` back from participant profile
+- [ ] Verify dashboard RBAC by role:
+  - admin full view
+  - event-ops constrained view
+  - limited/member view
+- [ ] Continue the Phase 1 mobile operator rehearsal across:
+  - `Admin > Access`
+  - `Admin > Requirements`
+  - participant/performance requirement visibility
+  - `Show Flow`
+  - `Live Console`
 - [ ] Keep signed-in account profile work disabled for now; do not reintroduce profile confirmation/update UX unless explicitly prioritized again.
+
+## UI / UX Hardening In Progress
+- [ ] Keep implementation aligned to the agreed surface design; do not redesign while wiring.
+- [ ] Keep Dashboard top metrics and Response Queue MECE; never duplicate the same concept in both.
+- [ ] Keep Response Queue and its expanded rows to the agreed mobile compactness rules.
+- [ ] Use named participant/act rows in the queue where possible instead of vague aggregate cards.
+- [ ] Standardize header, sticky strip, and bottom nav as the shared shell container across surfaces.
 
 ## 🔴 Gate 10: Stability Audit (STOPPED LOGO WORK)
 *Halting all AI-generated branding. Ensuring core stability.*

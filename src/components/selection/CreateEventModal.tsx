@@ -3,6 +3,12 @@ import { X, Loader2, Calendar, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { DEFAULT_EVENT_TIMEZONE, getSupportedEventTimezones } from '@/lib/eventTime';
 
+function getTodayDateInputValue() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+}
+
 interface CreateEventModalProps {
     organizationId: string;
     isOpen: boolean;
@@ -20,6 +26,7 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const timezoneOptions = getSupportedEventTimezones();
+    const todayDate = getTodayDateInputValue();
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -42,6 +49,10 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !organizationId) return;
+        if (startDate && startDate < todayDate) {
+            setError('Start date cannot be in the past.');
+            return;
+        }
         if (startDate && endDate && endDate < startDate) {
             setError('End date cannot be earlier than start date.');
             return;
@@ -123,6 +134,7 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                                 <input
                                     type="date"
                                     value={startDate}
+                                    min={todayDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                     className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                 />
@@ -136,7 +148,7 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                                 <input
                                     type="date"
                                     value={endDate}
-                                    min={startDate || undefined}
+                                    min={startDate || todayDate}
                                     onChange={(e) => setEndDate(e.target.value)}
                                     className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                 />

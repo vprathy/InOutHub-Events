@@ -15,6 +15,7 @@ type SectionIdentity = {
     label: string;
     group: string;
     hint: string;
+    subtitle?: string;
     icon: LucideIcon;
     shellClassName: string;
     iconClassName: string;
@@ -27,6 +28,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Dashboard',
         group: 'Overview',
         hint: 'Event pulse',
+        subtitle: 'What needs attention now',
         icon: LayoutDashboard,
         shellClassName:
             'border-sky-500/15 bg-[linear-gradient(90deg,rgba(14,165,233,0.10),rgba(56,189,248,0.05)_42%,transparent)] dark:bg-[linear-gradient(90deg,rgba(56,189,248,0.18),rgba(59,130,246,0.06)_45%,transparent)]',
@@ -38,9 +40,10 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Participants',
         group: 'People Ops',
         hint: 'Roster & clearance',
+        subtitle: 'Manage participants and readiness',
         icon: Users,
         shellClassName:
-            'border-indigo-500/15 bg-[linear-gradient(90deg,rgba(79,70,229,0.10),rgba(59,130,246,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(129,140,248,0.18),rgba(56,189,248,0.05)_45%,transparent)]',
+            'border-indigo-500/15 bg-[linear-gradient(90deg,rgba(99,102,241,0.12),rgba(125,211,252,0.08)_42%,rgba(255,255,255,0.02)_72%,transparent)] dark:bg-[linear-gradient(90deg,rgba(129,140,248,0.22),rgba(56,189,248,0.08)_45%,transparent)]',
         iconClassName: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
         badgeClassName: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
     },
@@ -140,28 +143,28 @@ export function SectionIdentityStrip() {
 
     if (!section) return null;
 
-    const Icon = section.icon;
-
     return (
-        <div className={`sticky top-14 z-40 -mx-4 border-b px-4 py-1.5 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:px-6 sm:py-2 ${section.shellClassName}`}>
-            <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border shadow-sm ${section.iconClassName}`}>
-                        <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                            {section.group}
+        <div className={`sticky top-14 z-40 border-b py-1 backdrop-blur-xl sm:top-16 sm:py-1.5 ${section.shellClassName}`}>
+            <button
+                type="button"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-3 px-4 text-left outline-none focus:outline-none focus-visible:outline-none sm:px-6"
+                aria-label={`Scroll to top of ${section.label}`}
+            >
+                <div className="min-w-0">
+                    <p className="truncate text-[24px] font-black leading-tight tracking-tight text-foreground">
+                        {section.label}
+                    </p>
+                    {section.subtitle ? (
+                        <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-muted-foreground">
+                            {section.subtitle}
                         </p>
-                        <p className="truncate text-[13px] font-black tracking-tight text-foreground sm:text-sm">
-                            {section.label}
-                        </p>
-                    </div>
+                    ) : null}
                 </div>
                 <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>
                     {section.hint}
                 </div>
-            </div>
+            </button>
         </div>
     );
 }

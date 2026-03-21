@@ -29,8 +29,8 @@ const labelClasses = {
 
 export function BrandMark({ size = 'md', showLabel = false, className }: BrandMarkProps) {
     return (
-        <div className={cn('flex items-center gap-3', className)}>
-            <div className={cn('overflow-hidden rounded-2xl bg-primary/10 ring-1 ring-primary/10', sizeClasses[size])}>
+        <div className={cn('flex items-center gap-2', className)}>
+            <div className={cn('overflow-hidden rounded-[0.72rem] bg-primary/10 ring-1 ring-primary/10', sizeClasses[size])}>
                 <img src="/pwa-icon-192.png" alt="InOutHub" className="h-full w-full object-cover" />
             </div>
             {showLabel ? (

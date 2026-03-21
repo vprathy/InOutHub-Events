@@ -282,25 +282,12 @@ export default function LineupPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <PageHeader
                 title="Show Flow"
                 subtitle="Set the running order, review conflicts, and keep the future queue clean."
                 actions={
-                    <div className="flex flex-col gap-2 sm:flex-row md:w-auto">
-                        {lineup && lineup.length > 0 && (
-                            <Button
-                                variant={showReview ? "default" : "outline"}
-                                onClick={() => setShowReview(!showReview)}
-                                className={`h-11 w-full gap-2 sm:w-auto ${showReview ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-200 text-amber-700 hover:bg-amber-50'}`}
-                            >
-                                <Sparkles size={18} className={showReview ? 'animate-pulse' : ''} />
-                                {showReview ? 'Hide Flow Review' : 'Run Flow Review'}
-                                {criticalRisks > 0 && !showReview && (
-                                    <Badge className="ml-1 bg-amber-600 px-1.5 py-0 min-w-[1.25rem] h-5">{criticalRisks}</Badge>
-                                )}
-                            </Button>
-                        )}
+                    <div className="grid gap-2 sm:flex sm:flex-row md:w-auto">
                         {selectedStageId && (
                             <Button onClick={() => setIsAddModalOpen(true)} disabled={!capabilities.canManageLineup} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
                                 <Plus size={18} /> Add Performance
@@ -333,12 +320,12 @@ export default function LineupPage() {
             )}
 
             <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] p-3">
-                <div className="flex items-center justify-between gap-3 px-1">
+                <div className="grid gap-3 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
                         <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune right now.</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsStageModalOpen(true)}
@@ -397,19 +384,19 @@ export default function LineupPage() {
 
             {/* Lineup List */}
                 <div className="space-y-3">
-                    <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="grid gap-2 px-1 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Active Stage Flow</p>
                             <h2 className="text-lg font-black tracking-tight text-foreground">
                                 {stages?.find((stage) => stage.id === selectedStageId)?.name || 'Selected Stage'}
                             </h2>
                         </div>
-                        <div className="sm:text-right">
-                            <p className="text-xs font-medium text-muted-foreground">
+                        <div className="space-y-1 lg:max-w-[320px] lg:text-right">
+                            <p className="text-sm font-medium text-muted-foreground">
                                 {isLiveRun ? 'Only the future queue can be reordered while the show is live.' : 'Drag from the numbered handle to reorder this stage lineup.'}
                             </p>
                             {isLiveRun ? (
-                                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
                                     Acts within the next {coordinationLeadMinutes} minutes stay locked for backstage coordination.
                                 </p>
                             ) : null}

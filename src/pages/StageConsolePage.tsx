@@ -10,7 +10,7 @@ import { useLineupQuery } from '@/hooks/useLineup';
 import { scanLineup } from '@/lib/optimizer';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { OperationalEmptyResponse, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
@@ -77,7 +77,7 @@ export default function StageConsolePage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <PageHeader
                 title="Live Console"
                 subtitle="Run the show, keep the next cue visible, and protect the live position."
@@ -111,12 +111,7 @@ export default function StageConsolePage() {
                     detail="The console restored the current act after a refresh or reconnect."
                     tone="info"
                 />
-            ) : (
-                <OperationalEmptyResponse
-                    title="Console Ready"
-                    detail="Current act, next cue, and safe controls are the only things that should compete for attention here."
-                />
-            )}
+            ) : null}
 
             {!capabilities.canOperateStage ? (
                 <div className="surface-panel rounded-[1.2rem] border border-amber-500/20 bg-amber-500/5 p-3.5 text-sm font-medium text-amber-700">
@@ -125,9 +120,14 @@ export default function StageConsolePage() {
             ) : null}
 
             <div className="surface-panel surface-section-console space-y-3 rounded-[1.35rem] p-3">
-                <div className="px-1">
+                <div className="grid gap-2 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
+                    <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
                     <p className="text-sm font-semibold text-foreground">Pick the stage you are actively calling.</p>
+                    </div>
+                    <div className="rounded-full border border-border/60 bg-background px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        {selectedStageId ? 'Stage Selected' : 'Choose Stage'}
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {isLoadingStages ? (

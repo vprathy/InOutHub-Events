@@ -94,6 +94,7 @@ export function useDashboardRadar(eventId: string) {
                 .from('participant_notes')
                 .select('participant_id')
                 .eq('category', 'special_request')
+                .eq('is_resolved', true)
                 .in('participant_id', participantIds.length > 0 ? participantIds : ['00000000-0000-0000-0000-000000000000']);
 
             const reviewedSpecialRequestIds = new Set((specialRequestNotes || []).map((note: any) => note.participant_id));

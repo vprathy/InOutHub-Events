@@ -17,36 +17,36 @@ export const BottomNav: React.FC = () => {
     const navItems = PRIMARY_NAV_ITEMS.filter((item) => item.href !== '/admin' || canManageAdmin);
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 pb-safe shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-            <div className="max-w-md mx-auto flex items-stretch justify-around h-16 px-4">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.href}
-                        to={item.href}
-                        className={({ isActive }) => `
-                            flex flex-col items-center justify-center flex-1 px-1 transition-all duration-300 relative group
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/82 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1 backdrop-blur-xl shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+            <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6">
+                <div className="mx-auto flex h-16 max-w-md items-stretch justify-around px-3">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.href}
+                            to={item.href}
+                            className={({ isActive }) => `
+                            relative flex flex-1 flex-col items-center justify-center px-1.5 transition-all duration-300 group
                             ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}
                         `}
-                    >
-                        {({ isActive }) => (
-                            <>
-                                <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/5' : 'group-hover:bg-accent/50'}`}>
-                                    <item.icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-105' : 'group-hover:scale-105'}`} />
-                                </div>
-                                <span className={`text-[9px] font-bold tracking-tight text-center leading-[1.1] max-w-[64px] line-clamp-2 mt-1 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
-                                    {item.label}
-                                </span>
-                                {isActive && (
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-                                )}
-                            </>
-                        )}
-                    </NavLink>
-                ))}
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <div className={`rounded-xl p-1.5 transition-all duration-300 ${isActive ? 'bg-primary/5' : 'group-hover:bg-accent/50'}`}>
+                                        <item.icon className={`h-5 w-5 transition-transform duration-300 ${isActive ? 'scale-105' : 'group-hover:scale-105'}`} />
+                                    </div>
+                                    <span className={`mt-1 max-w-[64px] line-clamp-2 text-center text-[9px] font-bold leading-[1.1] tracking-tight transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
+                                        {item.label}
+                                    </span>
+                                    {isActive && (
+                                        <div className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
+                                    )}
+                                </>
+                            )}
+                        </NavLink>
+                    ))}
+                </div>
             </div>
-            
-            {/* Subtle version indicator for cache validation */}
-            <div className="absolute bottom-1 right-2 text-[8px] font-medium text-muted-foreground/30 tabular-nums pointer-events-none">
+            <div className="pointer-events-none absolute bottom-1 right-4 text-[8px] font-medium tabular-nums text-muted-foreground/30 sm:right-6">
                 v{version}
             </div>
         </nav>

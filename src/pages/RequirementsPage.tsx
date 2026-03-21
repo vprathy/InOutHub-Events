@@ -408,7 +408,7 @@ export default function RequirementsPage() {
             ) : null}
 
             <div className="surface-panel surface-section-requirements rounded-[1.2rem] border p-3.5">
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),auto] lg:items-start">
+                <div className="space-y-3">
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Preset Coverage</p>
                         <p className="text-sm font-semibold text-foreground">
@@ -425,7 +425,7 @@ export default function RequirementsPage() {
                         </p>
                     </div>
 
-                    <div className="grid gap-2 sm:grid-cols-2 lg:w-[320px]">
+                    <div className="grid gap-2 sm:grid-cols-2">
                         <div className="grid grid-cols-2 gap-2 rounded-[1.05rem] bg-muted/35 p-1.5">
                             <button
                                 onClick={() => setScope('event')}
@@ -610,9 +610,9 @@ function PolicyCard({
 
     return (
         <div className="surface-panel rounded-[1.2rem] border px-3.5 py-3.5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3">
+                <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-black text-foreground">{preset.label}</p>
                         <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${sourceTone}`}>
                             {sourceLabel}
@@ -622,6 +622,9 @@ function PolicyCard({
                         </span>
                     </div>
                     <p className="text-sm text-muted-foreground">{currentPolicy?.description || preset.description}</p>
+                </div>
+
+                <div className="space-y-2">
                     <div className="flex flex-wrap gap-1.5">
                         <StateChip
                             label="Required"
@@ -638,13 +641,12 @@ function PolicyCard({
                             active={currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking}
                             tone={toneForState(currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking, 'critical')}
                         />
-                        <StateChip
-                            label="Bulk"
-                            active={currentPolicy ? currentPolicy.allow_bulk_approve : preset.bulk}
-                            tone={toneForState(currentPolicy ? currentPolicy.allow_bulk_approve : preset.bulk, 'info')}
-                        />
-                        <StateChip label="Active" active={isActive} tone={toneForState(isActive, 'good')} />
                     </div>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                        Bulk {currentPolicy ? (currentPolicy.allow_bulk_approve ? 'On' : 'Off') : (preset.bulk ? 'On' : 'Off')}
+                        {' • '}
+                        Active {isActive ? 'On' : 'Off'}
+                    </p>
                     {hasConflict ? (
                         <p className="text-xs font-medium text-amber-700">
                             Legacy conflict detected: both org and event rules exist for this code. The org baseline should win.
@@ -652,7 +654,7 @@ function PolicyCard({
                     ) : null}
                 </div>
 
-                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
+                <div className="grid gap-2 sm:grid-cols-2">
                     {canManageCurrentScope ? (
                         <button
                             onClick={() => onToggle(!isActive)}
@@ -667,7 +669,10 @@ function PolicyCard({
                         >
                             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : actionLabel}
                         </button>
-                    ) : null}
+                    ) : (
+                        <div />
+                    )}
+
                     <button
                         onClick={onOpenWorkspace}
                         className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-foreground/70"
@@ -702,7 +707,7 @@ function SummaryPill({
     };
 
     return (
-        <div className={`${compact ? 'rounded-full px-3 py-2' : 'rounded-[1rem] px-3 py-3'} ${toneClasses[tone]}`}>
+        <div className={`${compact ? 'rounded-full px-3 py-1.5' : 'rounded-[1rem] px-3 py-3'} ${toneClasses[tone]}`}>
             <p className="text-[9px] font-black uppercase tracking-[0.18em]">{label}</p>
             <p className={`${compact ? 'mt-0.5 text-sm' : 'mt-1 text-lg'} font-black tracking-tight`}>{value}</p>
         </div>
@@ -728,7 +733,7 @@ function StateChip({
 
     return (
         <span
-            className={`inline-flex min-h-[28px] items-center rounded-full px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${toneClasses[tone]}`}
+            className={`inline-flex min-h-[26px] items-center rounded-full px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${toneClasses[tone]}`}
         >
             {label}: {active ? 'On' : 'Off'}
         </span>
