@@ -561,35 +561,41 @@ export function ParticipantProfilePage() {
                             ]}
                         />
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-3 border-t border-border/40 pt-2">
-                        <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${
-                            readinessTone === 'critical'
-                                ? 'text-destructive'
-                                : readinessTone === 'warning'
-                                    ? 'text-orange-600'
-                                    : 'text-emerald-600'
-                        }`}>
-                            {readinessLabel}
-                        </span>
-                        <span className="text-muted-foreground/40">·</span>
-                        <p className="min-w-0 flex-1 text-sm text-muted-foreground">{readinessDetail}</p>
-                        {nextRequirementRow ? (
-                            <Button
-                                variant="outline"
-                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                onClick={() => handleRequirementAction(nextRequirementRow)}
-                            >
-                                Open Action
-                            </Button>
-                        ) : null}
-                        {participant.isMinor && participant.guardianPhone ? (
-                            <a
-                                href={`tel:${participant.guardianPhone}`}
-                                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
-                            >
-                                <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                Call Guardian
-                            </a>
+                    <div className="space-y-3 border-t border-border/40 pt-2">
+                        <div className="flex items-start gap-2">
+                            <span className={`shrink-0 pt-0.5 text-[11px] font-black uppercase tracking-[0.18em] ${
+                                readinessTone === 'critical'
+                                    ? 'text-destructive'
+                                    : readinessTone === 'warning'
+                                        ? 'text-orange-600'
+                                        : 'text-emerald-600'
+                            }`}>
+                                {readinessLabel}
+                            </span>
+                            <span className="shrink-0 pt-0.5 text-muted-foreground/40">·</span>
+                            <p className="min-w-0 text-sm text-muted-foreground">{readinessDetail}</p>
+                        </div>
+                        {(nextRequirementRow || (participant.isMinor && participant.guardianPhone)) ? (
+                            <div className="flex flex-wrap gap-2">
+                                {nextRequirementRow ? (
+                                    <Button
+                                        variant="outline"
+                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        onClick={() => handleRequirementAction(nextRequirementRow)}
+                                    >
+                                        Open Action
+                                    </Button>
+                                ) : null}
+                                {participant.isMinor && participant.guardianPhone ? (
+                                    <a
+                                        href={`tel:${participant.guardianPhone}`}
+                                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                    >
+                                        <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                        Call Guardian
+                                    </a>
+                                ) : null}
+                            </div>
                         ) : null}
                     </div>
                 </div>
