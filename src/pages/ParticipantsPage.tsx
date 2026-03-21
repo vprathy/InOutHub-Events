@@ -37,8 +37,7 @@ function isParticipantPending(participant: any) {
     return buildParticipantReadinessSummary(participant).status !== 'cleared';
 }
 
-const PARTICIPANT_ROW_HEIGHT = 56;
-const PARTICIPANT_LIST_OVERSCAN = 8;
+const PARTICIPANT_PAGE_SIZE = 60;
 
 export default function ParticipantsPage() {
     const navigate = useNavigate();
@@ -51,8 +50,8 @@ export default function ParticipantsPage() {
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const listRef = useRef<HTMLDivElement | null>(null);
-    const [scrollTop, setScrollTop] = useState(0);
-    const [listViewportHeight, setListViewportHeight] = useState(0);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const [visibleCount, setVisibleCount] = useState(PARTICIPANT_PAGE_SIZE);
     const { data: participants, isLoading, error } = useParticipantsQuery(eventId || '');
     const capabilities = useEventCapabilities(eventId || null, null);
     const canManageSync = capabilities.canSyncParticipants;
@@ -152,32 +151,40 @@ export default function ParticipantsPage() {
         },
     ];
     useEffect(() => {
-        const node = listRef.current;
-        if (!node) return;
+        const root = listRef.current;
+        const target = loadMoreRef.current;
 
-        const syncMetrics = () => {
-            setListViewportHeight(node.clientHeight);
-            setScrollTop(node.scrollTop);
-        };
+        if (!root || !target || (filteredParticipants?.length || 0) <= visibleCount) {
+            return;
+        }
 
-        syncMetrics();
-        node.addEventListener('scroll', syncMetrics, { passive: true });
-        window.addEventListener('resize', syncMetrics);
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const [entry] = entries;
+                if (!entry?.isIntersecting) return;
+
+                setVisibleCount((current) => Math.min(current + PARTICIPANT_PAGE_SIZE, filteredParticipants?.length || 0));
+            },
+            {
+                root,
+                rootMargin: '0px 0px 320px 0px',
+                threshold: 0,
+            }
+        );
+
+        observer.observe(target);
 
         return () => {
-            node.removeEventListener('scroll', syncMetrics);
-            window.removeEventListener('resize', syncMetrics);
+            observer.disconnect();
         };
-    }, [filteredParticipants?.length]);
-    const totalRows = filteredParticipants?.length || 0;
-    const visibleRowCount = Math.max(1, Math.ceil(listViewportHeight / PARTICIPANT_ROW_HEIGHT));
-    const startIndex = Math.max(0, Math.floor(scrollTop / PARTICIPANT_ROW_HEIGHT) - PARTICIPANT_LIST_OVERSCAN);
-    const endIndex = Math.min(
-        totalRows,
-        startIndex + visibleRowCount + PARTICIPANT_LIST_OVERSCAN * 2
-    );
-    const visibleParticipants = (filteredParticipants || []).slice(startIndex, endIndex);
-    const totalVirtualHeight = totalRows * PARTICIPANT_ROW_HEIGHT;
+    }, [filteredParticipants?.length, visibleCount]);
+    useEffect(() => {
+        setVisibleCount(PARTICIPANT_PAGE_SIZE);
+        if (listRef.current) {
+            listRef.current.scrollTop = 0;
+        }
+    }, [activeFilter, sortBy, deferredSearchQuery, eventId]);
+    const visibleParticipants = (filteredParticipants || []).slice(0, visibleCount);
 
     if (isLoading || !eventId) {
         return (
@@ -232,45 +239,53 @@ export default function ParticipantsPage() {
                         ref={listRef}
                         className="surface-panel surface-section-participants h-[min(60vh,34rem)] overflow-y-auto rounded-[1.35rem] border"
                     >
-                        <div
-                            className="relative w-full"
-                            style={{ height: `${totalVirtualHeight}px` }}
-                        >
-                            {visibleParticipants.map((participant, index) => {
-                                const isPending = isParticipantPending(participant);
-                                const initialsTone = isPending
-                                    ? 'bg-amber-500/14 text-amber-600'
-                                    : 'bg-primary/12 text-primary';
-                                const rowIndex = startIndex + index;
+                        {(filteredParticipants?.length || 0) === 0 ? (
+                            <div className="flex min-h-[14rem] items-center justify-center px-5 py-10 text-center text-sm text-muted-foreground">
+                                No participants match the current search or filter.
+                            </div>
+                        ) : (
+                            <div className="w-full">
+                                {visibleParticipants.map((participant) => {
+                                    const isPending = isParticipantPending(participant);
+                                    const initialsTone = isPending
+                                        ? 'bg-amber-500/14 text-amber-600'
+                                        : 'bg-primary/12 text-primary';
 
-                                return (
-                                    <button
-                                        key={participant.id}
-                                        type="button"
-                                        onClick={() => navigate(`/participants/${participant.id}`)}
-                                        className="absolute left-0 top-0 flex h-14 w-full items-center gap-3 border-b border-border/70 px-3 text-left transition-colors hover:bg-accent/30"
-                                        style={{ transform: `translateY(${rowIndex * PARTICIPANT_ROW_HEIGHT}px)` }}
-                                    >
-                                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${initialsTone}`}>
-                                            {getParticipantInitials(participant)}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="truncate text-base font-semibold text-foreground">
-                                                    {participant.firstName} {participant.lastName}
-                                                </p>
-                                                {isPending ? (
-                                                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-600">
-                                                        Pending
-                                                    </span>
-                                                ) : null}
+                                    return (
+                                        <button
+                                            key={participant.id}
+                                            type="button"
+                                            onClick={() => navigate(`/participants/${participant.id}`)}
+                                            className="flex h-14 w-full items-center gap-3 border-b border-border/70 px-3 text-left transition-colors hover:bg-accent/30"
+                                        >
+                                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${initialsTone}`}>
+                                                {getParticipantInitials(participant)}
                                             </div>
-                                        </div>
-                                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="truncate text-base font-semibold text-foreground">
+                                                        {participant.firstName} {participant.lastName}
+                                                    </p>
+                                                    {isPending ? (
+                                                        <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-600">
+                                                            Pending
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        </button>
+                                    );
+                                })}
+                                {visibleCount < (filteredParticipants?.length || 0) ? (
+                                    <div ref={loadMoreRef} className="flex items-center justify-center px-4 py-4 text-xs font-semibold text-muted-foreground">
+                                        Loading more participants...
+                                    </div>
+                                ) : (
+                                    <div className="h-2 w-full" />
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
