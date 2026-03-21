@@ -8,13 +8,11 @@ import {
     useUploadParticipantAsset,
     useUpdateParticipantStatus,
     useResolveNote,
-    useDeleteAsset
 } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import {
     Shield,
     History as HistoryIcon,
-    Database,
     Info,
     AlertCircle,
     Phone,
@@ -22,15 +20,11 @@ import {
     UserCircle,
     ChevronRight,
     CheckCircle,
-    Users,
     RefreshCw,
     Plus,
     Trash2,
-    Upload,
-    ShieldCheck,
-    ClipboardList,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -39,7 +33,7 @@ import { EditParticipantModal } from '@/components/participants/EditParticipantM
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { buildParticipantRequirementRows, getRequirementStatusMeta, type RequirementRow } from '@/lib/requirementsPrototype';
-import { OperationalEmptyResponse, OperationalResponseCard } from '@/components/ui/OperationalCards';
+import { OperationalEmptyResponse } from '@/components/ui/OperationalCards';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
 import { useSelection } from '@/context/SelectionContext';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
@@ -115,11 +109,8 @@ export function ParticipantProfilePage() {
     const [uploadType, setUploadType] = useState<'waiver' | 'photo' | 'intro_media' | 'other'>('other');
     const [uploadNotes, setUploadNotes] = useState('');
     const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
-    const [showAllNotes, setShowAllNotes] = useState(false);
+    const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
     const requirementsSectionRef = useRef<HTMLDivElement | null>(null);
-    const filesSectionRef = useRef<HTMLDivElement | null>(null);
-    const assignmentsSectionRef = useRef<HTMLDivElement | null>(null);
-    const notesSectionRef = useRef<HTMLDivElement | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
     const capabilities = useEventCapabilities(participant?.eventId || null, organizationId || null);
@@ -134,7 +125,6 @@ export function ParticipantProfilePage() {
     const updateAssetStatus = useUpdateAssetStatus(participantId || '');
     const updateStatus = useUpdateParticipantStatus(participantId || '');
     const resolveNote = useResolveNote(participantId || '');
-    const deleteAsset = useDeleteAsset(participantId || '');
     const uploadAsset = useUploadParticipantAsset(participantId || '');
     const openUploadModal = ({
         templateId = null,
@@ -226,14 +216,9 @@ export function ParticipantProfilePage() {
 
     const assignedActCount = participant.acts?.length || 0;
     const unresolvedNoteCount = participant.operationalNotes?.filter(note => !note.isResolved).length || 0;
-    const approvedAssetCount = participant.templatedAssets?.filter(asset => asset.fulfillment?.status === 'approved').length || 0;
-    const totalAssetCount = participant.templatedAssets?.length || 0;
     const specialRequestNotes = participant.operationalNotes?.filter((note) => note.category === 'special_request') || [];
     const openSpecialRequestNotes = specialRequestNotes.filter((note) => !note.isResolved);
     const resolvedSpecialRequestNotes = specialRequestNotes.filter((note) => note.isResolved);
-    const visibleOperationalNotes = showAllNotes
-        ? (participant.operationalNotes || [])
-        : (participant.operationalNotes || []).slice(0, 4);
     const editRequested = searchParams.get('action') === 'edit-profile';
     const requirementRows = buildParticipantRequirementRows(participant);
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
@@ -275,16 +260,261 @@ export function ParticipantProfilePage() {
         setShowEditModal(false);
     };
 
+    useEffect(() => {
+        const defaultKey = openSpecialRequestNotes.length > 0
+            ? 'special-request'
+            : nextRequirementRow?.key || requirementRows[0]?.key || null;
+
+        setActiveActionKey((current) => {
+            if (!defaultKey) return null;
+            return current ?? defaultKey;
+        });
+    }, [openSpecialRequestNotes.length, nextRequirementRow?.key, requirementRows]);
+
+    const toggleActionKey = (key: string) => {
+        setActiveActionKey((current) => current === key ? null : key);
+    };
+
+    const openEditProfile = () => {
+        setShowEditModal(true);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('action', 'edit-profile');
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const resolveSpecialRequest = () => {
+        if (openSpecialRequestNotes[0]) {
+            resolveNote.mutate(openSpecialRequestNotes[0].id);
+            return;
+        }
+        setNoteCategory('special_request');
+        setNoteContent((current) => current || participant.specialRequestRaw || '');
+        setShowNoteForm(true);
+    };
+
+    const getPolicyAssetType = (policyCode?: string | null) => {
+        if (policyCode === 'participant_photo') return 'photo';
+        if (policyCode === 'participant_waiver') return 'waiver';
+        return null;
+    };
+
+    const findTemplatedAssetsForPolicy = (policyCode?: string | null) => {
+        const assetType = getPolicyAssetType(policyCode);
+        if (!assetType) return [];
+        return (participant.templatedAssets || []).filter(({ template }: any) => template.assetType === assetType);
+    };
+
+    const findUploadedAssetsForPolicy = (policyCode?: string | null) => {
+        const assetType = getPolicyAssetType(policyCode);
+        if (!assetType) return [];
+        return (participant.assets || []).filter((asset: any) => asset.type === assetType);
+    };
+
     const handleRequirementAction = (row: RequirementRow) => {
-        if (row.target === 'assets') {
-            scrollToSection(filesSectionRef);
-            return;
-        }
-        if (row.target === 'cast') {
-            scrollToSection(assignmentsSectionRef);
-            return;
-        }
+        setActiveActionKey(row.key);
         scrollToSection(requirementsSectionRef);
+    };
+
+    const renderRequirementWorkPanel = (row: RequirementRow) => {
+        if (row.key === 'special-request') {
+            return (
+                <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Details</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground/85">
+                        {participant.specialRequestRaw || 'A special request flag came through sync, but no raw details were attached.'}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {canManageParticipantOps ? (
+                            <Button
+                                variant="outline"
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={resolveSpecialRequest}
+                                disabled={resolveNote.isPending}
+                            >
+                                {openSpecialRequestNotes[0]
+                                    ? (resolveNote.isPending ? 'Closing...' : 'Mark Request Closed')
+                                    : 'Log Request Review'}
+                            </Button>
+                        ) : null}
+                    </div>
+                </div>
+            );
+        }
+
+        if (row.policyCode === 'guardian_contact_complete') {
+            return (
+                <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/50 bg-background/70 p-4 sm:grid-cols-[1fr,auto]">
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Contact</p>
+                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
+                        </div>
+                        {participant.guardianRelationship ? (
+                            <p className="text-xs text-muted-foreground">Relationship: {participant.guardianRelationship}</p>
+                        ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:flex-col">
+                        {participant.guardianPhone ? (
+                            <a
+                                href={`tel:${participant.guardianPhone}`}
+                                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                            >
+                                <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                Call Guardian
+                            </a>
+                        ) : null}
+                        {canManageParticipantRecords ? (
+                            <Button
+                                variant="outline"
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={openEditProfile}
+                            >
+                                Edit Profile
+                            </Button>
+                        ) : null}
+                    </div>
+                </div>
+            );
+        }
+
+        if (row.policyCode === 'identity_check') {
+            return (
+                <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity Review</p>
+                    <p className="mt-2 text-sm font-bold text-foreground">
+                        {participant.identityVerified ? 'Identity already verified' : 'Identity still needs review'}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {participant.identityNotes || 'No special identity notes are attached to this profile.'}
+                    </p>
+                    {canManageParticipantRecords ? (
+                        <div className="mt-4">
+                            <Button
+                                variant="outline"
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={openEditProfile}
+                            >
+                                Edit Profile
+                            </Button>
+                        </div>
+                    ) : null}
+                </div>
+            );
+        }
+
+        if (row.target === 'assets') {
+            const templatedAssets = findTemplatedAssetsForPolicy(row.policyCode);
+            const uploadedAssets = findUploadedAssetsForPolicy(row.policyCode);
+            const assetType = getPolicyAssetType(row.policyCode);
+
+            return (
+                <div className="space-y-3 rounded-2xl border border-border/50 bg-background/70 p-4">
+                    {templatedAssets.length > 0 ? templatedAssets.map(({ template, fulfillment }: any) => (
+                        <div key={template.id} className="rounded-xl border border-border/50 bg-background p-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-foreground">{template.name}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">{template.description || 'Required participant artifact'}</p>
+                                    {fulfillment ? (
+                                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                                            {fulfillment.status.replace(/_/g, ' ')}
+                                        </p>
+                                    ) : (
+                                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">No upload yet</p>
+                                    )}
+                                </div>
+                                {canManageParticipantOps ? (
+                                    <div className="flex shrink-0 flex-wrap gap-2">
+                                        {fulfillment && fulfillment.status !== 'approved' ? (
+                                            <Button
+                                                size="sm"
+                                                className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
+                                                onClick={() => updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'approved' })}
+                                                disabled={updateAssetStatus.isPending}
+                                            >
+                                                Approve
+                                            </Button>
+                                        ) : null}
+                                        <Button
+                                            size="sm"
+                                            variant={fulfillment ? 'ghost' : 'default'}
+                                            className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
+                                            onClick={() => openUploadModal({
+                                                templateId: template.id,
+                                                replaceAssetId: fulfillment?.id || null,
+                                                type: template.assetType || 'other',
+                                                title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
+                                                suggestedName: template.name,
+                                            })}
+                                            disabled={uploadAsset.isPending}
+                                        >
+                                            {fulfillment ? 'Replace' : 'Upload'}
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-4">
+                            <p className="text-sm font-bold text-foreground">No templated upload is attached.</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Use a direct upload if this requirement needs a file right now.</p>
+                            {canManageParticipantOps && assetType ? (
+                                <div className="mt-3">
+                                    <Button
+                                        variant="outline"
+                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        onClick={() => openUploadModal({
+                                            type: assetType,
+                                            title: `Upload ${row.label}`,
+                                            suggestedName: row.label,
+                                        })}
+                                    >
+                                        Upload {row.label}
+                                    </Button>
+                                </div>
+                            ) : null}
+                        </div>
+                    )}
+
+                    {uploadedAssets.length > 0 ? (
+                        <div className="rounded-xl border border-border/50 bg-background p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Existing Uploads</p>
+                            <div className="mt-3 space-y-2">
+                                {uploadedAssets.map((asset: any) => (
+                                    <button
+                                        key={asset.id}
+                                        type="button"
+                                        onClick={() => asset.fileUrl && setSelectedAssetUrl(asset.fileUrl)}
+                                        className="flex min-h-11 w-full items-center justify-between rounded-xl border border-border/50 bg-background/80 px-3 py-2 text-left transition-colors hover:bg-accent/20"
+                                    >
+                                        <span className="min-w-0 truncate text-sm font-bold text-foreground">{asset.name}</span>
+                                        <span className="ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{asset.status}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            );
+        }
+
+        return (
+            <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
+                <p className="text-sm font-bold text-foreground">{row.detail}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                    {canManageParticipantRecords ? (
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={openEditProfile}
+                        >
+                            Edit Profile
+                        </Button>
+                    ) : null}
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -311,178 +541,99 @@ export function ParticipantProfilePage() {
                     subtitle={undefined}
                     actions={
                         <div className="flex justify-end">
-                            <ActionMenu
-                                options={[
-                                    {
-                                        label: 'View Record History',
-                                        onClick: () => setShowHistoryModal(true),
-                                        icon: <HistoryIcon className="h-4 w-4" />,
-                                    },
-                                ]}
-                            />
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={openEditProfile}
+                                    disabled={!canManageParticipantRecords}
+                                >
+                                    Edit Profile
+                                </Button>
+                                <ActionMenu
+                                    options={[
+                                        {
+                                            label: 'View Record History',
+                                            onClick: () => setShowHistoryModal(true),
+                                            icon: <HistoryIcon className="h-4 w-4" />,
+                                        },
+                                    ]}
+                                />
+                            </div>
                         </div>
                     }
                     status={
-                        <div className="surface-section-participants grid grid-cols-1 gap-2 rounded-2xl p-3 xl:grid-cols-[1.15fr,1fr,1fr]">
-                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Readiness State</p>
-                                <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
-                                    <p className={`text-sm font-black ${
-                                        readinessTone === 'critical'
-                                            ? 'text-destructive'
-                                            : readinessTone === 'warning'
-                                                ? 'text-orange-600'
-                                                : 'text-emerald-600'
-                                    }`}>
-                                        {readinessLabel}
-                                    </p>
-                                </div>
-                                <p className="mt-2 text-xs text-muted-foreground">{readinessDetail}</p>
-                            </div>
-
-                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Primary Contact</p>
-                                        <p className="mt-2 text-sm font-black text-foreground">
-                                            {participant.isMinor ? (participant.guardianName || 'Guardian not captured') : 'Adult profile'}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            {participant.isMinor
-                                                ? participant.guardianPhone || 'Phone still needed'
-                                                : participant.identityVerified
-                                                    ? 'Identity verified'
-                                                    : 'Identity review optional'}
+                        <div className="surface-section-participants rounded-2xl p-3">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-4">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Event Person</p>
+                                        <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">
+                                            {participant.firstName} {participant.lastName}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
+                                            {' • '}
+                                            {participant.isMinor ? 'Minor' : 'Adult'}
+                                            {' • '}
+                                            {assignedActCount === 0 ? 'Unassigned' : `${assignedActCount} assignment${assignedActCount === 1 ? '' : 's'}`}
                                         </p>
                                     </div>
-                                    {participant.isMinor && participant.guardianPhone ? (
-                                        <a
-                                            href={`tel:${participant.guardianPhone}`}
-                                            className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-primary px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground transition-all active:scale-95"
-                                        >
-                                            <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                            Call
-                                        </a>
-                                    ) : null}
+                                    <div className="space-y-2 md:max-w-[18rem] md:text-right">
+                                        <p className={`text-sm font-black uppercase tracking-[0.18em] ${
+                                            readinessTone === 'critical'
+                                                ? 'text-destructive'
+                                                : readinessTone === 'warning'
+                                                    ? 'text-orange-600'
+                                                    : 'text-emerald-600'
+                                        }`}>
+                                            {readinessLabel}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">{readinessDetail}</p>
+                                        <div className="flex flex-wrap gap-2 md:justify-end">
+                                            {nextRequirementRow ? (
+                                                <Button
+                                                    variant="outline"
+                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                    onClick={() => handleRequirementAction(nextRequirementRow)}
+                                                >
+                                                    Open Action
+                                                </Button>
+                                            ) : null}
+                                            {participant.isMinor && participant.guardianPhone ? (
+                                                <a
+                                                    href={`tel:${participant.guardianPhone}`}
+                                                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                                >
+                                                    <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                                    Call Guardian
+                                                </a>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Operational Snapshot</p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
-                                        {assignedActCount === 0 ? 'Needs Placement' : `${assignedActCount} Assignment${assignedActCount > 1 ? 's' : ''}`}
-                                    </Badge>
-                                    <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
-                                        {approvedAssetCount}/{totalAssetCount} Files Ready
-                                    </Badge>
-                                    <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
-                                        {unresolvedRequirementRows.length} Open Requirement{unresolvedRequirementRows.length === 1 ? '' : 's'}
-                                    </Badge>
-                                    <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
-                                        {unresolvedNoteCount} Open Note{unresolvedNoteCount === 1 ? '' : 's'}
-                                    </Badge>
-                                </div>
-                                <p className="mt-2 text-xs text-muted-foreground">
-                                    {participant.isMinor ? 'Clearance and guardian status stay visible in the first viewport.' : 'This screen is optimized for fast operational follow-up, not record browsing.'}
-                                </p>
                             </div>
                         </div>
                     }
                 />
                 <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
                     <div className="animate-in fade-in space-y-4 p-4 duration-300 sm:p-5">
-                        {nextRequirementRow ? (() => {
-                            const meta = getRequirementStatusMeta(nextRequirementRow.status as any);
-                            return (
-                                <OperationalResponseCard
-                                    key={`profile-next-${nextRequirementRow.key}`}
-                                    label="Next Action"
-                                    detail={`${nextRequirementRow.label} • ${nextRequirementRow.detail}`}
-                                    count={meta.label}
-                                    tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
-                                    action={nextRequirementRow.actionLabel}
-                                    onClick={() => handleRequirementAction(nextRequirementRow)}
-                                />
-                            );
-                        })() : (
-                            <OperationalEmptyResponse
-                                title="Profile Clear"
-                                detail="No participant follow-up is blocking the current profile lane."
-                            />
-                        )}
-
                         <div ref={requirementsSectionRef} className="surface-panel rounded-[1.2rem] p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
-                                        <CheckCircle className="mr-2 h-4 w-4 text-primary" />
-                                        Requirements & Compliance
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Clear blockers here first. File-backed requirements stay linked to uploads lower on the page.
-                                    </p>
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</h3>
+                                    <p className="text-sm text-muted-foreground">Clear one blocker at a time. Opening a row closes the previous work panel.</p>
                                 </div>
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase tabular-nums">
-                                    {requirementRows.length}
-                                </Badge>
-                            </div>
-
-                            {requirementRows.length > 0 ? (
-                                <div className="mt-4 space-y-2">
-                                    {requirementRows.map((row) => {
-                                        const meta = getRequirementStatusMeta(row.status);
-                                        return (
-                                            <OperationalResponseCard
-                                                key={row.key}
-                                                label={row.label}
-                                                detail={row.detail}
-                                                count={meta.label}
-                                                tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
-                                                action={row.actionLabel}
-                                                onClick={() => handleRequirementAction(row)}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="mt-4">
-                                    <OperationalEmptyResponse
-                                        title="No Participant Requirements"
-                                        detail="This event has not assigned any participant-level requirements to this profile yet."
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        <div ref={notesSectionRef} className="surface-panel rounded-[1.2rem] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-primary" />
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Updates & Follow-Up</h3>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {participant.operationalNotes && participant.operationalNotes.length > 4 ? (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => setShowAllNotes((current) => !current)}
-                                        >
-                                            {showAllNotes ? 'Show Less' : `Show All (${participant.operationalNotes.length})`}
-                                        </Button>
-                                    ) : null}
-                                    {canManageParticipantOps ? (
-                                        <Button
-                                            variant={showNoteForm ? 'ghost' : 'outline'}
-                                            size="sm"
-                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => setShowNoteForm(!showNoteForm)}
-                                        >
-                                            {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
-                                        </Button>
-                                    ) : null}
-                                </div>
+                                {canManageParticipantOps ? (
+                                    <Button
+                                        variant={showNoteForm ? 'ghost' : 'outline'}
+                                        size="sm"
+                                        className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        onClick={() => setShowNoteForm(!showNoteForm)}
+                                    >
+                                        {showNoteForm ? 'Cancel' : 'Add Note'}
+                                    </Button>
+                                ) : null}
                             </div>
 
                             {showNoteForm ? (
@@ -503,7 +654,7 @@ export function ParticipantProfilePage() {
                                         autoFocus
                                         value={noteContent}
                                         onChange={(e) => setNoteContent(e.target.value)}
-                                        placeholder="Enter the follow-up or risk note that matters right now..."
+                                        placeholder="Log the next follow-up that matters right now..."
                                         className="min-h-[112px] w-full rounded-xl border border-border bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                                     />
                                     <div className="flex justify-end">
@@ -519,293 +670,178 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             <div className="mt-4 space-y-2">
-                                {participant.operationalNotes && participant.operationalNotes.length > 0 ? (
-                                    visibleOperationalNotes.map((note) => (
-                                        <div key={note.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-[0.16em]">
-                                                            {note.category.replace('_', ' ')}
-                                                        </Badge>
-                                                        {note.isResolved ? (
-                                                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Resolved</span>
-                                                        ) : null}
-                                                    </div>
-                                                    <p className="mt-2 text-sm leading-6 text-foreground/80">{note.content}</p>
-                                                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                                                        {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}
-                                                    </p>
-                                                </div>
-                                                {!note.isResolved && canManageParticipantOps ? (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="min-h-11 shrink-0 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
-                                                        onClick={() => resolveNote.mutate(note.id)}
-                                                        disabled={resolveNote.isPending}
-                                                    >
-                                                        Resolve
-                                                    </Button>
-                                                ) : null}
+                                {participant.hasSpecialRequests ? (
+                                    <div className="rounded-2xl border border-border/50 bg-background/70">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleActionKey('special-request')}
+                                            className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-foreground">Special Request</p>
+                                                <p className="truncate text-xs text-muted-foreground">
+                                                    {openSpecialRequestNotes.length > 0 ? 'Open request still needs review.' : 'Reference the request details and notes.'}
+                                                </p>
                                             </div>
-                                        </div>
-                                    ))
-                                ) : !showNoteForm ? (
-                                    <OperationalEmptyResponse
-                                        title="No Escalations"
-                                        detail="No active coordination notes are demanding attention right now."
-                                    />
-                                ) : null}
-                            </div>
-                        </div>
-
-                        <div ref={filesSectionRef} className="surface-panel rounded-[1.2rem] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
-                                        <Upload className="mr-2 h-4 w-4 text-primary" />
-                                        Files & Approvals
-                                    </h3>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Upload, approve, replace, and review participant artifacts without leaving the profile.
-                                    </p>
-                                </div>
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase tabular-nums">
-                                    {participant.templatedAssets?.filter(a => !!a.fulfillment).length || 0} / {participant.templatedAssets?.length || 0} Complete
-                                </Badge>
-                            </div>
-
-                            <div className="mt-4 space-y-4">
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Required Documents</p>
-                                    {participant.templatedAssets && participant.templatedAssets.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {participant.templatedAssets.map(({ template, fulfillment }) => (
-                                                <div
-                                                    key={template.id}
-                                                    className={`rounded-[1.15rem] border px-3.5 py-3 transition-all ${fulfillment?.status === 'approved'
-                                                        ? 'surface-good'
-                                                        : fulfillment?.status === 'rejected'
-                                                            ? 'surface-critical'
-                                                            : fulfillment
-                                                                ? 'surface-info'
-                                                                : 'surface-panel'
-                                                        }`}
-                                                >
-                                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                                                        <div className="min-w-0 flex-1 space-y-1">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-foreground">{template.name}</span>
-                                                                {template.isRequired && (
-                                                                    <Badge className="bg-destructive/10 text-destructive border-none text-[8px] font-black uppercase h-4 px-1">Required</Badge>
-                                                                )}
-                                                                <Badge variant="outline" className="text-[9px] font-bold uppercase h-5">
-                                                                    {template.actId ? 'Act' : template.eventId ? 'Event' : 'Org'}
-                                                                </Badge>
-                                                                {fulfillment ? (
-                                                                    <Badge className={`${fulfillment.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'} border-none text-[9px] font-bold uppercase h-5`}>
-                                                                        {fulfillment.status.replace(/_/g, ' ')}
-                                                                    </Badge>
-                                                                ) : null}
-                                                            </div>
-                                                            <p className="text-sm text-foreground/80">{template.description || 'Mandatory operational artifact'}</p>
-                                                            {fulfillment?.reviewNotes ? (
-                                                                <p className="text-xs text-destructive">{fulfillment.reviewNotes}</p>
-                                                            ) : null}
-                                                        </div>
-                                                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:self-center">
-                                                            {fulfillment && fulfillment.status !== 'approved' && canManageParticipantOps ? (
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
-                                                                    onClick={() => updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'approved' })}
-                                                                    disabled={updateAssetStatus.isPending}
-                                                                >
-                                                                    Approve
-                                                                </Button>
-                                                            ) : null}
-                                                            {canManageParticipantOps ? (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant={fulfillment ? 'ghost' : 'default'}
-                                                                    className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
-                                                                    onClick={() => openUploadModal({
-                                                                        templateId: template.id,
-                                                                        replaceAssetId: fulfillment?.id || null,
-                                                                        type: template.assetType || 'other',
-                                                                        title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
-                                                                        suggestedName: template.name,
-                                                                    })}
-                                                                    disabled={uploadAsset.isPending}
-                                                                >
-                                                                    {fulfillment ? 'Replace' : 'Upload'}
-                                                                </Button>
-                                                            ) : null}
-                                                            {fulfillment && fulfillment.status === 'pending_review' && canManageParticipantOps ? (
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="min-h-11 rounded-xl px-3 text-[9px] font-bold uppercase text-destructive border-destructive/20 hover:bg-destructive/10"
-                                                                    onClick={() => {
-                                                                        const notes = prompt('Enter rejection reason:');
-                                                                        if (notes) updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'rejected', reviewNotes: notes });
-                                                                    }}
-                                                                >
-                                                                    Reject
-                                                                </Button>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <OperationalEmptyResponse
-                                            title="No Templated Tasks"
-                                            detail="No document upload templates are attached to this participant yet."
-                                        />
-                                    )}
-                                </div>
-
-                                <div className="border-t border-border/50 pt-4">
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Other Files</p>
-                                        {canManageParticipantOps ? (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="min-h-11 rounded-xl px-3 text-[10px] font-bold uppercase tracking-wider border-2"
-                                                onClick={() => openUploadModal({
-                                                    type: 'other',
-                                                    title: 'Upload Participant Asset',
+                                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
+                                                {openSpecialRequestNotes.length > 0 ? 'Open' : 'Review'}
+                                            </span>
+                                        </button>
+                                        {activeActionKey === 'special-request' ? (
+                                            <div className="border-t border-border/50 px-4 py-4">
+                                                {renderRequirementWorkPanel({
+                                                    key: 'special-request',
+                                                    label: 'Special Request',
+                                                    detail: participant.specialRequestRaw || '',
+                                                    actionLabel: 'Review',
+                                                    status: 'pending_review',
+                                                    tone: 'warning',
+                                                    target: 'workspace',
                                                 })}
-                                            >
-                                                <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                                Manual Upload
-                                            </Button>
+                                            </div>
                                         ) : null}
                                     </div>
+                                ) : null}
 
-                                    {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                            {participant.assets.filter(a => !a.templateId).map((asset) => (
-                                                <div
-                                                    key={asset.id}
-                                                    className="surface-panel group cursor-zoom-in rounded-2xl border p-4 transition-all hover:border-primary/20"
-                                                    onClick={() => {
-                                                        if (asset.fileUrl) {
-                                                            setSelectedAssetUrl(asset.fileUrl);
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="mb-4 flex items-center justify-between">
-                                                        <Badge variant="outline" className="text-[9px] font-mono uppercase h-4 px-1.5">
-                                                            {asset.type}
-                                                        </Badge>
-                                                        {canManageParticipantOps ? (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (window.confirm('Delete this asset? This cannot be undone.')) {
-                                                                        deleteAsset.mutate(asset.id);
-                                                                    }
-                                                                }}
-                                                                className="rounded-lg p-1 transition-colors hover:bg-destructive/10 group/trash"
-                                                                disabled={deleteAsset.isPending}
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover/trash:text-destructive" />
-                                                            </button>
-                                                        ) : null}
-                                                    </div>
-                                                    <p className="mb-1 truncate text-sm font-bold">{asset.name}</p>
-                                                    <div className="mt-2 flex items-center justify-between border-t border-border/10 pt-2">
-                                                        <p className="text-[10px] font-medium tabular-nums text-muted-foreground/60">
-                                                            {new Date(asset.createdAt).toLocaleDateString()}
-                                                        </p>
-                                                        <div className="text-[10px] font-black uppercase text-primary opacity-0 transition-opacity group-hover:opacity-100">Preview</div>
+                                {requirementRows.length > 0 ? requirementRows.map((row) => {
+                                    const meta = getRequirementStatusMeta(row.status);
+                                    const isOpen = activeActionKey === row.key;
+                                    return (
+                                        <div key={row.key} className={`rounded-2xl border ${isOpen ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-background/70'}`}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleActionKey(row.key)}
+                                                className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-foreground">{row.label}</p>
+                                                    <p className="truncate text-xs text-muted-foreground">{row.detail}</p>
+                                                </div>
+                                                <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
+                                                    meta.tone === 'critical'
+                                                        ? 'text-destructive'
+                                                        : meta.tone === 'warning'
+                                                            ? 'text-orange-600'
+                                                            : meta.tone === 'good'
+                                                                ? 'text-emerald-600'
+                                                                : 'text-primary'
+                                                }`}>
+                                                    {meta.label}
+                                                </span>
+                                            </button>
+                                            {isOpen ? (
+                                                <div className="border-t border-border/50 px-4 py-4">
+                                                    {renderRequirementWorkPanel(row)}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    );
+                                }) : (
+                                    <OperationalEmptyResponse
+                                        title="No Participant Requirements"
+                                        detail="This event has not assigned any participant-level requirements to this profile yet."
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Reference</p>
+
+                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">Assignments</p>
+                                        <p className="text-xs text-muted-foreground">Where this person is linked in the show.</p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                </summary>
+                                <div className="mt-4 space-y-3">
+                                    {canManageRoster ? (
+                                        <Button
+                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            onClick={() => setShowAssignModal(true)}
+                                        >
+                                            Assign to Performance
+                                        </Button>
+                                    ) : null}
+                                    {participant.acts && participant.acts.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            {participant.acts.map((act) => (
+                                                <div key={act.id} className="rounded-xl border border-border/50 bg-background/70 p-4">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-lg font-black tracking-tight text-foreground">{act.name}</p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">{act.role || 'Performer'}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => removeFromAct.mutate(act.id)}
+                                                            className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
+                                                            title="Remove from performance"
+                                                            disabled={removeFromAct.isPending}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <OperationalEmptyResponse title="No Other Assets" detail="Manual uploads will appear here once they are added." />
+                                        <OperationalEmptyResponse title="No Assignments" detail="This person is not linked to any performance yet." />
                                     )}
                                 </div>
-                            </div>
-                        </div>
+                            </details>
 
-                        <div ref={assignmentsSectionRef} className="surface-panel rounded-[1.2rem] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
-                                        <Database className="mr-2 h-4 w-4 text-primary" />
-                                        Assignments
-                                    </h3>
-                                    <p className="text-sm font-semibold text-foreground">Manage which performances this participant is currently attached to.</p>
-                                </div>
-                                <Button
-                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                    onClick={() => setShowAssignModal(true)}
-                                    disabled={!canManageRoster}
-                                >
-                                    Assign to Performance
-                                </Button>
-                            </div>
-
-                            {participant.acts && participant.acts.length > 0 ? (
-                                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                                    {participant.acts.map((act) => (
-                                        <div
-                                            key={act.id}
-                                            className="rounded-xl border border-border/50 bg-background/70 p-4"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase h-5 px-2">
-                                                            {act.role || 'Performer'}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="mt-2 text-lg font-black tracking-tight text-foreground">{act.name}</p>
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        Linked to this participant record for lineup, approvals, and intro readiness.
-                                                    </p>
+                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">Files Archive</p>
+                                        <p className="text-xs text-muted-foreground">All uploaded artifacts and manual files.</p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                </summary>
+                                <div className="mt-4 space-y-4">
+                                    {participant.templatedAssets?.length ? (
+                                        <div className="space-y-2">
+                                            {participant.templatedAssets.map(({ template, fulfillment }) => (
+                                                <div key={template.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                                    <p className="text-sm font-bold text-foreground">{template.name}</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">{fulfillment ? fulfillment.status.replace(/_/g, ' ') : 'No upload yet'}</p>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <OperationalEmptyResponse title="No File Templates" detail="No templated files are attached to this profile." />
+                                    )}
+                                    {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            {participant.assets.filter(a => !a.templateId).map((asset) => (
                                                 <button
-                                                    onClick={() => removeFromAct.mutate(act.id)}
-                                                    className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
-                                                    title="Remove from performance"
-                                                    disabled={removeFromAct.isPending}
+                                                    key={asset.id}
+                                                    type="button"
+                                                    onClick={() => asset.fileUrl && setSelectedAssetUrl(asset.fileUrl)}
+                                                    className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-3 text-left transition-colors hover:bg-accent/20"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <span className="min-w-0 truncate text-sm font-bold text-foreground">{asset.name}</span>
+                                                    <span className="ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{asset.type}</span>
                                                 </button>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    ) : null}
                                 </div>
-                            ) : (
-                                <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
-                                    <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                                    <p className="text-sm font-bold text-foreground">No active assignments yet.</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">Place this participant into a performance when the lineup is ready.</p>
-                                </div>
-                            )}
-                        </div>
+                            </details>
 
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr,1.05fr]">
-                            <div className="space-y-4">
-                                <details className="group surface-panel rounded-[1.2rem] p-4">
-                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <ShieldCheck className="h-4 w-4 text-primary" />
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile & Safety</h3>
-                                        </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
-                                    </summary>
-                                    <div className="mt-4 rounded-xl border border-border/50 bg-background/70 p-3">
+                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                    <div>
+                                        <p className="text-sm font-bold text-foreground">Profile Details</p>
+                                        <p className="text-xs text-muted-foreground">Reference data and administrative state.</p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                </summary>
+                                <div className="mt-4 space-y-3">
+                                    <div className="rounded-xl border border-border/50 bg-background/70 p-3">
                                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Record Status</p>
-                                        <p className="mt-1 text-xs text-muted-foreground">Administrative roster state for this person.</p>
                                         {canManageParticipantRecords ? (
                                             <select
                                                 value={participant.status || 'active'}
@@ -829,32 +865,7 @@ export function ParticipantProfilePage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                                                {participant.isMinor ? 'Guardian Name' : 'Profile Type'}
-                                            </p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">
-                                                {participant.isMinor ? (participant.guardianName || 'Not captured yet') : 'Adult participant'}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {participant.isMinor
-                                                    ? participant.guardianRelationship || 'Relationship not captured yet'
-                                                    : participant.identityVerified
-                                                        ? 'Identity verified for roster confidence'
-                                                        : 'Identity verification is optional for this profile right now'}
-                                            </p>
-                                        </div>
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                                                {participant.isMinor ? 'Guardian Phone' : 'Identity Notes'}
-                                            </p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">
-                                                {participant.isMinor ? (participant.guardianPhone || 'Not captured yet') : (participant.identityNotes || 'No special identity notes')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="rounded-xl border border-border/50 bg-background/70 p-3">
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Email</p>
                                             <p className="mt-1 text-sm font-bold text-foreground">{participant.email || 'Not captured yet'}</p>
@@ -863,107 +874,94 @@ export function ParticipantProfilePage() {
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Age</p>
                                             <p className="mt-1 text-sm font-bold text-foreground">{participant.age ?? 'Not captured yet'}</p>
                                         </div>
-                                    </div>
-                                    {participant.notes ? (
-                                        <div className="mt-3 rounded-xl border border-border/50 bg-muted/15 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Internal Note</p>
-                                            <p className="mt-1 text-sm leading-6 text-foreground/80">{participant.notes}</p>
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian</p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</p>
                                         </div>
-                                    ) : null}
+                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</p>
+                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            {participant.hasSpecialRequests ? (
+                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">Special Request History</p>
+                                            <p className="text-xs text-muted-foreground">Request detail and review state.</p>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </summary>
+                                    <div className="mt-4 rounded-xl border border-border/50 bg-background/70 p-3">
+                                        <p className="text-sm text-foreground/85">{participant.specialRequestRaw || 'No raw special-request detail was attached.'}</p>
+                                        {resolvedSpecialRequestNotes.length > 0 ? (
+                                            <p className="mt-2 text-xs text-muted-foreground">{resolvedSpecialRequestNotes.length} closed request note{resolvedSpecialRequestNotes.length === 1 ? '' : 's'} on file.</p>
+                                        ) : null}
+                                    </div>
                                 </details>
+                            ) : null}
 
-                                {participant.hasSpecialRequests ? (
-                                    <div className="surface-panel rounded-[1.2rem] p-4">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2">
-                                                <ClipboardList className="h-4 w-4 text-primary" />
-                                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Special Request</h3>
+                            {participant.operationalNotes?.length ? (
+                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">Notes History</p>
+                                            <p className="text-xs text-muted-foreground">Full note archive for this person.</p>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </summary>
+                                    <div className="mt-4 space-y-2">
+                                        {participant.operationalNotes.map((note) => (
+                                            <div key={note.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{note.category.replace('_', ' ')}</p>
+                                                        <p className="mt-2 text-sm leading-6 text-foreground/80">{note.content}</p>
+                                                    </div>
+                                                    {!note.isResolved && canManageParticipantOps ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="min-h-11 shrink-0 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
+                                                            onClick={() => resolveNote.mutate(note.id)}
+                                                            disabled={resolveNote.isPending}
+                                                        >
+                                                            Resolve
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
                                             </div>
-                                            <Badge
-                                                variant="outline"
-                                                className={`text-[10px] font-black uppercase tracking-[0.16em] ${
-                                                    openSpecialRequestNotes.length > 0
-                                                        ? 'border-amber-500/30 bg-amber-500/10 text-amber-700'
-                                                        : resolvedSpecialRequestNotes.length > 0
-                                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
-                                                            : ''
-                                                }`}
-                                            >
-                                                {openSpecialRequestNotes.length > 0
-                                                    ? 'Open'
-                                                    : resolvedSpecialRequestNotes.length > 0
-                                                        ? 'Closed'
-                                                        : 'Needs Review'}
-                                            </Badge>
-                                        </div>
-                                        <div className="mt-3 rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Details</p>
-                                            <p className="mt-1 text-sm leading-6 text-foreground/80">
-                                                {participant.specialRequestRaw || 'A special request flag came through sync, but no raw details were attached.'}
-                                            </p>
-                                        </div>
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            {openSpecialRequestNotes[0] && canManageParticipantOps ? (
-                                                <Button
-                                                    variant="outline"
-                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                    onClick={() => resolveNote.mutate(openSpecialRequestNotes[0].id)}
-                                                    disabled={resolveNote.isPending}
-                                                >
-                                                    {resolveNote.isPending ? 'Closing...' : 'Mark Request Closed'}
-                                                </Button>
-                                            ) : canManageParticipantOps ? (
-                                                <Button
-                                                    variant="outline"
-                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                    onClick={() => {
-                                                        setNoteCategory('special_request');
-                                                        setNoteContent((current) => current || participant.specialRequestRaw || '');
-                                                        setShowNoteForm(true);
-                                                        scrollToSection(notesSectionRef);
-                                                    }}
-                                                >
-                                                    Log Request Review
-                                                </Button>
-                                            ) : null}
-                                            {resolvedSpecialRequestNotes.length > 0 ? (
-                                                <p className="self-center text-xs text-muted-foreground">
-                                                    {resolvedSpecialRequestNotes.length} closed request note{resolvedSpecialRequestNotes.length > 1 ? 's' : ''} on file.
-                                                </p>
-                                            ) : null}
-                                        </div>
+                                        ))}
                                     </div>
-                                ) : null}
+                                </details>
+                            ) : null}
 
-                                {participant.siblings && participant.siblings.length > 0 ? (
-                                    <details className="group surface-panel rounded-[1.2rem] p-4">
-                                        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Users className="h-4 w-4 text-primary" />
-                                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Family Links</h3>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.16em]">
-                                                    {participant.siblings.length}
-                                                </Badge>
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
-                                            </div>
-                                        </summary>
-                                        <div className="mt-3 space-y-2">
-                                            {participant.siblings.map((s) => (
-                                                <Link
-                                                    key={s.id}
-                                                    to={`/participants/${s.id}`}
-                                                    className="flex min-h-[44px] items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-3 transition-colors hover:bg-accent/20"
-                                                >
-                                                    <span className="text-sm font-bold text-foreground">{s.firstName} {s.lastName}</span>
-                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                                </Link>
-                                            ))}
+                            {participant.siblings && participant.siblings.length > 0 ? (
+                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">Family Links</p>
+                                            <p className="text-xs text-muted-foreground">Related people linked to this event.</p>
                                         </div>
-                                    </details>
-                                ) : null}
-                            </div>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </summary>
+                                    <div className="mt-4 space-y-2">
+                                        {participant.siblings.map((s) => (
+                                            <Link
+                                                key={s.id}
+                                                to={`/participants/${s.id}`}
+                                                className="flex min-h-[44px] items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-3 transition-colors hover:bg-accent/20"
+                                            >
+                                                <span className="text-sm font-bold text-foreground">{s.firstName} {s.lastName}</span>
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </details>
+                            ) : null}
                         </div>
                     </div>
                 </div>
