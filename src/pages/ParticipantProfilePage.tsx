@@ -541,39 +541,16 @@ export function ParticipantProfilePage() {
                 <PageHeader
                     title={`${participant.firstName} ${participant.lastName}`}
                     subtitle={undefined}
-                    actions={
-                        <div className="flex justify-end">
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                    onClick={openEditProfile}
-                                    disabled={!canManageParticipantRecords}
-                                >
-                                    Edit Profile
-                                </Button>
-                                <ActionMenu
-                                    options={[
-                                        {
-                                            label: 'View Record History',
-                                            onClick: () => setShowHistoryModal(true),
-                                            icon: <HistoryIcon className="h-4 w-4" />,
-                                        },
-                                    ]}
-                                />
-                            </div>
-                        </div>
-                    }
+                    actions={undefined}
                     status={
-                        <div className="surface-section-participants rounded-2xl p-3">
-                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-4">
-                                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div className="surface-section-participants rounded-2xl p-2.5">
+                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 px-4 py-3">
+                                <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Event Person</p>
-                                        <h2 className="mt-1 text-2xl font-black tracking-tight text-foreground">
+                                        <h2 className="truncate text-2xl font-black tracking-tight text-foreground">
                                             {participant.firstName} {participant.lastName}
                                         </h2>
-                                        <p className="mt-1 text-sm text-muted-foreground">
+                                        <p className="truncate text-sm text-muted-foreground">
                                             {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
                                             {' • '}
                                             {participant.isMinor ? 'Minor' : 'Adult'}
@@ -581,38 +558,45 @@ export function ParticipantProfilePage() {
                                             {assignedActCount === 0 ? 'Unassigned' : `${assignedActCount} assignment${assignedActCount === 1 ? '' : 's'}`}
                                         </p>
                                     </div>
-                                    <div className="space-y-2 md:max-w-[18rem] md:text-right">
-                                        <p className={`text-sm font-black uppercase tracking-[0.18em] ${
-                                            readinessTone === 'critical'
-                                                ? 'text-destructive'
-                                                : readinessTone === 'warning'
-                                                    ? 'text-orange-600'
-                                                    : 'text-emerald-600'
-                                        }`}>
-                                            {readinessLabel}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">{readinessDetail}</p>
-                                        <div className="flex flex-wrap gap-2 md:justify-end">
-                                            {nextRequirementRow ? (
-                                                <Button
-                                                    variant="outline"
-                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                    onClick={() => handleRequirementAction(nextRequirementRow)}
-                                                >
-                                                    Open Action
-                                                </Button>
-                                            ) : null}
-                                            {participant.isMinor && participant.guardianPhone ? (
-                                                <a
-                                                    href={`tel:${participant.guardianPhone}`}
-                                                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
-                                                >
-                                                    <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                                    Call Guardian
-                                                </a>
-                                            ) : null}
-                                        </div>
-                                    </div>
+                                    <ActionMenu
+                                        options={[
+                                            {
+                                                label: 'View Record History',
+                                                onClick: () => setShowHistoryModal(true),
+                                                icon: <HistoryIcon className="h-4 w-4" />,
+                                            },
+                                        ]}
+                                    />
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                    <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${
+                                        readinessTone === 'critical'
+                                            ? 'text-destructive'
+                                            : readinessTone === 'warning'
+                                                ? 'text-orange-600'
+                                                : 'text-emerald-600'
+                                    }`}>
+                                        {readinessLabel}
+                                    </span>
+                                    <p className="min-w-0 flex-1 text-sm text-muted-foreground">{readinessDetail}</p>
+                                    {nextRequirementRow ? (
+                                        <Button
+                                            variant="outline"
+                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            onClick={() => handleRequirementAction(nextRequirementRow)}
+                                        >
+                                            Open Action
+                                        </Button>
+                                    ) : null}
+                                    {participant.isMinor && participant.guardianPhone ? (
+                                        <a
+                                            href={`tel:${participant.guardianPhone}`}
+                                            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                        >
+                                            <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                            Call Guardian
+                                        </a>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -622,10 +606,7 @@ export function ParticipantProfilePage() {
                     <div className="animate-in fade-in space-y-4 p-4 duration-300 sm:p-5">
                         <div ref={requirementsSectionRef} className="surface-panel rounded-[1.2rem] p-4">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</h3>
-                                    <p className="text-sm text-muted-foreground">Clear one blocker at a time. Opening a row closes the previous work panel.</p>
-                                </div>
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</h3>
                                 {canManageParticipantOps ? (
                                     <Button
                                         variant={showNoteForm ? 'ghost' : 'outline'}
@@ -679,12 +660,7 @@ export function ParticipantProfilePage() {
                                             onClick={() => toggleActionKey('special-request')}
                                             className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
                                         >
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-bold text-foreground">Special Request</p>
-                                                <p className="truncate text-xs text-muted-foreground">
-                                                    {openSpecialRequestNotes.length > 0 ? 'Open request still needs review.' : 'Reference the request details and notes.'}
-                                                </p>
-                                            </div>
+                                            <p className="min-w-0 truncate text-sm font-bold text-foreground">Special Request</p>
                                             <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
                                                 {openSpecialRequestNotes.length > 0 ? 'Open' : 'Review'}
                                             </span>
@@ -715,10 +691,7 @@ export function ParticipantProfilePage() {
                                                 onClick={() => toggleActionKey(row.key)}
                                                 className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
                                             >
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-foreground">{row.label}</p>
-                                                    <p className="truncate text-xs text-muted-foreground">{row.detail}</p>
-                                                </div>
+                                                <p className="min-w-0 truncate text-sm font-bold text-foreground">{row.label}</p>
                                                 <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
                                                     meta.tone === 'critical'
                                                         ? 'text-destructive'
@@ -752,10 +725,7 @@ export function ParticipantProfilePage() {
 
                             <details className="group surface-panel rounded-[1.2rem] p-4">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-sm font-bold text-foreground">Assignments</p>
-                                        <p className="text-xs text-muted-foreground">Where this person is linked in the show.</p>
-                                    </div>
+                                    <p className="text-sm font-bold text-foreground">Assignments</p>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-3">
@@ -796,19 +766,16 @@ export function ParticipantProfilePage() {
 
                             <details className="group surface-panel rounded-[1.2rem] p-4">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-sm font-bold text-foreground">Files Archive</p>
-                                        <p className="text-xs text-muted-foreground">All uploaded artifacts and manual files.</p>
-                                    </div>
+                                    <p className="text-sm font-bold text-foreground">Files Archive</p>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-4">
                                     {participant.templatedAssets?.length ? (
                                         <div className="space-y-2">
                                             {participant.templatedAssets.map(({ template, fulfillment }) => (
-                                                <div key={template.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                                    <p className="text-sm font-bold text-foreground">{template.name}</p>
-                                                    <p className="mt-1 text-xs text-muted-foreground">{fulfillment ? fulfillment.status.replace(/_/g, ' ') : 'No upload yet'}</p>
+                                                <div key={template.id} className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                                    <p className="min-w-0 truncate text-sm font-bold text-foreground">{template.name}</p>
+                                                    <p className="ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{fulfillment ? fulfillment.status.replace(/_/g, ' ') : 'No upload yet'}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -835,10 +802,7 @@ export function ParticipantProfilePage() {
 
                             <details className="group surface-panel rounded-[1.2rem] p-4">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-sm font-bold text-foreground">Profile Details</p>
-                                        <p className="text-xs text-muted-foreground">Reference data and administrative state.</p>
-                                    </div>
+                                    <p className="text-sm font-bold text-foreground">Profile Details</p>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-3">
@@ -867,22 +831,22 @@ export function ParticipantProfilePage() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Email</p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.email || 'Not captured yet'}</p>
+                                    <div className="space-y-2">
+                                        <div className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Email</span>
+                                            <span className="ml-3 truncate text-sm font-bold text-foreground">{participant.email || 'Not captured yet'}</span>
                                         </div>
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Age</p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.age ?? 'Not captured yet'}</p>
+                                        <div className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Age</span>
+                                            <span className="ml-3 text-sm font-bold text-foreground">{participant.age ?? 'Not captured yet'}</span>
                                         </div>
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian</p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</p>
+                                        <div className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian</span>
+                                            <span className="ml-3 truncate text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</span>
                                         </div>
-                                        <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</p>
-                                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</p>
+                                        <div className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</span>
+                                            <span className="ml-3 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -891,10 +855,7 @@ export function ParticipantProfilePage() {
                             {participant.hasSpecialRequests ? (
                                 <details className="group surface-panel rounded-[1.2rem] p-4">
                                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">Special Request History</p>
-                                            <p className="text-xs text-muted-foreground">Request detail and review state.</p>
-                                        </div>
+                                        <p className="text-sm font-bold text-foreground">Special Request History</p>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
                                     <div className="mt-4 rounded-xl border border-border/50 bg-background/70 p-3">
@@ -909,10 +870,7 @@ export function ParticipantProfilePage() {
                             {participant.operationalNotes?.length ? (
                                 <details className="group surface-panel rounded-[1.2rem] p-4">
                                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <div>
-                                            <p className="text-sm font-bold text-foreground">Notes History</p>
-                                            <p className="text-xs text-muted-foreground">Full note archive for this person.</p>
-                                        </div>
+                                        <p className="text-sm font-bold text-foreground">Notes History</p>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
                                     <div className="mt-4 space-y-2">
