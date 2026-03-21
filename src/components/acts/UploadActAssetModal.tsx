@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,15 +11,31 @@ interface UploadActAssetModalProps {
     actId: string;
     actName: string;
     eventId: string;
+    initialType?: 'Audio' | 'Prop' | 'Instrument' | 'Other';
 }
 
-export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }: UploadActAssetModalProps) {
+export function UploadActAssetModal({
+    isOpen,
+    onClose,
+    actId,
+    actName,
+    eventId,
+    initialType = 'Audio',
+}: UploadActAssetModalProps) {
     const addAsset = useAddActAsset(eventId);
     const uploadRequirementAsset = useUploadActRequirementAsset(eventId);
     const [name, setName] = useState('');
-    const [type, setType] = useState('Audio');
+    const [type, setType] = useState<'Audio' | 'Prop' | 'Instrument' | 'Other'>(initialType);
     const [notes, setNotes] = useState('');
     const [file, setFile] = useState<File | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setType(initialType);
+        setFile(null);
+        setName('');
+        setNotes('');
+    }, [initialType, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,21 +56,20 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                     notes: notes || undefined
                 });
             }
-            setName('');
-            setNotes('');
-            setFile(null);
             onClose();
         } catch (error) {
             console.error('Failed to add act asset:', error);
         }
     };
 
+    const isAudioFlow = type === 'Audio';
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Media & Asset Entry: ${actName}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={isAudioFlow ? `Upload Music: ${actName}` : `Add Asset Record: ${actName}`}>
             <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="space-y-4">
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                        {type === 'Audio'
+                        {isAudioFlow
                             ? 'Upload a music file here to satisfy the performance music requirement. Performer photos and participant documents still belong in the participant workspace.'
                             : 'This creates an act asset record only. Performer photos and participant documents still belong in the participant workspace.'}
                     </div>
@@ -73,7 +88,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                         />
                     </div>
 
-                    {type === 'Audio' ? (
+                    {isAudioFlow ? (
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center">
                                 <Music className="w-3 h-3 mr-2 text-primary" />
@@ -97,7 +112,7 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                             Asset Type
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {['Audio', 'Prop', 'Instrument', 'Other'].map((t) => (
+                            {(['Audio', 'Prop', 'Instrument', 'Other'] as const).map((t) => (
                                 <button
                                     key={t}
                                     type="button"
@@ -133,12 +148,12 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                     </Button>
                     <Button
                         type="submit"
-                        disabled={addAsset.isPending || uploadRequirementAsset.isPending || !name || (type === 'Audio' && !file)}
+                        disabled={addAsset.isPending || uploadRequirementAsset.isPending || !name || (isAudioFlow && !file)}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6"
                     >
                         {addAsset.isPending || uploadRequirementAsset.isPending
-                            ? (type === 'Audio' ? 'Uploading...' : 'Saving...')
-                            : (type === 'Audio' ? 'Upload Music' : 'Save Record')}
+                            ? (isAudioFlow ? 'Uploading...' : 'Saving...')
+                            : (isAudioFlow ? 'Upload Music' : 'Save Record')}
                     </Button>
                 </div>
             </form>

@@ -28,6 +28,7 @@ export function PerformanceProfilePage() {
     const navigate = useNavigate();
     const { organizationId } = useSelection();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [uploadMode, setUploadMode] = useState<'Audio' | 'Prop' | 'Instrument' | 'Other'>('Audio');
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
     const [previewAsset, setPreviewAsset] = useState<{ url: string; title: string } | null>(null);
@@ -185,7 +186,10 @@ export function PerformanceProfilePage() {
                                                             <Button
                                                                 variant="outline"
                                                                 className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                                onClick={() => setIsUploadOpen(true)}
+                                                                onClick={() => {
+                                                                    setUploadMode('Audio');
+                                                                    setIsUploadOpen(true);
+                                                                }}
                                                             >
                                                                 <Music className="mr-1.5 h-3.5 w-3.5" />
                                                                 Upload Music
@@ -273,9 +277,28 @@ export function PerformanceProfilePage() {
                     </summary>
                     <div className="border-t border-border/50 pt-3 space-y-3">
                         {canManageActMedia ? (
-                            <Button variant="outline" className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]" onClick={() => setIsUploadOpen(true)}>
-                                Add Asset / Upload Music
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => {
+                                        setUploadMode('Audio');
+                                        setIsUploadOpen(true);
+                                    }}
+                                >
+                                    Upload Music
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => {
+                                        setUploadMode('Other');
+                                        setIsUploadOpen(true);
+                                    }}
+                                >
+                                    Add Asset Record
+                                </Button>
+                            </div>
                         ) : null}
                         {mediaRows.length > 0 ? (
                             <div className="divide-y divide-border/50">
@@ -365,6 +388,7 @@ export function PerformanceProfilePage() {
                 actId={act.id}
                 actName={act.name}
                 eventId={act.eventId}
+                initialType={uploadMode}
             /> : null}
             {canManageActCast ? <AddParticipantToActModal
                 isOpen={isAddParticipantOpen}
