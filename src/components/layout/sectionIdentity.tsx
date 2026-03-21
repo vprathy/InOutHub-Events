@@ -5,7 +5,6 @@ import {
     LayoutDashboard,
     ListOrdered,
     MonitorPlay,
-    Search,
     ShieldCheck,
     Users,
 } from 'lucide-react';
@@ -151,14 +150,7 @@ export function SectionIdentityStrip() {
     if (!section) return null;
 
     const isParticipants = section.key === 'participants';
-    const filtersOpen = searchParams.get('panel') === 'filters';
     const canManageSources = capabilities.canSyncParticipants;
-
-    const openFilters = () => {
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.set('panel', 'filters');
-        setSearchParams(nextParams, { replace: true });
-    };
 
     const openSources = () => {
         const nextParams = new URLSearchParams(searchParams);
@@ -188,18 +180,6 @@ export function SectionIdentityStrip() {
                 </button>
                 {isParticipants ? (
                     <div className="flex shrink-0 items-center gap-2 self-center">
-                        <button
-                            type="button"
-                            onClick={openFilters}
-                            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
-                                filtersOpen
-                                    ? 'border-primary/30 bg-primary/12 text-primary'
-                                    : 'border-border/60 bg-background/70 text-muted-foreground hover:border-primary/20 hover:bg-background/85 hover:text-foreground'
-                            }`}
-                            aria-label="Open search and filters"
-                        >
-                            <Search className="h-4 w-4" />
-                        </button>
                         {canManageSources ? (
                             <button
                                 type="button"
