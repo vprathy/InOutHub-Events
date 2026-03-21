@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
     useParticipantDetail,
     useAddParticipantNote,
@@ -12,7 +12,6 @@ import {
 } from '@/hooks/useParticipants';
 import { useActsQuery } from '@/hooks/useActs';
 import {
-    ArrowLeft,
     Shield,
     History as HistoryIcon,
     Database,
@@ -22,7 +21,6 @@ import {
     FileText,
     UserCircle,
     ChevronRight,
-    Edit,
     CheckCircle,
     Users,
     RefreshCw,
@@ -99,6 +97,7 @@ function getParticipantStatusLabel(status: string | null | undefined) {
 export function ParticipantProfilePage() {
     const { participantId } = useParams<{ participantId: string }>();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { organizationId } = useSelection();
     // Form and Action state
     const [showNoteForm, setShowNoteForm] = useState(false);
@@ -235,17 +234,46 @@ export function ParticipantProfilePage() {
     const visibleOperationalNotes = showAllNotes
         ? (participant.operationalNotes || [])
         : (participant.operationalNotes || []).slice(0, 4);
-    const subtitleParts = [
-        assignedActCount === 1 ? '1 performance assigned' : `${assignedActCount} performances assigned`,
-        totalAssetCount > 0 ? `${approvedAssetCount}/${totalAssetCount} files approved` : 'No required files',
-        participant.isMinor ? 'Minor profile' : 'Adult profile',
-    ];
+    const editRequested = searchParams.get('action') === 'edit-profile';
     const requirementRows = buildParticipantRequirementRows(participant);
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
     const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
     const canManageParticipantRecords = capabilities.canManageParticipantRecords;
     const canManageParticipantOps = capabilities.canManageParticipantOps;
     const canManageRoster = capabilities.canManageRoster;
+    const inactiveRecord = participant.status && participant.status !== 'active';
+    const readinessLabel = inactiveRecord
+        ? getParticipantStatusLabel(participant.status)
+        : unresolvedRequirementRows.some((row) => row.status === 'missing' || row.status === 'rejected')
+            ? 'Blocked'
+            : unresolvedRequirementRows.length > 0 || openSpecialRequestNotes.length > 0 || unresolvedNoteCount > 0
+                ? 'Needs Review'
+                : 'Cleared';
+    const readinessTone = inactiveRecord
+        ? participant.status === 'withdrawn'
+            ? 'critical'
+            : 'warning'
+        : readinessLabel === 'Blocked'
+            ? 'critical'
+            : readinessLabel === 'Needs Review'
+                ? 'warning'
+                : 'good';
+    const readinessDetail = inactiveRecord
+        ? 'This person is not active in the current event roster.'
+        : readinessLabel === 'Blocked'
+            ? `${unresolvedRequirementRows.length} blocker${unresolvedRequirementRows.length === 1 ? '' : 's'} need action now.`
+            : readinessLabel === 'Needs Review'
+                ? `${Math.max(unresolvedRequirementRows.length, openSpecialRequestNotes.length, unresolvedNoteCount)} item${Math.max(unresolvedRequirementRows.length, openSpecialRequestNotes.length, unresolvedNoteCount) === 1 ? '' : 's'} still need review.`
+                : 'No immediate participant blockers are open.';
+
+    const closeEditProfile = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        if (nextParams.get('action') === 'edit-profile') {
+            nextParams.delete('action');
+            setSearchParams(nextParams, { replace: true });
+        }
+        setShowEditModal(false);
+    };
 
     const handleRequirementAction = (row: RequirementRow) => {
         if (row.target === 'assets') {
@@ -277,65 +305,39 @@ export function ParticipantProfilePage() {
                 </div>
             )}
 
-            <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 space-y-4 px-4 pb-12 duration-500 md:px-0">
-                <button
-                    onClick={() => navigate('/participants')}
-                    className="inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Participants
-                </button>
-
+            <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 space-y-3 px-4 pb-12 duration-500 md:px-0">
                 <PageHeader
                     title={`${participant.firstName} ${participant.lastName}`}
-                    subtitle={subtitleParts.join(' • ')}
+                    subtitle={undefined}
                     actions={
-                        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                            {canManageParticipantRecords ? (
-                                <Button
-                                    className="min-h-11 rounded-xl border border-border/50 px-4 text-[10px] font-bold uppercase tracking-[0.18em]"
-                                    variant="outline"
-                                    onClick={() => setShowEditModal(true)}
-                                >
-                                    <Edit className="mr-1.5 h-3.5 w-3.5" />
-                                    Edit Profile
-                                </Button>
-                            ) : null}
-                            <div className="col-span-2 flex justify-end sm:col-span-1">
-                                <ActionMenu
-                                    options={[
-                                        {
-                                            label: 'View Record History',
-                                            onClick: () => setShowHistoryModal(true),
-                                            icon: <HistoryIcon className="h-4 w-4" />,
-                                        },
-                                    ]}
-                                />
-                            </div>
+                        <div className="flex justify-end">
+                            <ActionMenu
+                                options={[
+                                    {
+                                        label: 'View Record History',
+                                        onClick: () => setShowHistoryModal(true),
+                                        icon: <HistoryIcon className="h-4 w-4" />,
+                                    },
+                                ]}
+                            />
                         </div>
                     }
                     status={
                         <div className="surface-section-participants grid grid-cols-1 gap-2 rounded-2xl p-3 xl:grid-cols-[1.15fr,1fr,1fr]">
                             <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Roster Status</p>
-                                <select
-                                    value={participant.status || 'active'}
-                                    onChange={(e) => updateStatus.mutate(e.target.value as any)}
-                                    disabled={!canManageParticipantRecords}
-                                    className={`mt-2 min-h-11 w-full rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
-                                        ? 'border-destructive/20 bg-destructive/10 text-destructive'
-                                        : participant.status === 'missing_from_source'
-                                            ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
-                                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
-                                        }`}
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="withdrawn">Withdrawn</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="refunded">Refunded</option>
-                                    <option value="missing_from_source">Missing From Source</option>
-                                </select>
-                                <p className="mt-2 text-xs text-muted-foreground">{getParticipantStatusLabel(participant.status)}</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Readiness State</p>
+                                <div className="mt-2 flex min-h-11 items-center rounded-xl bg-background/80 px-3">
+                                    <p className={`text-sm font-black ${
+                                        readinessTone === 'critical'
+                                            ? 'text-destructive'
+                                            : readinessTone === 'warning'
+                                                ? 'text-orange-600'
+                                                : 'text-emerald-600'
+                                    }`}>
+                                        {readinessLabel}
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">{readinessDetail}</p>
                             </div>
 
                             <div className="rounded-2xl border border-indigo-500/10 bg-background/80 p-3">
@@ -369,7 +371,7 @@ export function ParticipantProfilePage() {
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Operational Snapshot</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
-                                        {assignedActCount === 0 ? 'Needs Placement' : `${assignedActCount} Performance${assignedActCount > 1 ? 's' : ''}`}
+                                        {assignedActCount === 0 ? 'Needs Placement' : `${assignedActCount} Assignment${assignedActCount > 1 ? 's' : ''}`}
                                     </Badge>
                                     <Badge variant="outline" className="min-h-8 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.14em]">
                                         {approvedAssetCount}/{totalAssetCount} Files Ready
@@ -382,7 +384,7 @@ export function ParticipantProfilePage() {
                                     </Badge>
                                 </div>
                                 <p className="mt-2 text-xs text-muted-foreground">
-                                    {participant.isMinor ? 'Minor-readiness stays visible at the top of the profile.' : 'This profile is optimized for quick operational follow-up.'}
+                                    {participant.isMinor ? 'Clearance and guardian status stay visible in the first viewport.' : 'This screen is optimized for fast operational follow-up, not record browsing.'}
                                 </p>
                             </div>
                         </div>
@@ -801,6 +803,32 @@ export function ParticipantProfilePage() {
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
+                                    <div className="mt-4 rounded-xl border border-border/50 bg-background/70 p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Record Status</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">Administrative roster state for this person.</p>
+                                        {canManageParticipantRecords ? (
+                                            <select
+                                                value={participant.status || 'active'}
+                                                onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                                                className={`mt-3 min-h-11 w-full rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
+                                                    ? 'border-destructive/20 bg-destructive/10 text-destructive'
+                                                    : participant.status === 'missing_from_source'
+                                                        ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
+                                                        : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+                                                    }`}
+                                            >
+                                                <option value="active">Active</option>
+                                                <option value="withdrawn">Withdrawn</option>
+                                                <option value="inactive">Inactive</option>
+                                                <option value="refunded">Refunded</option>
+                                                <option value="missing_from_source">Missing From Source</option>
+                                            </select>
+                                        ) : (
+                                            <div className="mt-3 flex min-h-11 items-center rounded-xl bg-background px-3">
+                                                <p className="text-sm font-black text-foreground">{getParticipantStatusLabel(participant.status)}</p>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="rounded-xl border border-border/50 bg-background/70 p-3">
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
@@ -985,8 +1013,8 @@ export function ParticipantProfilePage() {
             {/* Edit Participant Modal */}
             {participant && (
                 <EditParticipantModal
-                    isOpen={showEditModal}
-                    onClose={() => setShowEditModal(false)}
+                    isOpen={showEditModal || editRequested}
+                    onClose={closeEditProfile}
                     participant={participant}
                 />
             )}

@@ -2,6 +2,7 @@ import {
     Calendar,
     ClipboardCheck,
     Database,
+    Edit,
     LayoutDashboard,
     ListOrdered,
     MonitorPlay,
@@ -143,6 +144,7 @@ export function useSectionIdentity() {
 
 export function SectionIdentityStrip() {
     const section = useSectionIdentity();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const { eventId } = useSelection();
     const capabilities = useEventCapabilities(eventId || null, null);
@@ -150,11 +152,19 @@ export function SectionIdentityStrip() {
     if (!section) return null;
 
     const isParticipants = section.key === 'participants';
+    const isParticipantDetail = isParticipants && /^\/participants\/[^/]+$/.test(location.pathname);
     const canManageSources = capabilities.canSyncParticipants;
+    const canEditParticipant = capabilities.canManageParticipantRecords;
 
     const openSources = () => {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set('action', 'import');
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const openParticipantEdit = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('action', 'edit-profile');
         setSearchParams(nextParams, { replace: true });
     };
 
@@ -180,7 +190,17 @@ export function SectionIdentityStrip() {
                 </button>
                 {isParticipants ? (
                     <div className="flex shrink-0 items-center gap-2 self-center">
-                        {canManageSources ? (
+                        {isParticipantDetail ? canEditParticipant ? (
+                            <button
+                                type="button"
+                                onClick={openParticipantEdit}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                aria-label="Edit this profile"
+                            >
+                                <Edit className="h-4 w-4 text-primary" />
+                                <span>Edit Profile</span>
+                            </button>
+                        ) : null : canManageSources ? (
                             <button
                                 type="button"
                                 onClick={openSources}
