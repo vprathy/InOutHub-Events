@@ -195,6 +195,28 @@ export function ParticipantProfilePage() {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
+    const safeParticipant = participant ?? null;
+    const assignedActCount = safeParticipant?.acts?.length || 0;
+    const unresolvedNoteCount = safeParticipant?.operationalNotes?.filter(note => !note.isResolved).length || 0;
+    const specialRequestNotes = safeParticipant?.operationalNotes?.filter((note) => note.category === 'special_request') || [];
+    const openSpecialRequestNotes = specialRequestNotes.filter((note) => !note.isResolved);
+    const resolvedSpecialRequestNotes = specialRequestNotes.filter((note) => note.isResolved);
+    const editRequested = searchParams.get('action') === 'edit-profile';
+    const requirementRows = safeParticipant ? buildParticipantRequirementRows(safeParticipant) : [];
+    const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
+    const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
+
+    useEffect(() => {
+        const defaultKey = openSpecialRequestNotes.length > 0
+            ? 'special-request'
+            : nextRequirementRow?.key || requirementRows[0]?.key || null;
+
+        setActiveActionKey((current) => {
+            if (!defaultKey) return null;
+            return current ?? defaultKey;
+        });
+    }, [openSpecialRequestNotes.length, nextRequirementRow?.key, requirementRows]);
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -214,15 +236,6 @@ export function ParticipantProfilePage() {
         );
     }
 
-    const assignedActCount = participant.acts?.length || 0;
-    const unresolvedNoteCount = participant.operationalNotes?.filter(note => !note.isResolved).length || 0;
-    const specialRequestNotes = participant.operationalNotes?.filter((note) => note.category === 'special_request') || [];
-    const openSpecialRequestNotes = specialRequestNotes.filter((note) => !note.isResolved);
-    const resolvedSpecialRequestNotes = specialRequestNotes.filter((note) => note.isResolved);
-    const editRequested = searchParams.get('action') === 'edit-profile';
-    const requirementRows = buildParticipantRequirementRows(participant);
-    const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
-    const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
     const canManageParticipantRecords = capabilities.canManageParticipantRecords;
     const canManageParticipantOps = capabilities.canManageParticipantOps;
     const canManageRoster = capabilities.canManageRoster;
@@ -259,17 +272,6 @@ export function ParticipantProfilePage() {
         }
         setShowEditModal(false);
     };
-
-    useEffect(() => {
-        const defaultKey = openSpecialRequestNotes.length > 0
-            ? 'special-request'
-            : nextRequirementRow?.key || requirementRows[0]?.key || null;
-
-        setActiveActionKey((current) => {
-            if (!defaultKey) return null;
-            return current ?? defaultKey;
-        });
-    }, [openSpecialRequestNotes.length, nextRequirementRow?.key, requirementRows]);
 
     const toggleActionKey = (key: string) => {
         setActiveActionKey((current) => current === key ? null : key);
