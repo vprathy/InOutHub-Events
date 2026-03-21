@@ -283,40 +283,52 @@ export function PerformanceProfilePage() {
                                 Add Media
                             </Button>
                         ) : null}
-                        {mediaRows.length > 0 ? mediaRows.map((row) => {
-                            const meta = getRequirementStatusMeta(row.status as any);
-                            return (
-                                <button
-                                    key={row.key}
-                                    className="flex min-h-11 w-full items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-left transition-colors hover:bg-accent/20"
-                                    onClick={() => {
-                                        if (row.policyCode === 'ACT_INTRO') scrollToIntroBuilder();
-                                        else if (fileBackedRequirements[0]?.fileUrl) setPreviewAsset({ url: fileBackedRequirements[0].fileUrl, title: fileBackedRequirements[0].requirementType });
-                                    }}
-                                >
-                                    <span className="min-w-0 truncate text-sm font-bold text-foreground">{row.label}</span>
-                                    <span className={`ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
-                                        meta.tone === 'critical' ? 'text-destructive' : meta.tone === 'warning' ? 'text-orange-600' : meta.tone === 'good' ? 'text-emerald-600' : 'text-muted-foreground'
-                                    }`}>{meta.label}</span>
-                                </button>
-                            );
-                        }) : null}
-                        {(act.assets || []).length > 0 ? (act.assets || []).map((asset: any) => (
-                            <div key={asset.id} className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
-                                <span className="min-w-0 truncate text-sm font-bold text-foreground">{asset.assetName}</span>
-                                <span className="ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Ready</span>
+                        {mediaRows.length > 0 ? (
+                            <div className="divide-y divide-border/50">
+                                {mediaRows.map((row) => {
+                                    const meta = getRequirementStatusMeta(row.status as any);
+                                    return (
+                                        <button
+                                            key={row.key}
+                                            className="flex min-h-11 w-full items-center justify-between py-2 text-left transition-colors hover:bg-accent/20"
+                                            onClick={() => {
+                                                if (row.policyCode === 'ACT_INTRO') scrollToIntroBuilder();
+                                                else if (fileBackedRequirements[0]?.fileUrl) setPreviewAsset({ url: fileBackedRequirements[0].fileUrl, title: fileBackedRequirements[0].requirementType });
+                                            }}
+                                        >
+                                            <span className="min-w-0 truncate text-sm font-bold text-foreground">{row.label}</span>
+                                            <span className={`ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
+                                                meta.tone === 'critical' ? 'text-destructive' : meta.tone === 'warning' ? 'text-orange-600' : meta.tone === 'good' ? 'text-emerald-600' : 'text-muted-foreground'
+                                            }`}>{meta.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        )) : null}
-                        {fileBackedRequirements.length > 0 ? fileBackedRequirements.map((requirement: any) => (
-                            <button
-                                key={`preview-${requirement.id}`}
-                                onClick={() => setPreviewAsset({ url: requirement.fileUrl, title: requirement.requirementType })}
-                                className="flex min-h-11 w-full items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-left transition-colors hover:bg-accent/20"
-                            >
-                                <span className="min-w-0 truncate text-sm font-bold text-foreground">{requirement.requirementType.replace(/_/g, ' ')}</span>
-                                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            </button>
-                        )) : null}
+                        ) : null}
+                        {(act.assets || []).length > 0 ? (
+                            <div className="divide-y divide-border/50">
+                                {(act.assets || []).map((asset: any) => (
+                                    <div key={asset.id} className="flex min-h-11 items-center justify-between py-2">
+                                        <span className="min-w-0 truncate text-sm font-bold text-foreground">{asset.assetName}</span>
+                                        <span className="ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Ready</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
+                        {fileBackedRequirements.length > 0 ? (
+                            <div className="divide-y divide-border/50">
+                                {fileBackedRequirements.map((requirement: any) => (
+                                    <button
+                                        key={`preview-${requirement.id}`}
+                                        onClick={() => setPreviewAsset({ url: requirement.fileUrl, title: requirement.requirementType })}
+                                        className="flex min-h-11 w-full items-center justify-between py-2 text-left transition-colors hover:bg-accent/20"
+                                    >
+                                        <span className="min-w-0 truncate text-sm font-bold text-foreground">{requirement.requirementType.replace(/_/g, ' ')}</span>
+                                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                         {mediaRows.length === 0 && (act.assets || []).length === 0 && fileBackedRequirements.length === 0 ? (
                             <p className="py-4 text-center text-sm text-muted-foreground">No media records have been added yet.</p>
                         ) : null}
@@ -420,7 +432,7 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                 </summary>
-                <div className="border-t border-border/50 p-4 space-y-4">
+                <div className="border-t border-border/50 pt-4 space-y-4">
                     {canManageReadiness ? (
                         <div className="flex flex-wrap gap-2">
                             <Button className="min-h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowPracticeModal(true)}>
@@ -439,7 +451,7 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Practice</p>
                         {act.readinessSummary?.nextPractice ? (
-                            <div className="mt-2 space-y-2 rounded-xl border border-border/50 bg-background/70 p-3">
+                            <div className="mt-2 space-y-2">
                                 <p className="text-sm font-bold text-foreground">{act.readinessSummary.nextPractice.venueName}</p>
                                 <p className="text-sm text-muted-foreground">
                                     {formatReadinessDate(act.readinessSummary.nextPractice.startsAt)}
@@ -459,9 +471,9 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Checklist ({act.readinessItems?.length || 0})</p>
                         {(act.readinessItems || []).length > 0 ? (
-                            <div className="mt-2 space-y-1">
+                            <div className="mt-2 divide-y divide-border/50">
                                 {act.readinessItems.map((item: any) => (
-                                    <div key={item.id} className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                    <div key={item.id} className="flex min-h-11 items-center justify-between py-2">
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-bold text-foreground">{item.title}</p>
                                             {item.ownerLabel ? <p className="text-xs text-muted-foreground">{item.ownerLabel}</p> : null}
@@ -481,9 +493,9 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Issues ({(act.readinessIssues || []).filter((i: any) => i.status !== 'resolved').length} open)</p>
                         {(act.readinessIssues || []).length > 0 ? (
-                            <div className="mt-2 space-y-1">
+                            <div className="mt-2 divide-y divide-border/50">
                                 {act.readinessIssues.map((issue: any) => (
-                                    <div key={issue.id} className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                                    <div key={issue.id} className="flex min-h-11 items-center justify-between py-2">
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-bold text-foreground">{issue.title}</p>
                                             {issue.ownerLabel ? <p className="text-xs text-muted-foreground">{issue.ownerLabel}</p> : null}
@@ -627,7 +639,7 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
 
     return (
         <button
-            className="flex min-h-11 w-full items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-left transition-colors hover:bg-accent/20"
+            className="flex min-h-11 w-full items-center justify-between py-2 text-left transition-colors hover:bg-accent/20"
             onClick={() => navigate(`/participants/${p.participantId}`)}
         >
             <div className="flex items-center gap-3 min-w-0">
@@ -635,8 +647,10 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
                     {p.firstName[0]}{p.lastName[0]}
                 </div>
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-foreground">{p.firstName} {p.lastName}</p>
-                    <p className="text-xs text-muted-foreground">{p.role || 'Performer'}</p>
+                    <p className="truncate text-sm font-bold text-foreground">
+                        {p.firstName} {p.lastName}
+                        <span className="font-medium text-muted-foreground"> · {p.role || 'Performer'}</span>
+                    </p>
                 </div>
             </div>
             <span className={`ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${approvedPhotos > 0 ? 'text-emerald-600' : pendingPhotos > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>
