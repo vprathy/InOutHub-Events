@@ -116,6 +116,10 @@ export function ParticipantProfilePage() {
     const [uploadType, setUploadType] = useState<'waiver' | 'photo' | 'intro_media' | 'other'>('other');
     const [uploadNotes, setUploadNotes] = useState('');
     const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+    const requirementsSectionRef = useRef<HTMLDivElement | null>(null);
+    const filesSectionRef = useRef<HTMLDivElement | null>(null);
+    const assignmentsSectionRef = useRef<HTMLDivElement | null>(null);
+    const notesSectionRef = useRef<HTMLDivElement | null>(null);
 
     const { data: participant, isLoading, error } = useParticipantDetail(participantId || '');
     const capabilities = useEventCapabilities(participant?.eventId || null, organizationId || null);
@@ -197,6 +201,10 @@ export function ParticipantProfilePage() {
         setSelectedActId('');
     };
 
+    const scrollToSection = (ref: { current: HTMLDivElement | null }) => {
+        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -234,14 +242,6 @@ export function ParticipantProfilePage() {
     const canManageParticipantRecords = capabilities.canManageParticipantRecords;
     const canManageParticipantOps = capabilities.canManageParticipantOps;
     const canManageRoster = capabilities.canManageRoster;
-    const requirementsSectionRef = useRef<HTMLDivElement | null>(null);
-    const filesSectionRef = useRef<HTMLDivElement | null>(null);
-    const assignmentsSectionRef = useRef<HTMLDivElement | null>(null);
-    const notesSectionRef = useRef<HTMLDivElement | null>(null);
-
-    const scrollToSection = (ref: { current: HTMLDivElement | null }) => {
-        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
 
     const handleRequirementAction = (row: RequirementRow) => {
         if (row.target === 'assets') {
