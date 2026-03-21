@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Button } from '@/components/ui/Button';
@@ -6,16 +6,67 @@ import { Button } from '@/components/ui/Button';
 export function PwaUpdateBanner() {
     const [dismissed, setDismissed] = useState(false);
     const version = import.meta.env.VITE_APP_VERSION || '1.0.0';
+    const autoRefreshTimeoutRef = useRef<number | null>(null);
+    const updateCheckIntervalRef = useRef<number | null>(null);
     const {
         needRefresh: [needRefresh],
         updateServiceWorker,
-    } = useRegisterSW();
+    } = useRegisterSW({
+        onRegisteredSW(_swUrl, registration) {
+            if (!registration || updateCheckIntervalRef.current !== null) {
+                return;
+            }
+
+            // Poll for a new worker so long-lived PWA sessions refresh without manual intervention.
+            updateCheckIntervalRef.current = window.setInterval(() => {
+                void registration.update();
+            }, 60_000);
+        },
+    });
 
     useEffect(() => {
         if (needRefresh) {
             setDismissed(false);
         }
     }, [needRefresh, version]);
+
+    useEffect(() => {
+        if (!needRefresh) {
+            if (autoRefreshTimeoutRef.current !== null) {
+                window.clearTimeout(autoRefreshTimeoutRef.current);
+                autoRefreshTimeoutRef.current = null;
+            }
+            return;
+        }
+
+        const appliedVersion = sessionStorage.getItem('inouthub-pwa-version');
+        if (appliedVersion === version) {
+            return;
+        }
+
+        autoRefreshTimeoutRef.current = window.setTimeout(() => {
+            sessionStorage.setItem('inouthub-pwa-version', version);
+            void updateServiceWorker(true);
+        }, 1500);
+
+        return () => {
+            if (autoRefreshTimeoutRef.current !== null) {
+                window.clearTimeout(autoRefreshTimeoutRef.current);
+                autoRefreshTimeoutRef.current = null;
+            }
+        };
+    }, [needRefresh, updateServiceWorker, version]);
+
+    useEffect(() => {
+        return () => {
+            if (autoRefreshTimeoutRef.current !== null) {
+                window.clearTimeout(autoRefreshTimeoutRef.current);
+            }
+            if (updateCheckIntervalRef.current !== null) {
+                window.clearInterval(updateCheckIntervalRef.current);
+            }
+        };
+    }, []);
 
     if (!needRefresh || dismissed) return null;
 
