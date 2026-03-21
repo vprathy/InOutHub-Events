@@ -66,6 +66,7 @@ export default function DashboardPage() {
     const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const categorySentinels = useRef<Record<string, HTMLDivElement | null>>({});
+    const categoryCardsRef = useRef<Array<{ key: string; items: Array<{ id: string }> }>>([]);
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false } = useIsSuperAdmin();
@@ -157,6 +158,29 @@ export default function DashboardPage() {
         setVisibleItemCounts((current) =>
             current[expandedCategory] ? current : { ...current, [expandedCategory]: CATEGORY_INCREMENT }
         );
+    }, [expandedCategory]);
+    useEffect(() => {
+        if (!expandedCategory) return;
+        const sentinel = categorySentinels.current[expandedCategory];
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const [entry] = entries;
+                if (!entry?.isIntersecting) return;
+                setVisibleItemCounts((current) => ({
+                    ...current,
+                    [expandedCategory]: Math.min(
+                        (current[expandedCategory] || CATEGORY_INCREMENT) + CATEGORY_INCREMENT,
+                        categoryCardsRef.current.find((category) => category.key === expandedCategory)?.items.length || CATEGORY_INCREMENT
+                    ),
+                }));
+            },
+            { root: null, rootMargin: '120px 0px' }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
     }, [expandedCategory]);
 
     const { data: participantRequirementPolicies = [] } = useQuery({
@@ -484,30 +508,7 @@ export default function DashboardPage() {
             };
         })
         .filter((category) => category.count > 0);
-
-    useEffect(() => {
-        if (!expandedCategory) return;
-        const sentinel = categorySentinels.current[expandedCategory];
-        if (!sentinel) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const [entry] = entries;
-                if (!entry?.isIntersecting) return;
-                setVisibleItemCounts((current) => ({
-                    ...current,
-                    [expandedCategory]: Math.min(
-                        (current[expandedCategory] || CATEGORY_INCREMENT) + CATEGORY_INCREMENT,
-                        categoryCards.find((category) => category.key === expandedCategory)?.items.length || CATEGORY_INCREMENT
-                    ),
-                }));
-            },
-            { root: null, rootMargin: '120px 0px' }
-        );
-
-        observer.observe(sentinel);
-        return () => observer.disconnect();
-    }, [expandedCategory, categoryCards]);
+    categoryCardsRef.current = categoryCards;
 
     return (
         <div className="space-y-5 pt-3 pb-12 sm:pt-4">
