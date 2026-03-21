@@ -1,8 +1,7 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useActDetail, useAddActReadinessPractice, useAddActReadinessItem, useAddActReadinessIssue } from '@/hooks/useActs';
 import {
     Settings,
-    AlertCircle,
     UserPlus,
     Music,
     ChevronRight,
@@ -45,14 +44,7 @@ export function PerformanceProfilePage() {
     }
 
     if (!act) {
-        return (
-            <div className="p-8 text-center bg-destructive/10 rounded-xl border border-destructive/20 max-w-2xl mx-auto mt-12">
-                <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-                <h2 className="text-xl font-bold mb-2">Performance Not Found</h2>
-                <p className="text-muted-foreground mb-6">The record might have been deleted or you may not have permission to view it.</p>
-                <Button onClick={() => navigate('/performances')}>Return to Performances</Button>
-            </div>
-        );
+        return <Navigate to="/performances" replace />;
     }
 
     const requirementRows = buildActRequirementRows(act);
