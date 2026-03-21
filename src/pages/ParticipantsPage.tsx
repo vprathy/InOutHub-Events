@@ -70,6 +70,11 @@ export default function ParticipantsPage() {
         }
     }, [searchParams]);
     const isActionsSheetOpen = searchParams.get('panel') === 'filters';
+    const openActionsSheet = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('panel', 'filters');
+        setSearchParams(nextParams, { replace: true });
+    };
 
     const updateFilter = (nextFilter: typeof activeFilter) => {
         setActiveFilter(nextFilter);
@@ -233,6 +238,44 @@ export default function ParticipantsPage() {
                                 className="min-h-[80px]"
                             />
                         ))}
+                    </div>
+
+                    <div className="surface-panel flex items-center gap-2 rounded-[1.1rem] border px-2.5 py-2">
+                        <label className="relative min-w-0 flex-1">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search people"
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                className="min-h-[44px] w-full rounded-[0.95rem] border border-border/70 bg-background/70 pl-9 pr-3 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary/35"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={openActionsSheet}
+                            className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-[0.95rem] border border-border/70 bg-background/70 px-3 text-sm font-semibold text-foreground transition-colors hover:bg-accent/40"
+                            aria-label="Open search, sort, and filters"
+                        >
+                            <Funnel className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Filter</span>
+                            {activeFilter !== 'all' ? (
+                                <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-primary">
+                                    {quickFilters.find((filter) => filter.key === activeFilter)?.count ?? 0}
+                                </span>
+                            ) : null}
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between px-1 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                        <span>
+                            {filteredParticipants?.length || 0} showing
+                        </span>
+                        <span>
+                            {activeFilter === 'all'
+                                ? 'All participants'
+                                : quickFilters.find((filter) => filter.key === activeFilter)?.label}
+                        </span>
                     </div>
 
                     <div
