@@ -147,6 +147,14 @@ export const router = createBrowserRouter([
                     </LazyRoute>
                 ),
             },
+            {
+                path: 'console',
+                element: <Navigate to="/stage-console" replace />,
+            },
+            {
+                path: '*',
+                element: <Navigate to="/dashboard" replace />,
+            },
         ],
     },
     {
@@ -196,5 +204,9 @@ export const router = createBrowserRouter([
                 element: <EventSelectionPage />,
             },
         ],
+    },
+    {
+        path: '*',
+        element: <Navigate to="/" replace />,
     },
 ]);
