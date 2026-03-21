@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useAddActAsset } from '@/hooks/useActs';
+import { useAddActAsset, useUploadActRequirementAsset } from '@/hooks/useActs';
 import { Music, FileType, MessageSquare } from 'lucide-react';
 
 interface UploadActAssetModalProps {
@@ -15,21 +15,34 @@ interface UploadActAssetModalProps {
 
 export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }: UploadActAssetModalProps) {
     const addAsset = useAddActAsset(eventId);
+    const uploadRequirementAsset = useUploadActRequirementAsset(eventId);
     const [name, setName] = useState('');
     const [type, setType] = useState('Audio');
     const [notes, setNotes] = useState('');
+    const [file, setFile] = useState<File | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await addAsset.mutateAsync({
-                actId,
-                assetName: name,
-                assetType: type,
-                notes: notes || undefined
-            });
+            if (type === 'Audio') {
+                if (!file) return;
+                await uploadRequirementAsset.mutateAsync({
+                    actId,
+                    file,
+                    requirementType: 'Audio',
+                    description: notes || name || 'Uploaded performance music file',
+                });
+            } else {
+                await addAsset.mutateAsync({
+                    actId,
+                    assetName: name,
+                    assetType: type,
+                    notes: notes || undefined
+                });
+            }
             setName('');
             setNotes('');
+            setFile(null);
             onClose();
         } catch (error) {
             console.error('Failed to add act asset:', error);
@@ -41,7 +54,9 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
             <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="space-y-4">
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                        This creates an act asset record only. If you need performer photos or documents, use the participant workspace upload flow instead.
+                        {type === 'Audio'
+                            ? 'Upload a music file here to satisfy the performance music requirement. Performer photos and participant documents still belong in the participant workspace.'
+                            : 'This creates an act asset record only. Performer photos and participant documents still belong in the participant workspace.'}
                     </div>
 
                     <div className="space-y-2">
@@ -57,6 +72,24 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                             className="bg-muted/30 border-border/50"
                         />
                     </div>
+
+                    {type === 'Audio' ? (
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center">
+                                <Music className="w-3 h-3 mr-2 text-primary" />
+                                Music File
+                            </label>
+                            <input
+                                type="file"
+                                accept="audio/*"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="block w-full rounded-xl border border-border bg-muted/30 px-3 py-3 text-sm font-medium file:mr-4 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-bold file:uppercase file:tracking-widest file:text-primary"
+                            />
+                            <p className="text-[10px] font-medium text-muted-foreground">
+                                This uploads the file and attaches it to the `Music File` requirement as submitted media.
+                            </p>
+                        </div>
+                    ) : null}
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center">
@@ -100,10 +133,12 @@ export function UploadActAssetModal({ isOpen, onClose, actId, actName, eventId }
                     </Button>
                     <Button
                         type="submit"
-                        disabled={addAsset.isPending || !name}
+                        disabled={addAsset.isPending || uploadRequirementAsset.isPending || !name || (type === 'Audio' && !file)}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6"
                     >
-                        {addAsset.isPending ? 'Saving...' : 'Save Record'}
+                        {addAsset.isPending || uploadRequirementAsset.isPending
+                            ? (type === 'Audio' ? 'Uploading...' : 'Saving...')
+                            : (type === 'Audio' ? 'Upload Music' : 'Save Record')}
                     </Button>
                 </div>
             </form>

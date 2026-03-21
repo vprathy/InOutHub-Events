@@ -694,6 +694,86 @@ export function useAddActAsset(eventId: string) {
     });
 }
 
+export function useUploadActRequirementAsset(eventId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            actId,
+            file,
+            requirementType,
+            description,
+        }: {
+            actId: string;
+            file: File;
+            requirementType: 'Audio';
+            description?: string;
+        }) => {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+            const filePath = `acts/${actId}/${Date.now()}-${safeName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('participant-assets')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false,
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicData } = supabase.storage
+                .from('participant-assets')
+                .getPublicUrl(filePath);
+
+            const { data: existingRequirement, error: existingError } = await supabase
+                .from('act_requirements')
+                .select('id')
+                .eq('act_id', actId)
+                .eq('requirement_type', requirementType)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (existingError) throw existingError;
+
+            if (existingRequirement?.id) {
+                const { data, error } = await supabase
+                    .from('act_requirements')
+                    .update({
+                        file_url: publicData.publicUrl,
+                        description: description || 'Uploaded performance music file',
+                        fulfilled: false,
+                    })
+                    .eq('id', existingRequirement.id)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return data;
+            }
+
+            const { data, error } = await supabase
+                .from('act_requirements')
+                .insert([{
+                    act_id: actId,
+                    requirement_type: requirementType,
+                    description: description || 'Uploaded performance music file',
+                    file_url: publicData.publicUrl,
+                    fulfilled: false,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['act'] });
+        },
+    });
+}
+
 export function useRemoveActAsset(eventId: string) {
     const queryClient = useQueryClient();
 
