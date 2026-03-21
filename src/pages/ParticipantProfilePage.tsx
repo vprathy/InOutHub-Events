@@ -420,6 +420,49 @@ export function ParticipantProfilePage() {
                             />
                         )}
 
+                        <div className="surface-panel rounded-[1.2rem] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="space-y-1">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground flex items-center">
+                                        <CheckCircle className="mr-2 h-4 w-4 text-primary" />
+                                        Requirement Checklist
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Policy-driven participant follow-up stays visible here even when no upload template is attached.
+                                    </p>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] font-bold uppercase tabular-nums">
+                                    {requirementRows.length}
+                                </Badge>
+                            </div>
+
+                            {requirementRows.length > 0 ? (
+                                <div className="mt-4 space-y-2">
+                                    {requirementRows.map((row) => {
+                                        const meta = getRequirementStatusMeta(row.status);
+                                        return (
+                                            <OperationalResponseCard
+                                                key={row.key}
+                                                label={row.label}
+                                                detail={row.detail}
+                                                count={meta.label}
+                                                tone={meta.tone === 'critical' ? 'critical' : meta.tone === 'warning' ? 'warning' : meta.tone === 'good' ? 'good' : 'default'}
+                                                action={row.actionLabel}
+                                                onClick={() => handleRequirementAction(row)}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="mt-4">
+                                    <OperationalEmptyResponse
+                                        title="No Participant Requirements"
+                                        detail="This event has not assigned any participant-level requirements to this profile yet."
+                                    />
+                                </div>
+                            )}
+                        </div>
+
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr,1.05fr]">
                             <div className="space-y-4">
                                 <div className="surface-panel rounded-[1.2rem] p-4">
@@ -831,7 +874,7 @@ export function ParticipantProfilePage() {
                                 <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-5 text-center">
                                     <h4 className="text-sm font-black text-foreground mb-1 uppercase tracking-widest">No Templated Tasks</h4>
                                     <p className="text-xs text-muted-foreground/60 max-w-[280px] mx-auto">
-                                        This event hasn't defined any global requirements for participants yet.
+                                        No document upload templates are attached to this participant yet.
                                     </p>
                                 </div>
                             )}
