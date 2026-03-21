@@ -282,7 +282,7 @@ export function PerformanceProfilePage() {
                     <div className="border-t border-border/50 pt-3 space-y-3">
                         {canManageActMedia ? (
                             <Button variant="outline" className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]" onClick={() => setIsUploadOpen(true)}>
-                                Add Media
+                                Add Asset / Upload Music
                             </Button>
                         ) : null}
                         {mediaRows.length > 0 ? (

@@ -713,7 +713,7 @@ export function useUploadActRequirementAsset(eventId: string) {
             const filePath = `acts/${actId}/${Date.now()}-${safeName}`;
 
             const { error: uploadError } = await supabase.storage
-                .from('participant-assets')
+                .from('performance-assets')
                 .upload(filePath, file, {
                     cacheControl: '3600',
                     upsert: false,
@@ -722,7 +722,7 @@ export function useUploadActRequirementAsset(eventId: string) {
             if (uploadError) throw uploadError;
 
             const { data: publicData } = supabase.storage
-                .from('participant-assets')
+                .from('performance-assets')
                 .getPublicUrl(filePath);
 
             const { data: existingRequirement, error: existingError } = await supabase
@@ -771,6 +771,62 @@ export function useUploadActRequirementAsset(eventId: string) {
             queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
             queryClient.invalidateQueries({ queryKey: ['act'] });
         },
+    });
+}
+
+export function useUploadActAsset(eventId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            actId,
+            file,
+            assetName,
+            assetType,
+            notes,
+        }: {
+            actId: string;
+            file: File;
+            assetName: string;
+            assetType: string;
+            notes?: string;
+        }) => {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+            const filePath = `assets/${actId}/${Date.now()}-${safeName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('performance-assets')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false,
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicData } = supabase.storage
+                .from('performance-assets')
+                .getPublicUrl(filePath);
+
+            const { data, error } = await supabase
+                .from('act_assets')
+                .insert([{
+                    act_id: actId,
+                    asset_name: assetName,
+                    asset_type: assetType,
+                    file_url: publicData.publicUrl,
+                    status: 'uploaded',
+                    notes: notes
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['act'] });
+        }
     });
 }
 
