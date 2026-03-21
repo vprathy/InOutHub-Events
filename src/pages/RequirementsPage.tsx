@@ -317,6 +317,11 @@ export default function RequirementsPage() {
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'org', organizationId, subjectType] }),
                 queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'event', eventId, subjectType] }),
+                queryClient.invalidateQueries({ queryKey: ['participants', eventId] }),
+                queryClient.invalidateQueries({ queryKey: ['participant'] }),
+                queryClient.invalidateQueries({ queryKey: ['dashboard-radar', eventId] }),
+                queryClient.invalidateQueries({ queryKey: ['dashboard-special-requests', eventId] }),
+                queryClient.invalidateQueries({ queryKey: ['dashboard-participant-requirement-policies', eventId] }),
             ]);
         },
         onError: (error: Error) => {

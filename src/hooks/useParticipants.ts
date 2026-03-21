@@ -42,6 +42,13 @@ function mapRequirementAssignments(rows: any[] | null | undefined) {
     }));
 }
 
+function getPolicyBackedAssetType(policy: { code?: string | null; category?: string | null; input_type?: string | null }) {
+    if (policy.code === 'participant_waiver' || policy.category === 'waiver') return 'waiver';
+    if (policy.code === 'participant_photo' || policy.category === 'media') return 'photo';
+    if (policy.input_type === 'file_upload') return 'other';
+    return null;
+}
+
 export function useParticipantsQuery(eventId: string) {
     return useQuery({
         queryKey: ['participants', eventId],
@@ -360,6 +367,50 @@ export function useParticipantDetail(participantId: string) {
                     } : null
                 };
             });
+            const policyBackedTemplatedAssets = activeRequirementPolicies
+                .filter((policy: any) => policy.input_type === 'file_upload')
+                .filter((policy: any) => {
+                    const assetType = getPolicyBackedAssetType(policy);
+                    if (!assetType) return false;
+
+                    const hasMatchingTemplate = (templates || []).some((template: any) => {
+                        if (template.asset_type === assetType) return true;
+                        return template.name?.toLowerCase() === policy.label?.toLowerCase();
+                    });
+
+                    return !hasMatchingTemplate;
+                })
+                .map((policy: any) => {
+                    const assetType = getPolicyBackedAssetType(policy) || 'other';
+                    const fulfillment = (assets || []).find((asset: any) => asset.template_id == null && asset.type === assetType);
+
+                    return {
+                        template: {
+                            id: `policy-${policy.code}`,
+                            orgId: policy.organization_id,
+                            eventId: policy.event_id,
+                            actId: null,
+                            name: policy.label,
+                            description: policy.description,
+                            assetType,
+                            targetLevel: 'participant',
+                            isRequired: policy.is_required,
+                            createdAt: policy.created_at,
+                        },
+                        fulfillment: fulfillment ? {
+                            id: fulfillment.id,
+                            participantId: fulfillment.participant_id,
+                            templateId: fulfillment.template_id,
+                            name: fulfillment.name,
+                            type: fulfillment.type,
+                            fileUrl: fulfillment.file_url,
+                            status: fulfillment.status,
+                            reviewNotes: fulfillment.review_notes,
+                            createdAt: fulfillment.created_at,
+                        } : null,
+                    };
+                });
+            const mergedTemplatedAssets = [...templatedAssets, ...policyBackedTemplatedAssets];
 
             // 8. Fetch operational notes
             const { data: opNotes, error: noteError } = await (supabase as any)
@@ -410,7 +461,7 @@ export function useParticipantDetail(participantId: string) {
 
             const requirementAssignments = [
                 ...mapRequirementAssignments((p as any).requirement_assignments),
-                ...templatedAssets.map(({ template, fulfillment }: any) => ({
+                ...mergedTemplatedAssets.map(({ template, fulfillment }: any) => ({
                     id: `bridge-template-${template.id}`,
                     status: fulfillment?.status === 'approved'
                         ? 'approved'
@@ -477,7 +528,7 @@ export function useParticipantDetail(participantId: string) {
                     reviewNotes: a.review_notes,
                     createdAt: a.created_at
                 })),
-                templatedAssets,
+                templatedAssets: mergedTemplatedAssets,
                 siblings: siblings.map(s => ({
                     id: s.id,
                     firstName: s.first_name,
