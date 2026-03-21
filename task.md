@@ -241,6 +241,26 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 - [ ] Use named participant/act rows in the queue where possible instead of vague aggregate cards.
 - [ ] Standardize header, sticky strip, and bottom nav as the shared shell container across surfaces.
 
+### Card & Pill Density Overhaul (Potential Improvements)
+> Audit: ~300–600px of recoverable vertical scroll per page from over-containerized UI.
+
+- [ ] **Kill helper text in production UI** — remove product-philosophy sentences rendered as badges/subtitles across Performance Profile, Lineup, Dashboard (~200px recovery)
+- [ ] **Replace OperationalMetricCard grids on profiles with inline text** — metric cards (min-h-[88px] each) should only appear on Dashboard; profile/list pages use `Label: value` inline (~176px recovery per page)
+- [ ] **Flatten ActCard mini-grid** — replace 3 bordered Cast/Music/Prep sub-cards with one text line: `4 cast • Music ready • 2 to review` (~80px per card × N acts)
+- [ ] **Inline ActionMenu** — move solo kebab menu row (ParticipantProfilePage L312-323, ~44px) next to Edit Profile or into shell strip
+- [ ] **Remove redundant PageHeader subtitles** — drop subtitle strings that repeat data already visible in metric cards or filter pills below (~20px per page)
+- [ ] **Eliminate surface-panel double nesting** — cards-inside-panels on Dashboard, Lineup, Participants add border-on-border noise + ~22px padding overhead each
+- [ ] **Downgrade pills-as-labels to plain text** — static descriptive text ("No Change", Cast/Music/Prep labels) should not wear `rounded-full border bg-` styling; reserve pills for interactive counts and live status
+- [ ] **Compact OperationalEmptyResponse** — "No Active Issues" currently costs 72px in a padded card with a padded icon container; reduce to a single muted text line
+- [ ] **Reduce filter pill height** — min-h-11 filter buttons with nested count sub-pills can become min-h-9 plain text links: `Needs Cast (3)`
+
+### Profile Screen MECE Rewrites (Potential Improvements)
+> Both profile screens suffer from the same structural disease: information-dense record viewers instead of glanceable operator tools.
+
+- [ ] **Participant Profile → Who/State/Action/Reference** — rewrite ParticipantProfilePage with the 4-bucket MECE model; one always-open action lane, everything else collapsed under Reference
+- [ ] **Performance Profile → Who/State/Action/Reference** — rewrite PerformanceProfilePage: replace 3 tabs with a unified blocker queue; eliminate triple readiness summary redundancy and the 500-line WorkspaceTab dashboard-inside-a-dashboard
+- [ ] **Both profiles simultaneously** — do not ship one paradigm without the other; operators context-switch between them constantly
+
 ## 🔴 Gate 10: Stability Audit (STOPPED LOGO WORK)
 *Halting all AI-generated branding. Ensuring core stability.*
 - [x] STOP all logo/icon activity (Requested by User)

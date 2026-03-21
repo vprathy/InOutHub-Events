@@ -30,10 +30,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { buildParticipantRequirementRows, getRequirementStatusMeta, type RequirementRow } from '@/lib/requirementsPrototype';
-import { OperationalEmptyResponse } from '@/components/ui/OperationalCards';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
 import { useSelection } from '@/context/SelectionContext';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
@@ -320,12 +318,12 @@ export function ParticipantProfilePage() {
     const renderRequirementWorkPanel = (row: RequirementRow) => {
         if (row.key === 'special-request') {
             return (
-                <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Details</p>
-                    <p className="mt-2 text-sm leading-6 text-foreground/85">
+                <div className="space-y-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Details</p>
+                    <p className="text-sm leading-6 text-foreground/85">
                         {participant.specialRequestRaw || 'A special request flag came through sync, but no raw details were attached.'}
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {canManageParticipantOps ? (
                             <Button
                                 variant="outline"
@@ -345,12 +343,12 @@ export function ParticipantProfilePage() {
 
         if (row.policyCode === 'guardian_contact_complete') {
             return (
-                <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/50 bg-background/70 p-4 sm:grid-cols-[1fr,auto]">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,auto]">
                     <div className="space-y-3">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Contact</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Contact</p>
                             <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
+                            <p className="text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
                         </div>
                         {participant.guardianRelationship ? (
                             <p className="text-xs text-muted-foreground">Relationship: {participant.guardianRelationship}</p>
@@ -382,16 +380,16 @@ export function ParticipantProfilePage() {
 
         if (row.policyCode === 'identity_check') {
             return (
-                <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity Review</p>
-                    <p className="mt-2 text-sm font-bold text-foreground">
+                <div className="space-y-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity Review</p>
+                    <p className="text-sm font-bold text-foreground">
                         {participant.identityVerified ? 'Identity already verified' : 'Identity still needs review'}
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         {participant.identityNotes || 'No special identity notes are attached to this profile.'}
                     </p>
                     {canManageParticipantRecords ? (
-                        <div className="mt-4">
+                        <div>
                             <Button
                                 variant="outline"
                                 className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -411,13 +409,15 @@ export function ParticipantProfilePage() {
             const assetType = getPolicyAssetType(row.policyCode);
 
             return (
-                <div className="space-y-3 rounded-2xl border border-border/50 bg-background/70 p-4">
+                <div className="space-y-3">
                     {templatedAssets.length > 0 ? templatedAssets.map(({ template, fulfillment }: any) => (
-                        <div key={template.id} className="rounded-xl border border-border/50 bg-background p-3">
+                        <div key={template.id} className="border-b border-border/50 pb-3 last:border-b-0 last:pb-0">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-foreground">{template.name}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">{template.description || 'Required participant artifact'}</p>
+                                    {template.description ? (
+                                        <p className="mt-1 text-xs text-muted-foreground">{template.description}</p>
+                                    ) : null}
                                     {fulfillment ? (
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
                                             {fulfillment.status.replace(/_/g, ' ')}
@@ -458,11 +458,10 @@ export function ParticipantProfilePage() {
                             </div>
                         </div>
                     )) : (
-                        <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-4">
-                            <p className="text-sm font-bold text-foreground">No templated upload is attached.</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Use a direct upload if this requirement needs a file right now.</p>
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">No templated upload is attached.</p>
                             {canManageParticipantOps && assetType ? (
-                                <div className="mt-3">
+                                <div>
                                     <Button
                                         variant="outline"
                                         className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -480,9 +479,9 @@ export function ParticipantProfilePage() {
                     )}
 
                     {uploadedAssets.length > 0 ? (
-                        <div className="rounded-xl border border-border/50 bg-background p-3">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Existing Uploads</p>
-                            <div className="mt-3 space-y-2">
+                        <div className="space-y-2 pt-1">
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Existing Uploads</p>
+                            <div className="space-y-2">
                                 {uploadedAssets.map((asset: any) => (
                                     <button
                                         key={asset.id}
@@ -502,9 +501,9 @@ export function ParticipantProfilePage() {
         }
 
         return (
-            <div className="rounded-2xl border border-border/50 bg-background/70 p-4">
+            <div className="space-y-3">
                 <p className="text-sm font-bold text-foreground">{row.detail}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                     {canManageParticipantRecords ? (
                         <Button
                             variant="outline"
@@ -538,73 +537,64 @@ export function ParticipantProfilePage() {
             )}
 
             <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 space-y-3 px-4 pb-12 duration-500 md:px-0">
-                <PageHeader
-                    title={`${participant.firstName} ${participant.lastName}`}
-                    subtitle={undefined}
-                    actions={undefined}
-                    status={
-                        <div className="surface-section-participants rounded-2xl p-2.5">
-                            <div className="rounded-2xl border border-indigo-500/10 bg-background/80 px-4 py-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <h2 className="truncate text-2xl font-black tracking-tight text-foreground">
-                                            {participant.firstName} {participant.lastName}
-                                        </h2>
-                                        <p className="truncate text-sm text-muted-foreground">
-                                            {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
-                                            {' • '}
-                                            {participant.isMinor ? 'Minor' : 'Adult'}
-                                            {' • '}
-                                            {assignedActCount === 0 ? 'Unassigned' : `${assignedActCount} assignment${assignedActCount === 1 ? '' : 's'}`}
-                                        </p>
-                                    </div>
-                                    <ActionMenu
-                                        options={[
-                                            {
-                                                label: 'View Record History',
-                                                onClick: () => setShowHistoryModal(true),
-                                                icon: <HistoryIcon className="h-4 w-4" />,
-                                            },
-                                        ]}
-                                    />
-                                </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-3">
-                                    <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${
-                                        readinessTone === 'critical'
-                                            ? 'text-destructive'
-                                            : readinessTone === 'warning'
-                                                ? 'text-orange-600'
-                                                : 'text-emerald-600'
-                                    }`}>
-                                        {readinessLabel}
-                                    </span>
-                                    <p className="min-w-0 flex-1 text-sm text-muted-foreground">{readinessDetail}</p>
-                                    {nextRequirementRow ? (
-                                        <Button
-                                            variant="outline"
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => handleRequirementAction(nextRequirementRow)}
-                                        >
-                                            Open Action
-                                        </Button>
-                                    ) : null}
-                                    {participant.isMinor && participant.guardianPhone ? (
-                                        <a
-                                            href={`tel:${participant.guardianPhone}`}
-                                            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
-                                        >
-                                            <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                            Call Guardian
-                                        </a>
-                                    ) : null}
-                                </div>
-                            </div>
+                <div className="space-y-2 rounded-2xl border border-border/40 bg-card/80 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <h1 className="truncate text-xl font-black tracking-tight text-foreground">
+                                {participant.firstName} {participant.lastName}
+                            </h1>
+                            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                                {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
+                                {' • '}
+                                {participant.isMinor ? 'Minor' : 'Adult'}
+                                {' • '}
+                                {assignedActCount === 0 ? 'Unassigned' : `${assignedActCount} act${assignedActCount === 1 ? '' : 's'}`}
+                            </p>
                         </div>
-                    }
-                />
-                <div className="bg-card rounded-2xl border border-border/50 shadow-sm min-h-[500px]">
-                    <div className="animate-in fade-in space-y-4 p-4 duration-300 sm:p-5">
-                        <div ref={requirementsSectionRef} className="surface-panel rounded-[1.2rem] p-4">
+                        <ActionMenu
+                            options={[
+                                {
+                                    label: 'View Record History',
+                                    onClick: () => setShowHistoryModal(true),
+                                    icon: <HistoryIcon className="h-4 w-4" />,
+                                },
+                            ]}
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-3 border-t border-border/40 pt-2">
+                        <span className={`text-[11px] font-black uppercase tracking-[0.18em] ${
+                            readinessTone === 'critical'
+                                ? 'text-destructive'
+                                : readinessTone === 'warning'
+                                    ? 'text-orange-600'
+                                    : 'text-emerald-600'
+                        }`}>
+                            {readinessLabel}
+                        </span>
+                        <span className="text-muted-foreground/40">·</span>
+                        <p className="min-w-0 flex-1 text-sm text-muted-foreground">{readinessDetail}</p>
+                        {nextRequirementRow ? (
+                            <Button
+                                variant="outline"
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={() => handleRequirementAction(nextRequirementRow)}
+                            >
+                                Open Action
+                            </Button>
+                        ) : null}
+                        {participant.isMinor && participant.guardianPhone ? (
+                            <a
+                                href={`tel:${participant.guardianPhone}`}
+                                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                            >
+                                <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                Call Guardian
+                            </a>
+                        ) : null}
+                    </div>
+                </div>
+                <div className="animate-in fade-in space-y-3 duration-300">
+                        <div ref={requirementsSectionRef} className="rounded-[1.2rem] border border-border/50 bg-card/80 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</h3>
                                 {canManageParticipantOps ? (
@@ -620,14 +610,14 @@ export function ParticipantProfilePage() {
                             </div>
 
                             {showNoteForm ? (
-                                <form onSubmit={handleAddNote} className="mt-4 space-y-3 rounded-xl border border-primary/20 bg-background/80 p-4">
-                                    <div className="flex flex-wrap items-center gap-2">
+                                <form onSubmit={handleAddNote} className="mt-4 space-y-3 border-t border-border/50 pt-4">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                         {(['operational', 'internal', 'special_request'] as const).map((cat) => (
                                             <button
                                                 key={cat}
                                                 type="button"
                                                 onClick={() => setNoteCategory(cat)}
-                                                className={`min-h-11 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${noteCategory === cat ? 'bg-primary text-primary-foreground' : 'surface-metric text-muted-foreground'}`}
+                                                className={`min-h-11 px-1 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${noteCategory === cat ? 'text-primary' : 'text-muted-foreground'}`}
                                             >
                                                 {cat === 'special_request' ? 'special request' : cat.replace('_', ' ')}
                                             </button>
@@ -652,13 +642,13 @@ export function ParticipantProfilePage() {
                                 </form>
                             ) : null}
 
-                            <div className="mt-4 space-y-2">
+                            <div className="mt-4 divide-y divide-border/50">
                                 {participant.hasSpecialRequests ? (
-                                    <div className="rounded-2xl border border-border/50 bg-background/70">
+                                    <div>
                                         <button
                                             type="button"
                                             onClick={() => toggleActionKey('special-request')}
-                                            className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                                            className="flex min-h-12 w-full items-center justify-between gap-3 py-3 text-left"
                                         >
                                             <p className="min-w-0 truncate text-sm font-bold text-foreground">Special Request</p>
                                             <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
@@ -666,7 +656,7 @@ export function ParticipantProfilePage() {
                                             </span>
                                         </button>
                                         {activeActionKey === 'special-request' ? (
-                                            <div className="border-t border-border/50 px-4 py-4">
+                                            <div className="border-t border-border/50 py-4">
                                                 {renderRequirementWorkPanel({
                                                     key: 'special-request',
                                                     label: 'Special Request',
@@ -685,11 +675,11 @@ export function ParticipantProfilePage() {
                                     const meta = getRequirementStatusMeta(row.status);
                                     const isOpen = activeActionKey === row.key;
                                     return (
-                                        <div key={row.key} className={`rounded-2xl border ${isOpen ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-background/70'}`}>
+                                        <div key={row.key} className={isOpen ? 'bg-primary/5' : ''}>
                                             <button
                                                 type="button"
                                                 onClick={() => toggleActionKey(row.key)}
-                                                className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                                                className="flex min-h-12 w-full items-center justify-between gap-3 py-3 text-left"
                                             >
                                                 <p className="min-w-0 truncate text-sm font-bold text-foreground">{row.label}</p>
                                                 <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
@@ -705,17 +695,14 @@ export function ParticipantProfilePage() {
                                                 </span>
                                             </button>
                                             {isOpen ? (
-                                                <div className="border-t border-border/50 px-4 py-4">
+                                                <div className="border-t border-border/50 py-4">
                                                     {renderRequirementWorkPanel(row)}
                                                 </div>
                                             ) : null}
                                         </div>
                                     );
                                 }) : (
-                                    <OperationalEmptyResponse
-                                        title="No Participant Requirements"
-                                        detail="This event has not assigned any participant-level requirements to this profile yet."
-                                    />
+                                    <p className="py-4 text-sm text-muted-foreground">No participant requirements are active for this profile.</p>
                                 )}
                             </div>
                         </div>
@@ -723,9 +710,12 @@ export function ParticipantProfilePage() {
                         <div className="space-y-2">
                             <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Reference</p>
 
-                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                            <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <p className="text-sm font-bold text-foreground">Assignments</p>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-foreground">Assignments</p>
+                                        <p className="text-xs text-muted-foreground">{assignedActCount === 0 ? 'None' : `${assignedActCount} active`}</p>
+                                    </div>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-3">
@@ -738,35 +728,38 @@ export function ParticipantProfilePage() {
                                         </Button>
                                     ) : null}
                                     {participant.acts && participant.acts.length > 0 ? (
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                             {participant.acts.map((act) => (
-                                                <div key={act.id} className="rounded-xl border border-border/50 bg-background/70 p-4">
+                                                <div key={act.id} className="flex min-h-11 items-center justify-between rounded-xl border border-border/50 bg-background/70 px-3 py-2">
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <p className="text-lg font-black tracking-tight text-foreground">{act.name}</p>
-                                                            <p className="mt-1 text-xs text-muted-foreground">{act.role || 'Performer'}</p>
+                                                            <p className="text-sm font-bold text-foreground">{act.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{act.role || 'Performer'}</p>
                                                         </div>
-                                                        <button
-                                                            onClick={() => removeFromAct.mutate(act.id)}
-                                                            className="min-h-11 rounded-xl border border-border/50 bg-background p-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
-                                                            title="Remove from performance"
-                                                            disabled={removeFromAct.isPending}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
                                                     </div>
+                                                    <button
+                                                        onClick={() => removeFromAct.mutate(act.id)}
+                                                        className="min-h-11 rounded-xl border border-border/50 bg-background px-3 text-muted-foreground transition-all hover:border-destructive/20 hover:text-destructive"
+                                                        title="Remove from performance"
+                                                        disabled={removeFromAct.isPending}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <OperationalEmptyResponse title="No Assignments" detail="This person is not linked to any performance yet." />
+                                        <p className="text-sm text-muted-foreground">This person is not linked to any performance yet.</p>
                                     )}
                                 </div>
                             </details>
 
-                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                            <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <p className="text-sm font-bold text-foreground">Files Archive</p>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-foreground">Files Archive</p>
+                                        <p className="text-xs text-muted-foreground">{participant.assets?.length || 0} file{(participant.assets?.length || 0) === 1 ? '' : 's'}</p>
+                                    </div>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-4">
@@ -779,11 +772,9 @@ export function ParticipantProfilePage() {
                                                 </div>
                                             ))}
                                         </div>
-                                    ) : (
-                                        <OperationalEmptyResponse title="No File Templates" detail="No templated files are attached to this profile." />
-                                    )}
+                                    ) : <p className="text-sm text-muted-foreground">No templated files are attached to this profile.</p>}
                                     {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                             {participant.assets.filter(a => !a.templateId).map((asset) => (
                                                 <button
                                                     key={asset.id}
@@ -800,9 +791,12 @@ export function ParticipantProfilePage() {
                                 </div>
                             </details>
 
-                            <details className="group surface-panel rounded-[1.2rem] p-4">
+                            <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                    <p className="text-sm font-bold text-foreground">Profile Details</p>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-foreground">Profile Details</p>
+                                        <p className="text-xs text-muted-foreground">{participant.email || 'No email'} • {participant.age ?? 'Age unknown'}</p>
+                                    </div>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                 </summary>
                                 <div className="mt-4 space-y-3">
@@ -853,9 +847,12 @@ export function ParticipantProfilePage() {
                             </details>
 
                             {participant.hasSpecialRequests ? (
-                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <p className="text-sm font-bold text-foreground">Special Request History</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-foreground">Special Request History</p>
+                                            <p className="text-xs text-muted-foreground">{resolvedSpecialRequestNotes.length} closed note{resolvedSpecialRequestNotes.length === 1 ? '' : 's'}</p>
+                                        </div>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
                                     <div className="mt-4 rounded-xl border border-border/50 bg-background/70 p-3">
@@ -868,9 +865,12 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             {participant.operationalNotes?.length ? (
-                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <p className="text-sm font-bold text-foreground">Notes History</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-foreground">Notes History</p>
+                                            <p className="text-xs text-muted-foreground">{participant.operationalNotes.length} note{participant.operationalNotes.length === 1 ? '' : 's'}</p>
+                                        </div>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
                                     <div className="mt-4 space-y-2">
@@ -900,11 +900,11 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             {participant.siblings && participant.siblings.length > 0 ? (
-                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                <details className="group rounded-[1.2rem] border border-border/50 bg-card/70 px-4 py-3">
                                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="text-sm font-bold text-foreground">Family Links</p>
-                                            <p className="text-xs text-muted-foreground">Related people linked to this event.</p>
+                                            <p className="text-xs text-muted-foreground">{participant.siblings.length} related record{participant.siblings.length === 1 ? '' : 's'}</p>
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                                     </summary>
@@ -924,7 +924,6 @@ export function ParticipantProfilePage() {
                             ) : null}
                         </div>
                     </div>
-                </div>
 
             <Modal
                 isOpen={showAssignModal}
