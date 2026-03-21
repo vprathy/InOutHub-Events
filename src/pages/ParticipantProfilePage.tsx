@@ -116,6 +116,7 @@ export function ParticipantProfilePage() {
     const [uploadType, setUploadType] = useState<'waiver' | 'photo' | 'intro_media' | 'other'>('other');
     const [uploadNotes, setUploadNotes] = useState('');
     const [assetNotice, setAssetNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+    const [showAllNotes, setShowAllNotes] = useState(false);
     const requirementsSectionRef = useRef<HTMLDivElement | null>(null);
     const filesSectionRef = useRef<HTMLDivElement | null>(null);
     const assignmentsSectionRef = useRef<HTMLDivElement | null>(null);
@@ -231,6 +232,9 @@ export function ParticipantProfilePage() {
     const specialRequestNotes = participant.operationalNotes?.filter((note) => note.category === 'special_request') || [];
     const openSpecialRequestNotes = specialRequestNotes.filter((note) => !note.isResolved);
     const resolvedSpecialRequestNotes = specialRequestNotes.filter((note) => note.isResolved);
+    const visibleOperationalNotes = showAllNotes
+        ? (participant.operationalNotes || [])
+        : (participant.operationalNotes || []).slice(0, 4);
     const subtitleParts = [
         assignedActCount === 1 ? '1 performance assigned' : `${assignedActCount} performances assigned`,
         totalAssetCount > 0 ? `${approvedAssetCount}/${totalAssetCount} files approved` : 'No required files',
@@ -449,6 +453,111 @@ export function ParticipantProfilePage() {
                             )}
                         </div>
 
+                        <div ref={notesSectionRef} className="surface-panel rounded-[1.2rem] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-primary" />
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Updates & Follow-Up</h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {participant.operationalNotes && participant.operationalNotes.length > 4 ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            onClick={() => setShowAllNotes((current) => !current)}
+                                        >
+                                            {showAllNotes ? 'Show Less' : `Show All (${participant.operationalNotes.length})`}
+                                        </Button>
+                                    ) : null}
+                                    {canManageParticipantOps ? (
+                                        <Button
+                                            variant={showNoteForm ? 'ghost' : 'outline'}
+                                            size="sm"
+                                            className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            onClick={() => setShowNoteForm(!showNoteForm)}
+                                        >
+                                            {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
+                                        </Button>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            {showNoteForm ? (
+                                <form onSubmit={handleAddNote} className="mt-4 space-y-3 rounded-xl border border-primary/20 bg-background/80 p-4">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {(['operational', 'internal', 'special_request'] as const).map((cat) => (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                onClick={() => setNoteCategory(cat)}
+                                                className={`min-h-11 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${noteCategory === cat ? 'bg-primary text-primary-foreground' : 'surface-metric text-muted-foreground'}`}
+                                            >
+                                                {cat === 'special_request' ? 'special request' : cat.replace('_', ' ')}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <textarea
+                                        autoFocus
+                                        value={noteContent}
+                                        onChange={(e) => setNoteContent(e.target.value)}
+                                        placeholder="Enter the follow-up or risk note that matters right now..."
+                                        className="min-h-[112px] w-full rounded-xl border border-border bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="submit"
+                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            disabled={addNote.isPending || !noteContent.trim()}
+                                        >
+                                            {addNote.isPending ? 'Saving...' : 'Save Note'}
+                                        </Button>
+                                    </div>
+                                </form>
+                            ) : null}
+
+                            <div className="mt-4 space-y-2">
+                                {participant.operationalNotes && participant.operationalNotes.length > 0 ? (
+                                    visibleOperationalNotes.map((note) => (
+                                        <div key={note.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-[0.16em]">
+                                                            {note.category.replace('_', ' ')}
+                                                        </Badge>
+                                                        {note.isResolved ? (
+                                                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Resolved</span>
+                                                        ) : null}
+                                                    </div>
+                                                    <p className="mt-2 text-sm leading-6 text-foreground/80">{note.content}</p>
+                                                    <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                                                        {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}
+                                                    </p>
+                                                </div>
+                                                {!note.isResolved && canManageParticipantOps ? (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="min-h-11 shrink-0 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
+                                                        onClick={() => resolveNote.mutate(note.id)}
+                                                        disabled={resolveNote.isPending}
+                                                    >
+                                                        Resolve
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : !showNoteForm ? (
+                                    <OperationalEmptyResponse
+                                        title="No Escalations"
+                                        detail="No active coordination notes are demanding attention right now."
+                                    />
+                                ) : null}
+                            </div>
+                        </div>
+
                         <div ref={filesSectionRef} className="surface-panel rounded-[1.2rem] p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -504,7 +613,7 @@ export function ParticipantProfilePage() {
                                                             ) : null}
                                                         </div>
                                                         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:self-center">
-                                                            {fulfillment && fulfillment.status !== 'approved' && (
+                                                            {fulfillment && fulfillment.status !== 'approved' && canManageParticipantOps ? (
                                                                 <Button
                                                                     size="sm"
                                                                     className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
@@ -513,23 +622,25 @@ export function ParticipantProfilePage() {
                                                                 >
                                                                     Approve
                                                                 </Button>
-                                                            )}
-                                                            <Button
-                                                                size="sm"
-                                                                variant={fulfillment ? 'ghost' : 'default'}
-                                                                className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
-                                                                onClick={() => openUploadModal({
-                                                                    templateId: template.id,
-                                                                    replaceAssetId: fulfillment?.id || null,
-                                                                    type: template.assetType || 'other',
-                                                                    title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
-                                                                    suggestedName: template.name,
-                                                                })}
-                                                                disabled={uploadAsset.isPending}
-                                                            >
-                                                                {fulfillment ? 'Replace' : 'Upload'}
-                                                            </Button>
-                                                            {fulfillment && fulfillment.status === 'pending_review' ? (
+                                                            ) : null}
+                                                            {canManageParticipantOps ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant={fulfillment ? 'ghost' : 'default'}
+                                                                    className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
+                                                                    onClick={() => openUploadModal({
+                                                                        templateId: template.id,
+                                                                        replaceAssetId: fulfillment?.id || null,
+                                                                        type: template.assetType || 'other',
+                                                                        title: fulfillment ? `Replace ${template.name}` : `Upload ${template.name}`,
+                                                                        suggestedName: template.name,
+                                                                    })}
+                                                                    disabled={uploadAsset.isPending}
+                                                                >
+                                                                    {fulfillment ? 'Replace' : 'Upload'}
+                                                                </Button>
+                                                            ) : null}
+                                                            {fulfillment && fulfillment.status === 'pending_review' && canManageParticipantOps ? (
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
@@ -558,18 +669,20 @@ export function ParticipantProfilePage() {
                                 <div className="border-t border-border/50 pt-4">
                                     <div className="mb-3 flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Other Files</p>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="min-h-11 rounded-xl px-3 text-[10px] font-bold uppercase tracking-wider border-2"
-                                            onClick={() => openUploadModal({
-                                                type: 'other',
-                                                title: 'Upload Participant Asset',
-                                            })}
-                                        >
-                                            <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                            Manual Upload
-                                        </Button>
+                                        {canManageParticipantOps ? (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="min-h-11 rounded-xl px-3 text-[10px] font-bold uppercase tracking-wider border-2"
+                                                onClick={() => openUploadModal({
+                                                    type: 'other',
+                                                    title: 'Upload Participant Asset',
+                                                })}
+                                            >
+                                                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                                Manual Upload
+                                            </Button>
+                                        ) : null}
                                     </div>
 
                                     {participant.assets && participant.assets.filter(a => !a.templateId).length > 0 ? (
@@ -588,18 +701,20 @@ export function ParticipantProfilePage() {
                                                         <Badge variant="outline" className="text-[9px] font-mono uppercase h-4 px-1.5">
                                                             {asset.type}
                                                         </Badge>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (window.confirm('Delete this asset? This cannot be undone.')) {
-                                                                    deleteAsset.mutate(asset.id);
-                                                                }
-                                                            }}
-                                                            className="rounded-lg p-1 transition-colors hover:bg-destructive/10 group/trash"
-                                                            disabled={deleteAsset.isPending}
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover/trash:text-destructive" />
-                                                        </button>
+                                                        {canManageParticipantOps ? (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (window.confirm('Delete this asset? This cannot be undone.')) {
+                                                                        deleteAsset.mutate(asset.id);
+                                                                    }
+                                                                }}
+                                                                className="rounded-lg p-1 transition-colors hover:bg-destructive/10 group/trash"
+                                                                disabled={deleteAsset.isPending}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover/trash:text-destructive" />
+                                                            </button>
+                                                        ) : null}
                                                     </div>
                                                     <p className="mb-1 truncate text-sm font-bold">{asset.name}</p>
                                                     <div className="mt-2 flex items-center justify-between border-t border-border/10 pt-2">
@@ -678,11 +793,14 @@ export function ParticipantProfilePage() {
 
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr,1.05fr]">
                             <div className="space-y-4">
-                                <div className="surface-panel rounded-[1.2rem] p-4">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="h-4 w-4 text-primary" />
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile & Safety</h3>
-                                    </div>
+                                <details className="group surface-panel rounded-[1.2rem] p-4">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-4 w-4 text-primary" />
+                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Profile & Safety</h3>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </summary>
                                     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                         <div className="rounded-xl border border-border/50 bg-background/70 p-3">
                                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
@@ -724,7 +842,7 @@ export function ParticipantProfilePage() {
                                             <p className="mt-1 text-sm leading-6 text-foreground/80">{participant.notes}</p>
                                         </div>
                                     ) : null}
-                                </div>
+                                </details>
 
                                 {participant.hasSpecialRequests ? (
                                     <div className="surface-panel rounded-[1.2rem] p-4">
@@ -790,16 +908,19 @@ export function ParticipantProfilePage() {
                                 ) : null}
 
                                 {participant.siblings && participant.siblings.length > 0 ? (
-                                    <div className="surface-panel rounded-[1.2rem] p-4">
-                                        <div className="flex items-center justify-between gap-2">
+                                    <details className="group surface-panel rounded-[1.2rem] p-4">
+                                        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
                                             <div className="flex items-center gap-2">
                                                 <Users className="h-4 w-4 text-primary" />
                                                 <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Family Links</h3>
                                             </div>
-                                            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.16em]">
-                                                {participant.siblings.length}
-                                            </Badge>
-                                        </div>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="text-[10px] font-black uppercase tracking-[0.16em]">
+                                                    {participant.siblings.length}
+                                                </Badge>
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                            </div>
+                                        </summary>
                                         <div className="mt-3 space-y-2">
                                             {participant.siblings.map((s) => (
                                                 <Link
@@ -812,103 +933,8 @@ export function ParticipantProfilePage() {
                                                 </Link>
                                             ))}
                                         </div>
-                                    </div>
+                                    </details>
                                 ) : null}
-                            </div>
-
-                            <div ref={notesSectionRef} className="space-y-4">
-                                <div className="surface-panel rounded-[1.2rem] p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-primary" />
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Updates & Follow-Up</h3>
-                                        </div>
-                                        {canManageParticipantOps ? (
-                                            <Button
-                                                variant={showNoteForm ? 'ghost' : 'outline'}
-                                                size="sm"
-                                                className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                onClick={() => setShowNoteForm(!showNoteForm)}
-                                            >
-                                                {showNoteForm ? 'Cancel' : 'Add Follow-Up'}
-                                            </Button>
-                                        ) : null}
-                                    </div>
-
-                                    {showNoteForm ? (
-                                        <form onSubmit={handleAddNote} className="mt-4 space-y-3 rounded-xl border border-primary/20 bg-background/80 p-4">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                {(['operational', 'internal', 'special_request'] as const).map((cat) => (
-                                                    <button
-                                                        key={cat}
-                                                        type="button"
-                                                        onClick={() => setNoteCategory(cat)}
-                                                        className={`min-h-11 rounded-full px-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${noteCategory === cat ? 'bg-primary text-primary-foreground' : 'surface-metric text-muted-foreground'}`}
-                                                    >
-                                                        {cat === 'special_request' ? 'special request' : cat.replace('_', ' ')}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <textarea
-                                                autoFocus
-                                                value={noteContent}
-                                                onChange={(e) => setNoteContent(e.target.value)}
-                                                placeholder="Enter the follow-up or risk note that matters right now..."
-                                                className="min-h-[112px] w-full rounded-xl border border-border bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                            />
-                                            <div className="flex justify-end">
-                                                <Button
-                                                    type="submit"
-                                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                    disabled={addNote.isPending || !noteContent.trim()}
-                                                >
-                                                    {addNote.isPending ? 'Saving...' : 'Save Note'}
-                                                </Button>
-                                            </div>
-                                        </form>
-                                    ) : null}
-
-                                    <div className="mt-4 space-y-2">
-                                        {participant.operationalNotes && participant.operationalNotes.length > 0 ? (
-                                            participant.operationalNotes.slice(0, 4).map((note) => (
-                                                <div key={note.id} className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-[0.16em]">
-                                                                    {note.category.replace('_', ' ')}
-                                                                </Badge>
-                                                                {note.isResolved ? (
-                                                                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Resolved</span>
-                                                                ) : null}
-                                                            </div>
-                                                            <p className="mt-2 text-sm leading-6 text-foreground/80">{note.content}</p>
-                                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                                                                {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Just now'}
-                                                            </p>
-                                                        </div>
-                                                        {!note.isResolved && canManageParticipantOps ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="min-h-11 shrink-0 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
-                                                                onClick={() => resolveNote.mutate(note.id)}
-                                                                disabled={resolveNote.isPending}
-                                                            >
-                                                                Resolve
-                                                            </Button>
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : !showNoteForm ? (
-                                            <OperationalEmptyResponse
-                                                title="No Escalations"
-                                                detail="No active coordination notes are demanding attention right now."
-                                            />
-                                        ) : null}
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
