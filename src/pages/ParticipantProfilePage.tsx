@@ -716,15 +716,18 @@ export function ParticipantProfilePage() {
                         <div className="space-y-2">
                             <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Reference</p>
 
-                            <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                            <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-foreground">Assignments</p>
                                         <p className="text-xs text-muted-foreground">{assignedActCount === 0 ? 'None' : `${assignedActCount} active`}</p>
                                     </div>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </div>
                                 </summary>
-                                <div className="mt-4 space-y-3">
+                                <div className="border-t border-border/50 pt-3 space-y-3">
                                     {canManageRoster ? (
                                         <Button
                                             className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -760,15 +763,18 @@ export function ParticipantProfilePage() {
                                 </div>
                             </details>
 
-                            <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                            <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-foreground">Files Archive</p>
                                         <p className="text-xs text-muted-foreground">{participant.assets?.length || 0} file{(participant.assets?.length || 0) === 1 ? '' : 's'}</p>
                                     </div>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </div>
                                 </summary>
-                                <div className="mt-4 space-y-4">
+                                <div className="border-t border-border/50 pt-3 space-y-4">
                                     {participant.templatedAssets?.length ? (
                                         <div className="divide-y divide-border/50">
                                             {participant.templatedAssets.map(({ template, fulfillment }) => (
@@ -797,15 +803,18 @@ export function ParticipantProfilePage() {
                                 </div>
                             </details>
 
-                            <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                            <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-foreground">Profile Details</p>
                                         <p className="text-xs text-muted-foreground">{participant.email || 'No email'} • {participant.age ?? 'Age unknown'}</p>
                                     </div>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </div>
                                 </summary>
-                                <div className="mt-4 space-y-3">
+                                <div className="border-t border-border/50 pt-3 space-y-3">
                                     <div className="space-y-3 border-b border-border/50 pb-3">
                                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Record Status</p>
                                         {canManageParticipantRecords ? (
@@ -853,15 +862,18 @@ export function ParticipantProfilePage() {
                             </details>
 
                             {participant.hasSpecialRequests ? (
-                                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold text-foreground">Special Request History</p>
                                             <p className="text-xs text-muted-foreground">{resolvedSpecialRequestNotes.length} closed note{resolvedSpecialRequestNotes.length === 1 ? '' : 's'}</p>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        </div>
                                     </summary>
-                                    <div className="mt-4">
+                                    <div className="border-t border-border/50 pt-3">
                                         <p className="text-sm text-foreground/85">{participant.specialRequestRaw || 'No raw special-request detail was attached.'}</p>
                                         {resolvedSpecialRequestNotes.length > 0 ? (
                                             <p className="mt-2 text-xs text-muted-foreground">{resolvedSpecialRequestNotes.length} closed request note{resolvedSpecialRequestNotes.length === 1 ? '' : 's'} on file.</p>
@@ -871,15 +883,18 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             {participant.operationalNotes?.length ? (
-                                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold text-foreground">Notes History</p>
                                             <p className="text-xs text-muted-foreground">{participant.operationalNotes.length} note{participant.operationalNotes.length === 1 ? '' : 's'}</p>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        </div>
                                     </summary>
-                                    <div className="mt-4 divide-y divide-border/50">
+                                    <div className="border-t border-border/50 pt-3 divide-y divide-border/50">
                                         {participant.operationalNotes.map((note) => (
                                             <div key={note.id} className="py-3">
                                                 <div className="flex items-start justify-between gap-3">
@@ -906,15 +921,18 @@ export function ParticipantProfilePage() {
                             ) : null}
 
                             {participant.siblings && participant.siblings.length > 0 ? (
-                                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2">
+                                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold text-foreground">Family Links</p>
                                             <p className="text-xs text-muted-foreground">{participant.siblings.length} related record{participant.siblings.length === 1 ? '' : 's'}</p>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                        </div>
                                     </summary>
-                                    <div className="mt-4 divide-y divide-border/50">
+                                    <div className="border-t border-border/50 pt-3 divide-y divide-border/50">
                                         {participant.siblings.map((s) => (
                                             <Link
                                                 key={s.id}

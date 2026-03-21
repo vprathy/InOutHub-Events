@@ -220,17 +220,18 @@ export function PerformanceProfilePage() {
                 <ReadinessSection act={act} canManageReadiness={canManageReadiness} />
 
                 {/* Cast */}
-                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3">
+                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">Cast & Team</p>
                             <p className="text-xs text-muted-foreground">{performers.length} performers • {team.length} team</p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
                             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                         </div>
                     </summary>
-                    <div className="border-t border-border/50 pt-4 space-y-4">
+                    <div className="border-t border-border/50 pt-3 space-y-4">
                         {canManageActCast ? (
                             <div className="flex flex-wrap gap-2">
                                 <Button variant="outline" className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]" onClick={() => { setAddRole('Performer'); setIsAddParticipantOpen(true); }}>
@@ -267,17 +268,18 @@ export function PerformanceProfilePage() {
                 </details>
 
                 {/* Media & Assets */}
-                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3">
+                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">Media & Assets</p>
                             <p className="text-xs text-muted-foreground">{(act.assets || []).length} upload{(act.assets || []).length === 1 ? '' : 's'} • {fileBackedRequirements.length} preview file{fileBackedRequirements.length === 1 ? '' : 's'}</p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
                             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                         </div>
                     </summary>
-                    <div className="border-t border-border/50 pt-4 space-y-3">
+                    <div className="border-t border-border/50 pt-3 space-y-3">
                         {canManageActMedia ? (
                             <Button variant="outline" className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]" onClick={() => setIsUploadOpen(true)}>
                                 Add Media
@@ -336,17 +338,18 @@ export function PerformanceProfilePage() {
                 </details>
 
                 {/* Director's Notes + Timing */}
-                <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3">
+                <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">Notes & Timing</p>
                             <p className="text-xs text-muted-foreground">{act.setupTimeMinutes}m setup • {act.durationMinutes}m show</p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
                             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
                         </div>
                     </summary>
-                    <div className="border-t border-border/50 pt-4 space-y-3">
+                    <div className="border-t border-border/50 pt-3 space-y-3">
                         {act.notes ? (
                             <div className="text-sm leading-relaxed text-foreground/80">
                                 {act.notes}
@@ -418,8 +421,8 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
 
     return (
         <>
-            <details className="group rounded-2xl border border-border/50 bg-card/70 px-4 py-3">
-                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3">
+            <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                     <div className="min-w-0">
                         <p className="text-sm font-bold text-foreground">Practices, Checklist & Issues</p>
                         <p className="text-xs text-muted-foreground">
@@ -430,9 +433,12 @@ function ReadinessSection({ act, canManageReadiness }: { act: any; canManageRead
                             {(act.readinessIssues || []).filter((i: any) => i.status !== 'resolved').length} open issues
                         </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                    </div>
                 </summary>
-                <div className="border-t border-border/50 pt-4 space-y-4">
+                <div className="border-t border-border/50 pt-3 space-y-4">
                     {canManageReadiness ? (
                         <div className="flex flex-wrap gap-2">
                             <Button className="min-h-11 rounded-xl text-[10px] font-black uppercase tracking-[0.18em]" onClick={() => setShowPracticeModal(true)}>
