@@ -49,22 +49,7 @@ async function seed() {
         console.log('⚠️ No existing user profiles found to link. Sign up via Dev Login first next time!');
     }
 
-    // 4. Create Event
-    console.log('📅 Creating Event...');
-    const { error: eventError } = await supabase
-        .from('events')
-        .insert({
-            organization_id: org.id,
-            name: 'Demo Event',
-            start_date: new Date().toISOString().split('T')[0],
-            end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
-        })
-        .select()
-        .single();
-
-    if (eventError) throw eventError;
-
-    // Let the shared core module handle the rest of the generation (stages, acts, etc)
+    // Let the shared core module create the event plus all downstream demo fixtures.
     await seedDemoEvent(supabase, org.id);
 }
 

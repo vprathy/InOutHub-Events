@@ -135,7 +135,9 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
     activePolicies.forEach((policy: any) => {
         if (policy.code === 'guardian_contact_complete') {
             const guardianStatus = getParticipantAssignmentStatus(participant, policy.code)
-                || (!!participant.guardianName && !!participant.guardianPhone ? 'auto_complete' : 'missing');
+                || (!participant?.isMinor
+                    ? 'auto_complete'
+                    : (!!participant.guardianName && !!participant.guardianPhone ? 'auto_complete' : 'missing'));
             rows.push(buildGenericRequirementRow({
                 key: 'guardian-contact',
                 label: policy.label,

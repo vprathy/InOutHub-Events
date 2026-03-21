@@ -1,6 +1,96 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { faker } from '@faker-js/faker';
 
+const PHASE_ONE_PARTICIPANT_POLICIES = [
+    {
+        code: 'guardian_contact_complete',
+        subject_type: 'participant',
+        label: 'Guardian Contact',
+        description: 'Capture guardian name and phone before the participant is cleared.',
+        category: 'safety',
+        input_type: 'field_complete',
+        review_mode: 'no_review',
+        blocking_level: 'blocking',
+        allow_bulk_approve: false,
+        applies_when: { appliesTo: 'Minors only', optional: false },
+        is_required: true,
+        sort_order: 0,
+    },
+    {
+        code: 'participant_waiver',
+        subject_type: 'participant',
+        label: 'Waiver',
+        description: 'Collect a signed waiver or release artifact for each participant who needs one.',
+        category: 'waiver',
+        input_type: 'file_upload',
+        review_mode: 'review_required',
+        blocking_level: 'blocking',
+        allow_bulk_approve: true,
+        applies_when: { appliesTo: 'All participants', optional: false },
+        is_required: true,
+        sort_order: 1,
+    },
+    {
+        code: 'participant_photo',
+        subject_type: 'participant',
+        label: 'Participant Photo',
+        description: 'Collect a current participant photo for lineup, console, and intro workflows.',
+        category: 'media',
+        input_type: 'file_upload',
+        review_mode: 'review_required',
+        blocking_level: 'warning',
+        allow_bulk_approve: true,
+        applies_when: { appliesTo: 'All participants', optional: false },
+        is_required: true,
+        sort_order: 2,
+    },
+];
+
+const PHASE_ONE_ACT_POLICIES = [
+    {
+        code: 'ACT_AUDIO',
+        subject_type: 'act',
+        label: 'Music File',
+        description: 'Track the submitted performance music file and its approval state before lineup finalization.',
+        category: 'media',
+        input_type: 'file_upload',
+        review_mode: 'review_required',
+        blocking_level: 'warning',
+        allow_bulk_approve: false,
+        applies_when: { appliesTo: 'All acts', optional: false },
+        is_required: true,
+        sort_order: 10,
+    },
+    {
+        code: 'ACT_INTRO',
+        subject_type: 'act',
+        label: 'Intro Approved',
+        description: 'Require intro approval before the act is truly stage ready.',
+        category: 'media',
+        input_type: 'manual_review',
+        review_mode: 'review_required',
+        blocking_level: 'blocking',
+        allow_bulk_approve: false,
+        applies_when: { appliesTo: 'Acts with intro', optional: false },
+        is_required: true,
+        sort_order: 11,
+    },
+    {
+        code: 'ACT_SUPPORT_TEAM',
+        subject_type: 'act',
+        label: 'Team Manager Assigned',
+        description: 'Ensure a team manager is assigned before the performance is treated as show-ready.',
+        category: 'admin',
+        input_type: 'manual_review',
+        review_mode: 'no_review',
+        blocking_level: 'warning',
+        allow_bulk_approve: false,
+        applies_when: { appliesTo: 'All acts', optional: false },
+        is_required: true,
+        sort_order: 12,
+    },
+];
+
 function createSvgPhotoDataUrl(label: string, accent: string) {
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
@@ -34,12 +124,8 @@ function createSeedAssetUrl(type: string, label: string) {
         return createSvgPhotoDataUrl(label, '#38bdf8');
     }
 
-    if (type === 'document') {
+    if (type === 'waiver') {
         return createTextDataUrl(`Demo document for ${label}.`, 'text/plain');
-    }
-
-    if (type === 'video') {
-        return createTextDataUrl(`Demo video placeholder for ${label}.`, 'text/plain');
     }
 
     return createTextDataUrl(`Demo asset placeholder for ${label}.`, 'text/plain');
@@ -60,6 +146,48 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         .single();
 
     if (eventError) throw eventError;
+
+    const phaseOnePolicies = [...PHASE_ONE_PARTICIPANT_POLICIES, ...PHASE_ONE_ACT_POLICIES].map((policy) => ({
+        organization_id: orgId,
+        event_id: null,
+        input_config: {},
+        is_active: true,
+        ...policy,
+    }));
+    const { error: policyError } = await supabase
+        .from('requirement_policies')
+        .upsert(phaseOnePolicies, { onConflict: 'organization_id,code' });
+    if (policyError) throw policyError;
+    const { data: seededPolicies, error: seededPoliciesError } = await supabase
+        .from('requirement_policies')
+        .select('id, code, subject_type')
+        .eq('organization_id', orgId)
+        .is('event_id', null)
+        .in('code', phaseOnePolicies.map((policy) => policy.code));
+    if (seededPoliciesError) throw seededPoliciesError;
+    const policyByCode = new Map((seededPolicies || []).map((policy: any) => [policy.code, policy]));
+
+    const { data: userProfiles } = await supabase.from('user_profiles').select('id, email');
+    const roleMap = new Map<string, string>([
+        ['eventadmin@ziffyvolve.com', 'EventAdmin'],
+        ['stagemanager@ziffyvolve.com', 'StageManager'],
+        ['actadmin@ziffyvolve.com', 'ActAdmin'],
+    ]);
+    const eventMembers = (userProfiles || [])
+        .filter((profile: any) => roleMap.has((profile.email || '').toLowerCase()))
+        .map((profile: any) => ({
+            event_id: event.id,
+            user_id: profile.id,
+            role: roleMap.get((profile.email || '').toLowerCase()),
+            grant_type: 'manual',
+        }));
+
+    if (eventMembers.length > 0) {
+        const { error: eventMemberError } = await supabase
+            .from('event_members')
+            .upsert(eventMembers, { onConflict: 'event_id,user_id' });
+        if (eventMemberError) throw eventMemberError;
+    }
 
     // 5. Create Stages
     console.log('🎭 Creating Stages...');
@@ -83,6 +211,13 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         event_id: event.id,
         first_name: 'Victor',
         last_name: 'Barrows',
+        is_minor: true,
+        guardian_name: null,
+        guardian_phone: null,
+        guardian_relationship: null,
+        identity_verified: false,
+        has_special_requests: true,
+        special_request_raw: 'Needs a quieter warm-up area before stage call.',
         notes: 'Lead performer for sound check coordination.'
     };
 
@@ -91,12 +226,14 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             event_id: event.id,
             first_name: 'Fatima',
             last_name: 'Kulas',
+            identity_verified: true,
             notes: 'Deterministic intro validation participant.'
         },
         {
             event_id: event.id,
             first_name: 'Lester',
             last_name: 'Wintheiser',
+            identity_verified: true,
             notes: 'Deterministic intro validation participant.'
         },
         {
@@ -109,12 +246,17 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             event_id: event.id,
             first_name: 'Margarita',
             last_name: 'Ankunding',
+            is_minor: true,
+            guardian_name: 'Elena Ankunding',
+            guardian_phone: '(555) 202-0192',
+            guardian_relationship: 'Parent',
             notes: 'Deterministic intro validation participant.'
         },
         {
             event_id: event.id,
             first_name: 'Penny',
             last_name: 'Fisher',
+            identity_verified: true,
             notes: 'Deterministic intro validation participant.'
         }
     ];
@@ -122,14 +264,29 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     const participantsData = [
         victor,
         ...introValidationParticipants,
-        ...Array.from({ length: 44 }).map(() => ({
-            event_id: event.id,
-            first_name: faker.person.firstName(),
-            last_name: faker.person.lastName(),
-            guardian_name: Math.random() > 0.7 ? faker.person.fullName() : null,
-            guardian_phone: Math.random() > 0.7 ? faker.phone.number({ style: 'national' }) : null,
-            notes: Math.random() > 0.8 ? faker.lorem.sentence() : null
-        }))
+        ...Array.from({ length: 44 }).map(() => {
+            const isMinor = Math.random() > 0.68;
+            const hasGuardian = isMinor ? Math.random() > 0.2 : Math.random() > 0.9;
+            const hasSpecialRequests = Math.random() > 0.84;
+
+            return {
+                event_id: event.id,
+                first_name: faker.person.firstName(),
+                last_name: faker.person.lastName(),
+                guardian_name: hasGuardian ? faker.person.fullName() : null,
+                guardian_phone: hasGuardian ? faker.phone.number({ style: 'national' }) : null,
+                guardian_relationship: hasGuardian ? 'Parent' : null,
+                identity_verified: !isMinor && Math.random() > 0.55,
+                is_minor: isMinor,
+                has_special_requests: hasSpecialRequests,
+                special_request_raw: hasSpecialRequests ? faker.helpers.arrayElement([
+                    'Needs allergy-aware backstage snacks.',
+                    'Requested wheelchair-accessible path to stage.',
+                    'Parent asked for early release after performance.',
+                ]) : null,
+                notes: Math.random() > 0.8 ? faker.lorem.sentence() : null
+            };
+        })
     ];
 
     const { data: participants, error: partError } = await supabase.from('participants').insert(participantsData).select();
@@ -208,6 +365,69 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             continue;
         }
 
+        if (index === 1) {
+            await supabase.from('act_participants').insert([
+                {
+                    act_id: act.id,
+                    participant_id: deterministicParticipants[0].id,
+                    role: 'Performer'
+                },
+                {
+                    act_id: act.id,
+                    participant_id: deterministicParticipants[3].id,
+                    role: 'Performer'
+                },
+                {
+                    act_id: act.id,
+                    participant_id: deterministicParticipants[4].id,
+                    role: 'Manager'
+                }
+            ]);
+
+            await supabase.from('act_assets').insert({
+                act_id: act.id,
+                asset_name: 'Show Music Master',
+                asset_type: 'Audio',
+                notes: 'Deterministic ready-state audio asset'
+            });
+
+            await supabase.from('act_requirements').insert([
+                {
+                    act_id: act.id,
+                    requirement_type: 'Audio',
+                    description: 'Approved show music for deterministic ready-state act',
+                    file_url: createSilentAudioDataUrl(),
+                    fulfilled: true,
+                },
+                {
+                    act_id: act.id,
+                    requirement_type: 'IntroComposition',
+                    description: 'Approved intro composition for deterministic ready-state act',
+                    file_url: createTextDataUrl('Approved intro composition'),
+                    fulfilled: true,
+                }
+            ]);
+
+            continue;
+        }
+
+        if (index === 2) {
+            await supabase.from('act_participants').insert([
+                {
+                    act_id: act.id,
+                    participant_id: deterministicParticipants[1].id,
+                    role: 'Performer'
+                },
+                {
+                    act_id: act.id,
+                    participant_id: deterministicParticipants[2].id,
+                    role: 'Performer'
+                }
+            ]);
+
+            continue;
+        }
+
         // Pick 1 to 5 random participants
         const actParts = faker.helpers.arrayElements(participants, faker.number.int({ min: 1, max: 5 })).map(p => ({
             act_id: act.id,
@@ -266,11 +486,11 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
 
     // 8c. Seed Participant Assets (for testing Delete Asset feature)
     console.log('📎 Seeding Participant Assets...');
-    const assetTypes = ['photo', 'document', 'video', 'other'];
-    const assetStatuses: ('missing' | 'uploaded' | 'pending_review' | 'approved' | 'rejected')[] = ['missing', 'uploaded', 'pending_review', 'approved', 'rejected'];
-    const assetNames = ['Headshot Photo', 'Signed Release Form', 'Performance Reel', 'Costume Reference', 'Music Track', 'ID Scan'];
+    const assetTypes = ['photo', 'waiver', 'other'];
+    const assetStatuses: ('uploaded' | 'pending_review' | 'approved' | 'rejected')[] = ['uploaded', 'pending_review', 'approved', 'rejected'];
+    const assetNames = ['Headshot Photo', 'Signed Release Form', 'Costume Reference', 'Profile Record', 'Parent Release'];
 
-    const assetsData = participants.slice(0, 15).flatMap(p => {
+    const assetsData = participants.slice(6, 21).flatMap(p => {
         const count = faker.number.int({ min: 1, max: 2 });
         return Array.from({ length: count }).map(() => {
             const type = faker.helpers.arrayElement(assetTypes);
@@ -296,6 +516,13 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             file_url: createSvgPhotoDataUrl('Fatima Kulas', '#38bdf8'),
         },
         {
+            participant_id: deterministicParticipants[0].id,
+            name: 'Fatima Signed Waiver',
+            type: 'waiver',
+            status: 'approved',
+            file_url: createTextDataUrl('Approved waiver for Fatima Kulas'),
+        },
+        {
             participant_id: deterministicParticipants[1].id,
             name: 'Lester Stage Portrait',
             type: 'photo',
@@ -308,11 +535,138 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
             type: 'photo',
             status: 'pending_review',
             file_url: createSvgPhotoDataUrl('Buddy Ondricka', '#a855f7'),
+        },
+        {
+            participant_id: deterministicParticipants[3].id,
+            name: 'Margarita Parent Release',
+            type: 'waiver',
+            status: 'uploaded',
+            file_url: createTextDataUrl('Uploaded waiver for Margarita Ankunding'),
         }
     ];
 
     const { error: introAssetError } = await supabase.from('participant_assets').insert(deterministicIntroAssets);
     if (introAssetError) console.warn('⚠️ Intro validation asset seed warning:', introAssetError.message);
+
+    const participantAssignments = [
+        {
+            policyCode: 'guardian_contact_complete',
+            participantId: participants[0].id,
+            status: 'missing',
+            notes: 'Demo minor without guardian contact for ops validation.',
+        },
+        {
+            policyCode: 'participant_waiver',
+            participantId: participants[0].id,
+            status: 'missing',
+        },
+        {
+            policyCode: 'participant_photo',
+            participantId: participants[0].id,
+            status: 'missing',
+        },
+        {
+            policyCode: 'participant_waiver',
+            participantId: deterministicParticipants[0].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'participant_photo',
+            participantId: deterministicParticipants[0].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'participant_photo',
+            participantId: deterministicParticipants[2].id,
+            status: 'pending_review',
+        },
+        {
+            policyCode: 'guardian_contact_complete',
+            participantId: deterministicParticipants[3].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'participant_waiver',
+            participantId: deterministicParticipants[3].id,
+            status: 'submitted',
+        },
+    ]
+        .map((assignment) => {
+            const policy = policyByCode.get(assignment.policyCode);
+            if (!policy) return null;
+
+            return {
+                policy_id: policy.id,
+                subject_type: 'participant',
+                participant_id: assignment.participantId,
+                status: assignment.status,
+                notes: assignment.notes || null,
+            };
+        })
+        .filter(Boolean);
+
+    if (participantAssignments.length > 0) {
+        const { error: participantAssignmentError } = await supabase
+            .from('requirement_assignments')
+            .upsert(participantAssignments, { onConflict: 'policy_id,participant_id' });
+        if (participantAssignmentError) {
+            console.warn('⚠️ Participant assignment seed warning:', participantAssignmentError.message);
+        }
+    }
+
+    const actAssignments = [
+        {
+            policyCode: 'ACT_AUDIO',
+            actId: acts[1].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'ACT_INTRO',
+            actId: acts[1].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'ACT_SUPPORT_TEAM',
+            actId: acts[1].id,
+            status: 'approved',
+        },
+        {
+            policyCode: 'ACT_AUDIO',
+            actId: acts[2].id,
+            status: 'missing',
+        },
+        {
+            policyCode: 'ACT_INTRO',
+            actId: acts[2].id,
+            status: 'missing',
+        },
+        {
+            policyCode: 'ACT_SUPPORT_TEAM',
+            actId: acts[2].id,
+            status: 'missing',
+        },
+    ]
+        .map((assignment) => {
+            const policy = policyByCode.get(assignment.policyCode);
+            if (!policy) return null;
+
+            return {
+                policy_id: policy.id,
+                subject_type: 'act',
+                act_id: assignment.actId,
+                status: assignment.status,
+            };
+        })
+        .filter(Boolean);
+
+    if (actAssignments.length > 0) {
+        const { error: actAssignmentError } = await supabase
+            .from('requirement_assignments')
+            .upsert(actAssignments, { onConflict: 'policy_id,act_id' });
+        if (actAssignmentError) {
+            console.warn('⚠️ Act assignment seed warning:', actAssignmentError.message);
+        }
+    }
 
     // 9. Generate Lineup Items
     console.log('📋 Building Schedule/Lineup...');
