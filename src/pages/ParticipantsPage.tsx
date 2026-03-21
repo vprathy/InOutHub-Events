@@ -125,7 +125,6 @@ export default function ParticipantsPage() {
         if (sortBy === 'recent') return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
         return 0;
     });
-    const listCountLabel = activeFilter === 'all' ? `${stats.total} Total` : `${filteredParticipants?.length || 0} Showing`;
     const quickFilters = [
         { key: 'all' as const, label: 'All', count: stats.total, icon: null },
         { key: 'missing' as const, label: 'Files Waiting', count: stats.missing, icon: Clock },
@@ -227,31 +226,6 @@ export default function ParticipantsPage() {
                                 className="min-h-[80px]"
                             />
                         ))}
-                    </div>
-
-                    <div className="surface-panel flex items-center justify-between gap-3 rounded-[1.15rem] border px-3 py-2.5">
-                        <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Participants</p>
-                            <p className="text-sm font-bold text-foreground">{listCountLabel}</p>
-                        </div>
-                        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-                            <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-primary">
-                                {stats.total} Total
-                            </span>
-                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-amber-600">
-                                {stats.unassigned} Need Placement
-                            </span>
-                            {stats.missing > 0 ? (
-                                <span className="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-orange-600">
-                                    {stats.missing} Files Waiting
-                                </span>
-                            ) : null}
-                            {stats.atRisk > 0 ? (
-                                <span className="shrink-0 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-rose-600">
-                                    {stats.atRisk} Guardian Gaps
-                                </span>
-                            ) : null}
-                        </div>
                     </div>
 
                     <div
