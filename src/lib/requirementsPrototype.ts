@@ -126,14 +126,9 @@ function sortRequirementRows(rows: RequirementRow[]) {
 
 export function buildParticipantRequirementRows(participant: any): RequirementRow[] {
     const rows: RequirementRow[] = [];
-    const specialRequestNotes = Array.isArray(participant?.operationalNotes)
-        ? participant.operationalNotes.filter((note: any) => note.category === 'special_request')
+    const activePolicies = Array.isArray(participant?.activeRequirementPolicies)
+        ? participant.activeRequirementPolicies.filter((policy: any) => policy.code !== 'special_request_reviewed')
         : [];
-    const unresolvedSpecialRequests = specialRequestNotes.filter((note: any) => !note.isResolved);
-    const resolvedSpecialRequests = specialRequestNotes.filter((note: any) => note.isResolved);
-    const unresolvedSpecialRequestCount = unresolvedSpecialRequests.length || participant?.openSpecialRequestCount || 0;
-    const resolvedSpecialRequestCount = resolvedSpecialRequests.length || participant?.resolvedSpecialRequestCount || 0;
-    const activePolicies = Array.isArray(participant?.activeRequirementPolicies) ? participant.activeRequirementPolicies : [];
     const waiverAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'waiver');
     const photoAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'photo');
 
@@ -149,33 +144,6 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
                     : 'Guardian name and phone are still required before this participant is cleared.',
                 actionLabel: guardianStatus === 'approved' || guardianStatus === 'auto_complete' ? 'View' : 'Update',
                 status: guardianStatus,
-                target: 'workspace',
-                policyCode: policy.code,
-            }));
-            return;
-        }
-
-        if (policy.code === 'special_request_reviewed') {
-            const specialRequestStatus = getParticipantAssignmentStatus(participant, policy.code)
-                || (unresolvedSpecialRequestCount > 0
-                    ? 'pending_review'
-                    : resolvedSpecialRequestCount > 0
-                        ? 'approved'
-                        : 'missing');
-            rows.push(buildGenericRequirementRow({
-                key: 'special-request',
-                label: policy.label,
-                detail: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
-                    ? 'The special request has been reviewed and closed on this participant record.'
-                    : specialRequestStatus === 'pending_review'
-                        ? 'A special request follow-up is open and still needs closure.'
-                        : 'Special request follow-up should be logged before performance day.',
-                actionLabel: specialRequestStatus === 'approved' || specialRequestStatus === 'auto_complete'
-                    ? 'View Closure'
-                    : specialRequestStatus === 'pending_review'
-                        ? 'Resolve Request'
-                        : 'Log Review',
-                status: specialRequestStatus,
                 target: 'workspace',
                 policyCode: policy.code,
             }));
@@ -346,42 +314,23 @@ export function buildParticipantReadinessSummary(participant: any): ParticipantR
 
 export function buildActRequirementRows(act: any): RequirementRow[] {
     const participantRows = Array.isArray(act?.participants) ? act.participants : [];
-    const performers = participantRows.filter((participant: any) => !['Manager', 'Choreographer', 'Support', 'Crew'].includes(participant.role));
-    const castClear = performers.length > 0 && performers.every((participant: any) => {
-        const assets = Array.isArray(participant.assets) ? participant.assets : [];
-        return assets.length > 0 && assets.every((asset: any) => asset.status === 'approved');
-    });
-    const teamCount = participantRows.filter((participant: any) => ['Manager', 'Choreographer', 'Support', 'Crew'].includes(participant.role)).length;
-    const castCount = performers.length;
-    const activePolicies = Array.isArray(act?.activeRequirementPolicies) ? act.activeRequirementPolicies : [];
-    const rows: RequirementRow[] = [
-        {
-            key: 'cast-clear',
-            label: 'Cast Clearance',
-            detail: castCount === 0
-                ? 'No performers are assigned to this performance yet.'
-                : castClear
-                    ? 'Assigned cast members are clear on current participant requirements.'
-                    : 'One or more assigned participants still have approvals or docs unresolved.',
-            actionLabel: castCount === 0 ? 'Add Cast' : 'Review Cast',
-            status: castCount === 0 ? 'missing' : castClear ? 'approved' : 'pending_review',
-            tone: castCount === 0 ? 'critical' : castClear ? 'good' : 'warning',
-            target: 'cast',
-            policyCode: null,
-        },
-    ];
+    const managerCount = participantRows.filter((participant: any) => participant.role === 'Manager').length;
+    const activePolicies = Array.isArray(act?.activeRequirementPolicies)
+        ? act.activeRequirementPolicies.filter((policy: any) => ['ACT_AUDIO', 'ACT_INTRO', 'ACT_SUPPORT_TEAM'].includes(policy.code))
+        : [];
+    const rows: RequirementRow[] = [];
 
     activePolicies.forEach((policy: any) => {
         if (policy.code === 'ACT_SUPPORT_TEAM') {
             const supportTeamStatus = getActAssignmentStatus(act, policy.code)
-                || (teamCount > 0 ? 'submitted' : castCount > 0 ? 'missing' : 'auto_complete');
+                || (managerCount > 0 ? 'submitted' : 'missing');
             rows.push(buildGenericRequirementRow({
                 key: 'support-team',
-                label: policy.label,
-                detail: teamCount > 0
-                    ? `${teamCount} team contact${teamCount > 1 ? 's are' : ' is'} already linked to this performance.`
-                    : 'No manager, choreographer, or support contact is linked yet.',
-                actionLabel: teamCount > 0 ? 'View Team' : 'Add Team',
+                label: 'Team Manager Assigned',
+                detail: managerCount > 0
+                    ? `${managerCount} manager${managerCount > 1 ? 's are' : ' is'} already linked to this performance.`
+                    : 'No team manager is linked to this performance yet.',
+                actionLabel: managerCount > 0 ? 'View Manager' : 'Assign Manager',
                 status: supportTeamStatus,
                 target: 'cast',
                 policyCode: policy.code,
@@ -420,14 +369,9 @@ export function buildActRequirementRows(act: any): RequirementRow[] {
             actionLabel = 'Open Intro';
         } else if (policy.code === 'ACT_AUDIO') {
             detail = derivedStatus === 'approved' || derivedStatus === 'submitted'
-                ? 'A music or audio record is already attached to this performance.'
-                : 'This performance still needs a music or audio record.';
+                ? 'A performance music file is attached and ready for review or playback.'
+                : 'This performance still needs a music file upload.';
             actionLabel = derivedStatus === 'approved' || derivedStatus === 'submitted' ? 'View Music' : 'Add Music';
-        } else if (policy.code === 'ACT_LIGHTING' || policy.code === 'ACT_MICROPHONE' || policy.code === 'ACT_VIDEO') {
-            detail = derivedStatus === 'approved' || derivedStatus === 'submitted'
-                ? 'A technical requirement record is already attached for this show element.'
-                : 'This technical requirement still needs confirmation for the performance.';
-            actionLabel = 'Review Tech';
         } else if (policy.code === 'ACT_POSTER' || policy.code === 'ACT_GENERATIVE' || policy.code === 'ACT_GENERATIVE_AUDIO' || policy.code === 'ACT_GENERATIVE_VIDEO' || policy.code === 'ACT_WAIVER') {
             actionLabel = derivedStatus === 'approved' || derivedStatus === 'submitted' ? 'View Media' : 'Add Media';
         }

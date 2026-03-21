@@ -217,6 +217,11 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
   - single-open category expansion
   - 2-row compactness across queue surfaces
   - return-focus from `Special Requests` back from participant profile
+- [ ] Requirements workflow review and phase-2 roadmap capture:
+  - keep participant requirements limited to actual admin-defined obligations, not inbound participant requests
+  - keep performance requirements limited to `Music File`, `Intro Approved`, and `Team Manager Assigned`
+  - unify `requirement_policies`, `requirement_assignments`, and file/template surfaces so participant and performance profiles stop relying on hybrid bridge logic
+  - define whether phase 2 replaces `asset_templates` outright or formalizes a canonical bridge contract
 - [ ] Verify dashboard RBAC by role:
   - admin full view
   - event-ops constrained view
