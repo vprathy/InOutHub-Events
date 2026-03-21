@@ -135,6 +135,7 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
     const resolvedSpecialRequestCount = resolvedSpecialRequests.length || participant?.resolvedSpecialRequestCount || 0;
     const activePolicies = Array.isArray(participant?.activeRequirementPolicies) ? participant.activeRequirementPolicies : [];
     const waiverAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'waiver');
+    const photoAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'photo');
 
     activePolicies.forEach((policy: any) => {
         if (policy.code === 'guardian_contact_complete') {
@@ -198,6 +199,29 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
                     : 'A waiver artifact still needs to be uploaded or reviewed.',
                 actionLabel: waiverStatus === 'approved' || waiverStatus === 'auto_complete' ? 'View Waiver' : 'Upload Waiver',
                 status: waiverStatus,
+                target: 'assets',
+                policyCode: policy.code,
+            }));
+            return;
+        }
+
+        if (policy.code === 'participant_photo') {
+            const photoStatus = getParticipantAssignmentStatus(participant, policy.code)
+                || (() => {
+                    if (photoAssets.some((asset: any) => asset.status === 'approved')) return 'approved';
+                    if (photoAssets.some((asset: any) => asset.status === 'pending_review')) return 'pending_review';
+                    if (photoAssets.some((asset: any) => asset.status === 'uploaded')) return 'submitted';
+                    if (photoAssets.some((asset: any) => asset.status === 'rejected')) return 'rejected';
+                    return 'missing';
+                })();
+            rows.push(buildGenericRequirementRow({
+                key: 'participant-photo',
+                label: policy.label,
+                detail: photoStatus === 'approved' || photoStatus === 'auto_complete'
+                    ? 'A participant photo is already attached and approved.'
+                    : 'A participant photo still needs to be uploaded or reviewed.',
+                actionLabel: photoStatus === 'approved' || photoStatus === 'auto_complete' ? 'View Photo' : 'Upload Photo',
+                status: photoStatus,
                 target: 'assets',
                 policyCode: policy.code,
             }));
