@@ -247,7 +247,7 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
 - [ ] **Kill helper text in production UI** — remove product-philosophy sentences rendered as badges/subtitles across Performance Profile, Lineup, Dashboard (~200px recovery)
 - [ ] **Replace OperationalMetricCard grids on profiles with inline text** — metric cards (min-h-[88px] each) should only appear on Dashboard; profile/list pages use `Label: value` inline (~176px recovery per page)
 - [ ] **Flatten ActCard mini-grid** — replace 3 bordered Cast/Music/Prep sub-cards with one text line: `4 cast • Music ready • 2 to review` (~80px per card × N acts)
-- [ ] **Inline ActionMenu** — move solo kebab menu row (ParticipantProfilePage L312-323, ~44px) next to Edit Profile or into shell strip
+- [x] **Inline ActionMenu** — remove the standalone participant-profile action row; keep `Edit Profile` in the shell strip and local overflow actions inline
 - [ ] **Remove redundant PageHeader subtitles** — drop subtitle strings that repeat data already visible in metric cards or filter pills below (~20px per page)
 - [ ] **Eliminate surface-panel double nesting** — cards-inside-panels on Dashboard, Lineup, Participants add border-on-border noise + ~22px padding overhead each
 - [ ] **Downgrade pills-as-labels to plain text** — static descriptive text ("No Change", Cast/Music/Prep labels) should not wear `rounded-full border bg-` styling; reserve pills for interactive counts and live status

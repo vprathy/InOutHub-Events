@@ -275,13 +275,6 @@ export function ParticipantProfilePage() {
         setActiveActionKey((current) => current === key ? null : key);
     };
 
-    const openEditProfile = () => {
-        setShowEditModal(true);
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.set('action', 'edit-profile');
-        setSearchParams(nextParams, { replace: true });
-    };
-
     const resolveSpecialRequest = () => {
         if (openSpecialRequestNotes[0]) {
             resolveNote.mutate(openSpecialRequestNotes[0].id);
@@ -364,15 +357,6 @@ export function ParticipantProfilePage() {
                                 Call Guardian
                             </a>
                         ) : null}
-                        {canManageParticipantRecords ? (
-                            <Button
-                                variant="outline"
-                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                onClick={openEditProfile}
-                            >
-                                Edit Profile
-                            </Button>
-                        ) : null}
                     </div>
                 </div>
             );
@@ -388,17 +372,6 @@ export function ParticipantProfilePage() {
                     <p className="text-sm text-muted-foreground">
                         {participant.identityNotes || 'No special identity notes are attached to this profile.'}
                     </p>
-                    {canManageParticipantRecords ? (
-                        <div>
-                            <Button
-                                variant="outline"
-                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                onClick={openEditProfile}
-                            >
-                                Edit Profile
-                            </Button>
-                        </div>
-                    ) : null}
                 </div>
             );
         }
@@ -503,17 +476,6 @@ export function ParticipantProfilePage() {
         return (
             <div className="space-y-3">
                 <p className="text-sm font-bold text-foreground">{row.detail}</p>
-                <div className="flex flex-wrap gap-2">
-                    {canManageParticipantRecords ? (
-                        <Button
-                            variant="outline"
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                            onClick={openEditProfile}
-                        >
-                            Edit Profile
-                        </Button>
-                    ) : null}
-                </div>
             </div>
         );
     };
