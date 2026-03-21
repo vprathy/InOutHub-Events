@@ -1,14 +1,18 @@
 import {
     Calendar,
     ClipboardCheck,
+    Database,
     LayoutDashboard,
     ListOrdered,
     MonitorPlay,
+    Search,
     ShieldCheck,
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { useSelection } from '@/context/SelectionContext';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
 type SectionIdentity = {
     key: string;
@@ -140,31 +144,80 @@ export function useSectionIdentity() {
 
 export function SectionIdentityStrip() {
     const section = useSectionIdentity();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { eventId } = useSelection();
+    const capabilities = useEventCapabilities(eventId || null, null);
 
     if (!section) return null;
 
+    const isParticipants = section.key === 'participants';
+    const filtersOpen = searchParams.get('panel') === 'filters';
+    const canManageSources = capabilities.canSyncParticipants;
+
+    const openFilters = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('panel', 'filters');
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const openSources = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('action', 'import');
+        setSearchParams(nextParams, { replace: true });
+    };
+
     return (
         <div className={`sticky top-14 z-40 border-b py-1 backdrop-blur-xl sm:top-16 sm:py-1.5 ${section.shellClassName}`}>
-            <button
-                type="button"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-3 px-4 text-left outline-none focus:outline-none focus-visible:outline-none sm:px-6"
-                aria-label={`Scroll to top of ${section.label}`}
-            >
-                <div className="min-w-0">
-                    <p className="truncate text-[24px] font-black leading-tight tracking-tight text-foreground">
-                        {section.label}
-                    </p>
-                    {section.subtitle ? (
-                        <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-muted-foreground">
-                            {section.subtitle}
+            <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-3 px-4 sm:px-6">
+                <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="min-w-0 flex-1 text-left outline-none focus:outline-none focus-visible:outline-none"
+                    aria-label={`Scroll to top of ${section.label}`}
+                >
+                    <div className="min-w-0">
+                        <p className="truncate text-[24px] font-black leading-tight tracking-tight text-foreground">
+                            {section.label}
                         </p>
-                    ) : null}
-                </div>
-                <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>
-                    {section.hint}
-                </div>
-            </button>
+                        {section.subtitle ? (
+                            <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-muted-foreground">
+                                {section.subtitle}
+                            </p>
+                        ) : null}
+                    </div>
+                </button>
+                {isParticipants ? (
+                    <div className="flex shrink-0 items-center gap-2 self-center">
+                        <button
+                            type="button"
+                            onClick={openFilters}
+                            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
+                                filtersOpen
+                                    ? 'border-primary/30 bg-primary/12 text-primary'
+                                    : 'border-border/60 bg-background/70 text-muted-foreground hover:border-primary/20 hover:bg-background/85 hover:text-foreground'
+                            }`}
+                            aria-label="Open search and filters"
+                        >
+                            <Search className="h-4 w-4" />
+                        </button>
+                        {canManageSources ? (
+                            <button
+                                type="button"
+                                onClick={openSources}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                aria-label="Open participant data sources"
+                            >
+                                <Database className="h-4 w-4 text-primary" />
+                                <span>Sources</span>
+                            </button>
+                        ) : null}
+                    </div>
+                ) : (
+                    <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>
+                        {section.hint}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { useSelection } from '@/context/SelectionContext';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
 import { AddParticipantModal } from '@/components/participants/AddParticipantModal';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OperationalMetricCard, type OperationalTone } from '@/components/ui/OperationalCards';
 import {
     Users,
     Search,
@@ -16,7 +17,7 @@ import {
     ChevronRight,
     Funnel,
     X,
-    Database,
+    FileCheck,
 } from 'lucide-react';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
@@ -45,7 +46,6 @@ export default function ParticipantsPage() {
     const { eventId } = useSelection();
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
-    const [isActionsSheetOpen, setIsActionsSheetOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'at_risk'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
@@ -70,6 +70,7 @@ export default function ParticipantsPage() {
             setIsImportModalOpen(true);
         }
     }, [searchParams]);
+    const isActionsSheetOpen = searchParams.get('panel') === 'filters';
 
     const updateFilter = (nextFilter: typeof activeFilter) => {
         setActiveFilter(nextFilter);
@@ -132,6 +133,24 @@ export default function ParticipantsPage() {
         { key: 'special' as const, label: 'Special Requests', count: stats.special, icon: AlertTriangle },
         { key: 'at_risk' as const, label: 'Guardian Follow-Up', count: stats.atRisk, icon: AlertTriangle },
         { key: 'ready' as const, label: 'Ready', count: stats.ready, icon: null },
+    ];
+    const participantMetrics = [
+        {
+            key: 'unassigned',
+            label: 'Need Placement',
+            value: stats.unassigned,
+            icon: Users,
+            tone: stats.unassigned > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            onClick: () => updateFilter('unassigned'),
+        },
+        {
+            key: 'missing',
+            label: 'Files Waiting',
+            value: stats.missing,
+            icon: FileCheck,
+            tone: stats.missing > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            onClick: () => updateFilter('missing'),
+        },
     ];
     useEffect(() => {
         const node = listRef.current;
@@ -196,6 +215,20 @@ export default function ParticipantsPage() {
                 />
             ) : (
                 <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                        {participantMetrics.map((metric) => (
+                            <OperationalMetricCard
+                                key={metric.key}
+                                label={metric.label}
+                                value={metric.value}
+                                icon={metric.icon}
+                                tone={metric.tone}
+                                onClick={metric.onClick}
+                                className="min-h-[80px]"
+                            />
+                        ))}
+                    </div>
+
                     <div className="surface-panel flex items-center justify-between gap-3 rounded-[1.15rem] border px-3 py-2.5">
                         <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Participants</p>
@@ -268,33 +301,6 @@ export default function ParticipantsPage() {
                 </div>
             )}
 
-            <div className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+5.1rem)] z-50 flex -translate-y-1/2 items-center gap-2 sm:top-[calc(env(safe-area-inset-top,0px)+5.9rem)]">
-                <button
-                    type="button"
-                    onClick={() => setIsActionsSheetOpen(true)}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/40 bg-white/55 text-foreground shadow-sm backdrop-blur transition-colors hover:bg-white/70"
-                    aria-label="Open search and filters"
-                >
-                    <Search className="h-4 w-4" />
-                </button>
-                {canManageSync ? (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const nextParams = new URLSearchParams(searchParams);
-                            nextParams.set('action', 'import');
-                            setSearchParams(nextParams, { replace: true });
-                            setIsImportModalOpen(true);
-                        }}
-                        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-white/40 bg-white/55 px-3 text-sm font-bold text-foreground shadow-sm backdrop-blur transition-colors hover:bg-white/70"
-                        aria-label="Open participant data sources"
-                    >
-                        <Database className="h-4 w-4 text-primary" />
-                        <span>Sources</span>
-                    </button>
-                ) : null}
-            </div>
-
             {canManageRoster ? (
                 <button
                     type="button"
@@ -307,7 +313,11 @@ export default function ParticipantsPage() {
             ) : null}
 
             {isActionsSheetOpen ? (
-                <div className="fixed inset-0 z-[130] bg-background/65 backdrop-blur-sm" onClick={() => setIsActionsSheetOpen(false)}>
+                <div className="fixed inset-0 z-[130] bg-background/65 backdrop-blur-sm" onClick={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    nextParams.delete('panel');
+                    setSearchParams(nextParams, { replace: true });
+                }}>
                     <div
                         className="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] border border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200"
                         onClick={(event) => event.stopPropagation()}
@@ -321,7 +331,11 @@ export default function ParticipantsPage() {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setIsActionsSheetOpen(false)}
+                                onClick={() => {
+                                    const nextParams = new URLSearchParams(searchParams);
+                                    nextParams.delete('panel');
+                                    setSearchParams(nextParams, { replace: true });
+                                }}
                                 className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent"
                             >
                                 <X className="h-5 w-5" />
@@ -329,44 +343,6 @@ export default function ParticipantsPage() {
                         </div>
 
                         <div className="mt-4 space-y-5 border-t border-border/70 pt-4">
-                            <div className="space-y-3">
-                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Actions</p>
-                                <div className="space-y-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsActionsSheetOpen(false);
-                                            setIsAddParticipantOpen(true);
-                                        }}
-                                        disabled={!canManageRoster}
-                                        className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black uppercase tracking-[0.16em] ${
-                                            canManageRoster ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                                        }`}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Add
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (!canManageSync) return;
-                                            const nextParams = new URLSearchParams(searchParams);
-                                            nextParams.set('action', 'import');
-                                            setSearchParams(nextParams, { replace: true });
-                                            setIsActionsSheetOpen(false);
-                                            setIsImportModalOpen(true);
-                                        }}
-                                        disabled={!canManageSync}
-                                        className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black uppercase tracking-[0.16em] ${
-                                            canManageSync ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                                        }`}
-                                    >
-                                        <Database className="h-4 w-4" />
-                                        Sources
-                                    </button>
-                                </div>
-                            </div>
-
                             <div className="space-y-3">
                                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Search &amp; Sort</p>
                                 <div className="relative">

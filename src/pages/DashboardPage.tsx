@@ -30,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 type DashboardPhase = 'pre_show' | 'show_day' | 'live';
 type DashboardAudience = 'admin' | 'ops' | 'member';
 const DASHBOARD_RETURN_FOCUS_KEY = 'dashboard:return-focus';
+const CATEGORY_INCREMENT = 8;
 
 function getTodayKey() {
     const today = new Date();
@@ -61,8 +62,10 @@ export default function DashboardPage() {
     const [activeMetricInfo, setActiveMetricInfo] = useState<{ label: string; body: string } | null>(null);
     const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
     const [returnFocus, setReturnFocus] = useState<{ category: string; itemId?: string } | null>(null);
+    const [visibleItemCounts, setVisibleItemCounts] = useState<Record<string, number>>({});
     const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const categorySentinels = useRef<Record<string, HTMLDivElement | null>>({});
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false } = useIsSuperAdmin();
@@ -117,8 +120,7 @@ export default function DashboardPage() {
                     id: participant.id,
                     name: `${participant.first_name || ''} ${participant.last_name || ''}`.trim() || 'Participant',
                     detail: trimRequestPreview(participant.special_request_raw),
-                }))
-                .slice(0, 6);
+                }));
         },
         enabled: !!eventId,
     });
@@ -149,6 +151,13 @@ export default function DashboardPage() {
             setReturnFocus(null);
         }, 60);
     }, [returnFocus, expandedCategory, specialRequestItems.length]);
+
+    useEffect(() => {
+        if (!expandedCategory) return;
+        setVisibleItemCounts((current) =>
+            current[expandedCategory] ? current : { ...current, [expandedCategory]: CATEGORY_INCREMENT }
+        );
+    }, [expandedCategory]);
 
     const { data: participantRequirementPolicies = [] } = useQuery({
         queryKey: ['dashboard-participant-requirement-policies', eventId],
@@ -476,6 +485,30 @@ export default function DashboardPage() {
         })
         .filter((category) => category.count > 0);
 
+    useEffect(() => {
+        if (!expandedCategory) return;
+        const sentinel = categorySentinels.current[expandedCategory];
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const [entry] = entries;
+                if (!entry?.isIntersecting) return;
+                setVisibleItemCounts((current) => ({
+                    ...current,
+                    [expandedCategory]: Math.min(
+                        (current[expandedCategory] || CATEGORY_INCREMENT) + CATEGORY_INCREMENT,
+                        categoryCards.find((category) => category.key === expandedCategory)?.items.length || CATEGORY_INCREMENT
+                    ),
+                }));
+            },
+            { root: null, rootMargin: '120px 0px' }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [expandedCategory, categoryCards]);
+
     return (
         <div className="space-y-5 pt-3 pb-12 sm:pt-4">
             <div className="surface-panel surface-section-dashboard rounded-[1.35rem] p-3">
@@ -505,6 +538,8 @@ export default function DashboardPage() {
                     <div className="space-y-2.5">
                         {categoryCards.map((category) => {
                             const isExpanded = expandedCategory === category.key;
+                            const visibleItems = category.items.slice(0, visibleItemCounts[category.key] || CATEGORY_INCREMENT);
+                            const hasMoreItems = category.items.length > visibleItems.length;
                             return (
                                 <div
                                     key={category.key}
@@ -537,7 +572,7 @@ export default function DashboardPage() {
                                     {isExpanded ? (
                                         <div className="mt-3 space-y-2.5 border-t border-border/60 pt-3">
                                             {category.key === 'special_requests' ? (
-                                                category.items.map((item) => {
+                                                visibleItems.map((item) => {
                                                     const participantId = (('id' in item ? item.id : '') || '') as string;
                                                     return (
                                                         <button
@@ -563,7 +598,7 @@ export default function DashboardPage() {
                                                     );
                                                 })
                                             ) : (
-                                                category.items.map((item) => (
+                                                visibleItems.map((item) => (
                                                     <OperationalResponseCard
                                                         key={`${category.key}-${item.label}`}
                                                         label={item.label}
@@ -574,6 +609,12 @@ export default function DashboardPage() {
                                                     />
                                             ))
                                             )}
+                                            {hasMoreItems ? (
+                                                <div
+                                                    ref={(node) => { categorySentinels.current[category.key] = node; }}
+                                                    className="h-6"
+                                                />
+                                            ) : null}
                                         </div>
                                     ) : null}
                                 </div>

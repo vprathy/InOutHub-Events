@@ -34,8 +34,8 @@ export const BottomNav: React.FC = () => {
                                     <div className={`rounded-xl p-1.5 transition-all duration-300 ${isActive ? 'bg-primary/5' : 'group-hover:bg-accent/50'}`}>
                                         <item.icon className={`h-5 w-5 transition-transform duration-300 ${isActive ? 'scale-105' : 'group-hover:scale-105'}`} />
                                     </div>
-                                    <span className={`mt-1 max-w-[64px] line-clamp-2 text-center text-[9px] font-bold leading-[1.1] tracking-tight transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
-                                        {item.label}
+                                    <span className={`mt-1 whitespace-nowrap text-center text-[8px] font-bold leading-none tracking-tight transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
+                                        {item.mobileLabel || item.label}
                                     </span>
                                     {isActive && (
                                         <div className="absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
