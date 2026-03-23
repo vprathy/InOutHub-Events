@@ -322,6 +322,7 @@ export default function RequirementsPage() {
             const orgPolicy = orgPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
             const eventPolicy = eventPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
             const hasConflict = Boolean(orgPolicy && eventPolicy);
+            const activeOrgPolicy = orgPolicy?.is_active ? orgPolicy : null;
 
             if (scope === 'org') {
                 return {
@@ -335,14 +336,14 @@ export default function RequirementsPage() {
                 };
             }
 
-            if (orgPolicy) {
+            if (activeOrgPolicy) {
                 return {
                     preset,
                     orgPolicy,
                     eventPolicy,
-                    currentPolicy: orgPolicy,
+                    currentPolicy: activeOrgPolicy,
                     source: 'inherited',
-                    isActive: Boolean(orgPolicy.is_active),
+                    isActive: true,
                     hasConflict,
                 };
             }
@@ -575,6 +576,7 @@ function PolicyCard({
     const requiredActive = isActive && (currentPolicy ? currentPolicy.is_required : preset.required);
     const reviewActive = isActive && (currentPolicy ? currentPolicy.review_mode === 'review_required' : preset.needsReview);
     const blockingActive = isActive && (currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking);
+    const bulkActive = isActive && (currentPolicy ? currentPolicy.allow_bulk_approve : preset.bulk);
 
     const sourceLabel = source === 'org'
         ? 'Org Baseline'
@@ -638,7 +640,7 @@ function PolicyCard({
                         />
                     </div>
                     <p className="text-[11px] font-medium text-muted-foreground">
-                        Bulk {currentPolicy ? (currentPolicy.allow_bulk_approve ? 'On' : 'Off') : (preset.bulk ? 'On' : 'Off')}
+                        Bulk {bulkActive ? 'On' : 'Off'}
                         {' • '}
                         Active {isActive ? 'On' : 'Off'}
                     </p>
