@@ -18,6 +18,7 @@ import {
     Funnel,
     X,
     FileCheck,
+    PhoneCall,
 } from 'lucide-react';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
@@ -316,6 +317,16 @@ export default function ParticipantsPage() {
                                                     ) : null}
                                                 </div>
                                             </div>
+                                            {participant.isMinor && participant.guardianPhone ? (
+                                                <a
+                                                    href={`tel:${participant.guardianPhone}`}
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                                                    aria-label={`Call guardian for ${participant.firstName} ${participant.lastName}`}
+                                                >
+                                                    <PhoneCall className="h-4 w-4" />
+                                                </a>
+                                            ) : null}
                                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                                         </button>
                                     );

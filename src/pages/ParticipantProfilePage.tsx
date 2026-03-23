@@ -189,10 +189,6 @@ export function ParticipantProfilePage() {
         setSelectedActId('');
     };
 
-    const scrollToSection = (ref: { current: HTMLDivElement | null }) => {
-        ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
     const safeParticipant = participant ?? null;
     const assignedActCount = safeParticipant?.acts?.length || 0;
     const unresolvedNoteCount = safeParticipant?.operationalNotes?.filter(note => !note.isResolved).length || 0;
@@ -303,11 +299,6 @@ export function ParticipantProfilePage() {
         return (participant.assets || []).filter((asset: any) => asset.type === assetType);
     };
 
-    const handleRequirementAction = (row: RequirementRow) => {
-        setActiveActionKey(row.key);
-        scrollToSection(requirementsSectionRef);
-    };
-
     const renderRequirementWorkPanel = (row: RequirementRow) => {
         if (row.key === 'special-request') {
             return (
@@ -339,8 +330,7 @@ export function ParticipantProfilePage() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,auto]">
                     <div className="space-y-3">
                         <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Contact</p>
-                            <p className="mt-1 text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
+                            <p className="text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
                             <p className="text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
                         </div>
                         {participant.guardianRelationship ? (
@@ -365,7 +355,6 @@ export function ParticipantProfilePage() {
         if (row.policyCode === 'identity_check') {
             return (
                 <div className="space-y-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">Identity Review</p>
                     <p className="text-sm font-bold text-foreground">
                         {participant.identityVerified ? 'Identity already verified' : 'Identity still needs review'}
                     </p>
@@ -387,9 +376,11 @@ export function ParticipantProfilePage() {
                         <div key={template.id} className="border-b border-border/50 pb-3 last:border-b-0 last:pb-0">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-foreground">{template.name}</p>
+                                    {template.name?.trim().toLowerCase() !== row.label.trim().toLowerCase() ? (
+                                        <p className="text-sm font-bold text-foreground">{template.name}</p>
+                                    ) : null}
                                     {template.description ? (
-                                        <p className="mt-1 text-xs text-muted-foreground">{template.description}</p>
+                                        <p className={`${template.name?.trim().toLowerCase() !== row.label.trim().toLowerCase() ? 'mt-1' : ''} text-xs text-muted-foreground`}>{template.description}</p>
                                     ) : null}
                                     {fulfillment ? (
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
@@ -480,6 +471,45 @@ export function ParticipantProfilePage() {
         );
     };
 
+    const actionCards = [
+        ...(participant.hasSpecialRequests ? [{
+            key: 'special-request',
+            label: 'Special Request',
+            detail: participant.specialRequestRaw || 'Review the inbound request and capture the operator decision.',
+            statusLabel: openSpecialRequestNotes.length > 0 ? 'Review' : 'Open',
+            statusToneClass: 'text-orange-600',
+            isOpen: activeActionKey === 'special-request',
+            content: renderRequirementWorkPanel({
+                key: 'special-request',
+                label: 'Special Request',
+                detail: participant.specialRequestRaw || '',
+                actionLabel: 'Review',
+                status: 'pending_review',
+                tone: 'warning',
+                target: 'workspace',
+            }),
+        }] : []),
+        ...requirementRows.map((row) => {
+            const meta = getRequirementStatusMeta(row.status);
+            return {
+                key: row.key,
+                label: row.label,
+                detail: row.detail,
+                statusLabel: meta.label,
+                statusToneClass:
+                    meta.tone === 'critical'
+                        ? 'text-destructive'
+                        : meta.tone === 'warning'
+                            ? 'text-orange-600'
+                            : meta.tone === 'good'
+                                ? 'text-emerald-600'
+                                : 'text-primary',
+                isOpen: activeActionKey === row.key,
+                content: renderRequirementWorkPanel(row),
+            };
+        }),
+    ];
+
     return (
         <div className="relative">
             {assetNotice && (
@@ -537,17 +567,8 @@ export function ParticipantProfilePage() {
                             <span className="shrink-0 pt-0.5 text-muted-foreground/40">·</span>
                             <p className="min-w-0 text-sm text-muted-foreground">{readinessDetail}</p>
                         </div>
-                        {(nextRequirementRow || (participant.isMinor && participant.guardianPhone)) ? (
+                        {participant.isMinor && participant.guardianPhone ? (
                             <div className="flex flex-wrap gap-2">
-                                {nextRequirementRow ? (
-                                    <Button
-                                        variant="outline"
-                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                        onClick={() => handleRequirementAction(nextRequirementRow)}
-                                    >
-                                        Open Action
-                                    </Button>
-                                ) : null}
                                 {participant.isMinor && participant.guardianPhone ? (
                                     <a
                                         href={`tel:${participant.guardianPhone}`}
@@ -610,66 +631,37 @@ export function ParticipantProfilePage() {
                                 </form>
                             ) : null}
 
-                            <div className="mt-4 divide-y divide-border/50">
-                                {participant.hasSpecialRequests ? (
-                                    <div>
+                            <div className="mt-4 space-y-2">
+                                {actionCards.length > 0 ? actionCards.map((card) => (
+                                    <div
+                                        key={card.key}
+                                        className={`rounded-xl border border-border/60 bg-background/60 px-3 py-2 transition-colors ${card.isOpen ? 'border-primary/30 bg-primary/5' : ''}`}
+                                    >
                                         <button
                                             type="button"
-                                            onClick={() => toggleActionKey('special-request')}
-                                            className="flex min-h-12 w-full items-center justify-between gap-3 py-3 text-left"
+                                            onClick={() => toggleActionKey(card.key)}
+                                            className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
                                         >
-                                            <p className="min-w-0 truncate text-sm font-bold text-foreground">Special Request</p>
-                                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-orange-600">
-                                                {openSpecialRequestNotes.length > 0 ? 'Open' : 'Review'}
-                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="min-w-0 truncate text-sm font-bold text-foreground">{card.label}</p>
+                                                    <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${card.statusToneClass}`}>
+                                                        {card.statusLabel}
+                                                    </span>
+                                                </div>
+                                                {!card.isOpen ? (
+                                                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.detail}</p>
+                                                ) : null}
+                                            </div>
+                                            <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${card.isOpen ? 'rotate-90' : ''}`} />
                                         </button>
-                                        {activeActionKey === 'special-request' ? (
-                                            <div className="border-t border-border/50 py-4">
-                                                {renderRequirementWorkPanel({
-                                                    key: 'special-request',
-                                                    label: 'Special Request',
-                                                    detail: participant.specialRequestRaw || '',
-                                                    actionLabel: 'Review',
-                                                    status: 'pending_review',
-                                                    tone: 'warning',
-                                                    target: 'workspace',
-                                                })}
+                                        {card.isOpen ? (
+                                            <div className="mt-3 border-t border-border/50 pt-3">
+                                                {card.content}
                                             </div>
                                         ) : null}
                                     </div>
-                                ) : null}
-
-                                {requirementRows.length > 0 ? requirementRows.map((row) => {
-                                    const meta = getRequirementStatusMeta(row.status);
-                                    const isOpen = activeActionKey === row.key;
-                                    return (
-                                        <div key={row.key} className={isOpen ? 'bg-primary/5' : ''}>
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleActionKey(row.key)}
-                                                className="flex min-h-12 w-full items-center justify-between gap-3 py-3 text-left"
-                                            >
-                                                <p className="min-w-0 truncate text-sm font-bold text-foreground">{row.label}</p>
-                                                <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${
-                                                    meta.tone === 'critical'
-                                                        ? 'text-destructive'
-                                                        : meta.tone === 'warning'
-                                                            ? 'text-orange-600'
-                                                            : meta.tone === 'good'
-                                                                ? 'text-emerald-600'
-                                                                : 'text-primary'
-                                                }`}>
-                                                    {meta.label}
-                                                </span>
-                                            </button>
-                                            {isOpen ? (
-                                                <div className="border-t border-border/50 py-4">
-                                                    {renderRequirementWorkPanel(row)}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    );
-                                }) : (
+                                )) : (
                                     <p className="py-4 text-sm text-muted-foreground">No participant requirements are active for this profile.</p>
                                 )}
                             </div>
