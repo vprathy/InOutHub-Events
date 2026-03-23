@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
-import { BadgeAlert, ChevronRight, Info } from 'lucide-react';
+import { BadgeAlert, ChevronRight } from 'lucide-react';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 export type OperationalTone = 'default' | 'good' | 'warning' | 'critical' | 'info';
 
@@ -33,7 +34,7 @@ export function OperationalMetricCard({
   icon: Icon,
   tone = 'default',
   onClick,
-  onInfoClick,
+  infoBody,
   infoLabel,
   detail,
   className = '',
@@ -43,7 +44,7 @@ export function OperationalMetricCard({
   icon: LucideIcon;
   tone?: OperationalTone;
   onClick?: () => void;
-  onInfoClick?: () => void;
+  infoBody?: string;
   infoLabel?: string;
   detail?: string;
   className?: string;
@@ -68,18 +69,18 @@ export function OperationalMetricCard({
           <div className={`flex h-6 w-6 items-center justify-center ${iconToneClasses[tone]}`}>
             <Icon className="h-4 w-4" />
           </div>
-          {onInfoClick ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onInfoClick();
-              }}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-foreground/45 transition-colors hover:bg-foreground/5 hover:text-foreground/70"
-              aria-label={infoLabel || `About ${label}`}
+          {infoBody ? (
+            <div
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
             >
-              <Info className="h-3.5 w-3.5" />
-            </button>
+              <InlineInfoTip
+                label={infoLabel || `About ${label}`}
+                body={infoBody}
+                align="right"
+                className="shrink-0"
+              />
+            </div>
           ) : null}
         </div>
       </div>

@@ -161,8 +161,6 @@ export function useParticipantsQuery(eventId: string) {
     });
 }
 
-import * as XLSX from 'xlsx';
-
 export function useImportParticipants(eventId: string) {
     const queryClient = useQueryClient();
 
@@ -176,6 +174,7 @@ export function useImportParticipants(eventId: string) {
             sourceId?: string;
             savedMapping?: Record<string, string | undefined>;
         }) => {
+            const XLSX = await import('xlsx');
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             const sheetName = workbook.SheetNames[0];

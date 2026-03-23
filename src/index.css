@@ -66,6 +66,13 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+  }
+
   * {
     @apply border-border;
   }
@@ -84,6 +91,8 @@
   }
 
   .surface-panel {
+    min-width: 0;
+    max-width: 100%;
     background: hsl(var(--card) / 0.72);
     border: 1px solid hsl(var(--border) / 0.7);
     box-shadow: 0 12px 30px -24px rgba(15, 23, 42, 0.45);

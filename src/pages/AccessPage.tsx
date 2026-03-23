@@ -7,6 +7,7 @@ import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useAssignEventRole, useEventMembers, usePendingEventAccess, useRemoveEventMember } from '@/hooks/useAccess';
 import { Button } from '@/components/ui/Button';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 type AccessRole = 'EventAdmin' | 'StageManager' | 'ActAdmin' | 'Member';
 
@@ -103,10 +104,14 @@ export default function AccessPage() {
             <div className="surface-panel surface-section-access rounded-[1.35rem] p-4">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
                     <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Grant</p>
-                        <p className="text-sm text-muted-foreground">
-                            Grant event access in one step. Org membership is added automatically if needed.
-                        </p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Quick Grant</p>
+                            <InlineInfoTip
+                                label="Quick grant"
+                                body="Grant event access in one step. If the person is not yet in the organization, the required org membership is created automatically."
+                            />
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">Grant event access fast.</p>
                     </div>
                     <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-left sm:min-w-[88px] sm:text-center">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current</p>
@@ -143,8 +148,12 @@ export default function AccessPage() {
                 </form>
 
                 <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr),auto] lg:items-center">
-                    <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-[11px] font-medium leading-5 text-primary">
-                        If the email has not signed in yet, access stays pending until first sign-in.
+                    <div className="flex items-center gap-2 px-1">
+                        <span className="text-xs font-medium text-muted-foreground">Pending grants activate on first sign-in.</span>
+                        <InlineInfoTip
+                            label="Pending access"
+                            body="When the email has not signed in yet, access stays pending until that person signs in for the first time."
+                        />
                     </div>
                     <div className="relative">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

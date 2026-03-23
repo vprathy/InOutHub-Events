@@ -178,9 +178,9 @@ export function Header() {
 
     return (
         <header className="sticky top-0 z-50 border-b border-border bg-background/95 shadow-sm backdrop-blur">
-            <div className="mx-auto flex h-14 w-full max-w-screen-xl items-center justify-between px-4 sm:h-16 sm:px-6">
+            <div className="mx-auto flex h-14 w-full min-w-0 max-w-screen-xl items-center justify-between px-4 sm:h-16 sm:px-6">
                 <div className="flex min-w-0 flex-1 items-center space-x-2 sm:space-x-4">
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <div className="flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
                     <BrandMark size="sm" showLabel className="shrink-0" />
                     {appVariantLabel && !isSelectionRoute ? (
                         <span className="inline-flex min-h-[22px] items-center rounded-full border border-border/60 bg-muted/45 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/80">

@@ -1,7 +1,6 @@
 import {
     ChevronDown,
     ChevronUp,
-    Info,
     LayoutDashboard,
     Play,
     ShieldAlert,
@@ -22,7 +21,6 @@ import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard, type OperationalTone } from '@/components/ui/OperationalCards';
-import { Modal } from '@/components/ui/Modal';
 import { fetchResolvedRequirementPolicies } from '@/lib/requirementPolicies';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { supabase } from '@/lib/supabase';
@@ -59,7 +57,6 @@ function getQueueItemCount(item: unknown) {
 export default function DashboardPage() {
     const { eventId, organizationId } = useSelection();
     const navigate = useNavigate();
-    const [activeMetricInfo, setActiveMetricInfo] = useState<{ label: string; body: string } | null>(null);
     const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
     const [returnFocus, setReturnFocus] = useState<{ category: string; itemId?: string } | null>(null);
     const [visibleItemCounts, setVisibleItemCounts] = useState<Record<string, number>>({});
@@ -523,7 +520,7 @@ export default function DashboardPage() {
                             icon={metric.icon}
                             tone={metric.tone}
                             onClick={metric.onClick}
-                            onInfoClick={() => setActiveMetricInfo({ label: metric.label, body: metric.infoBody })}
+                            infoBody={metric.infoBody}
                             infoLabel={`About ${metric.label}`}
                         />
                     ))}
@@ -630,22 +627,6 @@ export default function DashboardPage() {
                 )}
             </div>
 
-            <Modal
-                isOpen={Boolean(activeMetricInfo)}
-                onClose={() => setActiveMetricInfo(null)}
-                title={activeMetricInfo?.label || 'Metric Info'}
-            >
-                <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
-                            <Info className="h-5 w-5" />
-                        </div>
-                        <p className="text-sm leading-6 text-foreground/85">
-                            {activeMetricInfo?.body}
-                        </p>
-                    </div>
-                </div>
-            </Modal>
         </div>
     );
 }

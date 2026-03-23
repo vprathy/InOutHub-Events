@@ -335,31 +335,12 @@ export function buildParticipantReadinessSummary(participant: any): ParticipantR
 }
 
 export function buildActRequirementRows(act: any): RequirementRow[] {
-    const participantRows = Array.isArray(act?.participants) ? act.participants : [];
-    const managerCount = participantRows.filter((participant: any) => participant.role === 'Manager').length;
     const activePolicies = Array.isArray(act?.activeRequirementPolicies)
-        ? act.activeRequirementPolicies.filter((policy: any) => ['ACT_AUDIO', 'ACT_INTRO', 'ACT_SUPPORT_TEAM'].includes(policy.code))
+        ? act.activeRequirementPolicies.filter((policy: any) => ['ACT_AUDIO', 'ACT_INTRO'].includes(policy.code))
         : [];
     const rows: RequirementRow[] = [];
 
     activePolicies.forEach((policy: any) => {
-        if (policy.code === 'ACT_SUPPORT_TEAM') {
-            const supportTeamStatus = getActAssignmentStatus(act, policy.code)
-                || (managerCount > 0 ? 'submitted' : 'missing');
-            rows.push(buildGenericRequirementRow({
-                key: 'support-team',
-                label: 'Team Manager Assigned',
-                detail: managerCount > 0
-                    ? `${managerCount} manager${managerCount > 1 ? 's are' : ' is'} already linked to this performance.`
-                    : 'No team manager is linked to this performance yet.',
-                actionLabel: managerCount > 0 ? 'View Manager' : 'Assign Manager',
-                status: supportTeamStatus,
-                target: 'cast',
-                policyCode: policy.code,
-            }));
-            return;
-        }
-
         const legacyRequirementType = ACT_POLICY_REQUIREMENT_TYPE_MAP[policy.code];
         const assignmentStatus = getActAssignmentStatus(act, policy.code);
         const matchingRequirement = legacyRequirementType

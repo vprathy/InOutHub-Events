@@ -3,9 +3,11 @@ import {
     ClipboardCheck,
     Database,
     Edit,
+    Funnel,
     LayoutDashboard,
     ListOrdered,
     MonitorPlay,
+    Search,
     ShieldCheck,
     Users,
 } from 'lucide-react';
@@ -56,6 +58,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Performances',
         group: 'Act Prep',
         hint: 'Cast, media, readiness',
+        subtitle: 'Manage cast, media, and act readiness',
         icon: ListOrdered,
         shellClassName:
             'border-fuchsia-500/15 bg-[linear-gradient(90deg,rgba(217,70,239,0.10),rgba(251,146,60,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(232,121,249,0.18),rgba(251,191,36,0.05)_45%,transparent)]',
@@ -67,6 +70,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Show Flow',
         group: 'Scheduling',
         hint: 'Stages & order',
+        subtitle: 'Set the running order and clean the queue',
         icon: Calendar,
         shellClassName:
             'border-amber-500/15 bg-[linear-gradient(90deg,rgba(245,158,11,0.10),rgba(16,185,129,0.04)_48%,transparent)] dark:bg-[linear-gradient(90deg,rgba(251,191,36,0.18),rgba(52,211,153,0.05)_48%,transparent)]',
@@ -78,6 +82,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Live Console',
         group: 'Execution',
         hint: 'Current cue control',
+        subtitle: 'Run the show and keep the next cue visible',
         icon: MonitorPlay,
         shellClassName:
             'border-emerald-500/15 bg-[linear-gradient(90deg,rgba(16,185,129,0.12),rgba(45,212,191,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(52,211,153,0.18),rgba(45,212,191,0.05)_45%,transparent)]',
@@ -89,6 +94,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Access',
         group: 'Admin',
         hint: 'Staffing & roles',
+        subtitle: 'Manage event roles, pending access, and staffing',
         icon: ShieldCheck,
         shellClassName:
             'border-teal-500/15 bg-[linear-gradient(90deg,rgba(20,184,166,0.12),rgba(6,182,212,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(45,212,191,0.18),rgba(34,211,238,0.05)_45%,transparent)]',
@@ -100,6 +106,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Requirements',
         group: 'Admin',
         hint: 'Policy controls',
+        subtitle: 'Choose what people and performances need',
         icon: ClipboardCheck,
         shellClassName:
             'border-rose-500/15 bg-[linear-gradient(90deg,rgba(244,63,94,0.10),rgba(251,146,60,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(251,113,133,0.18),rgba(251,191,36,0.05)_45%,transparent)]',
@@ -111,6 +118,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Admin',
         group: 'Admin',
         hint: 'Privileged controls',
+        subtitle: 'Administrative controls for staffing and readiness',
         icon: ShieldCheck,
         shellClassName:
             'border-slate-500/15 bg-[linear-gradient(90deg,rgba(71,85,105,0.16),rgba(20,184,166,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(100,116,139,0.24),rgba(45,212,191,0.05)_45%,transparent)]',
@@ -153,6 +161,7 @@ export function SectionIdentityStrip() {
 
     const isParticipants = section.key === 'participants';
     const isParticipantDetail = isParticipants && /^\/participants\/[^/]+$/.test(location.pathname);
+    const isRequirements = section.key === 'requirements';
     const canManageSources = capabilities.canSyncParticipants;
     const canEditParticipant = capabilities.canManageParticipantRecords;
 
@@ -168,9 +177,19 @@ export function SectionIdentityStrip() {
         setSearchParams(nextParams, { replace: true });
     };
 
+    const toggleRequirementsPanel = (panel: 'req-search' | 'req-filter') => {
+        const nextParams = new URLSearchParams(searchParams);
+        if (nextParams.get('panel') === panel) {
+            nextParams.delete('panel');
+        } else {
+            nextParams.set('panel', panel);
+        }
+        setSearchParams(nextParams, { replace: true });
+    };
+
     return (
         <div className={`sticky top-14 z-40 border-b py-1 backdrop-blur-xl sm:top-16 sm:py-1.5 ${section.shellClassName}`}>
-            <div className="mx-auto flex w-full max-w-screen-xl items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="mx-auto flex w-full min-w-0 max-w-screen-xl items-center justify-between gap-3 px-4 sm:px-6">
                 <button
                     type="button"
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -211,6 +230,27 @@ export function SectionIdentityStrip() {
                                 <span>Sources</span>
                             </button>
                         ) : null}
+                    </div>
+                ) : isRequirements ? (
+                    <div className="flex shrink-0 items-center gap-2 self-center">
+                        <button
+                            type="button"
+                            onClick={() => toggleRequirementsPanel('req-search')}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                            aria-label="Search requirements"
+                            title="Search requirements"
+                        >
+                            <Search className="h-4 w-4 text-primary" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => toggleRequirementsPanel('req-filter')}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                            aria-label="Filter requirements"
+                            title="Filter requirements"
+                        >
+                            <Funnel className="h-4 w-4 text-primary" />
+                        </button>
                     </div>
                 ) : (
                     <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>

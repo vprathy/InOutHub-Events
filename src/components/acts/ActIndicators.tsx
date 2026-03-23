@@ -16,7 +16,7 @@ export function ActIndicators({
     specialRequestCount
 }: ActIndicatorsProps) {
     return (
-        <div className="flex items-center gap-1.5 min-w-max">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {/* Special Requests Flag */}
             {specialRequestCount > 0 && (
                 <div

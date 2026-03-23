@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ChevronDown, Funnel, Loader2, Search, X } from 'lucide-react';
 import type { Database } from '@/types/database.types';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useSelection } from '@/context/SelectionContext';
@@ -10,9 +9,11 @@ import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { supabase } from '@/lib/supabase';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 import { normalizeRequirementPolicyCode } from '@/lib/requirementPolicies';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
+import { useSearchParams } from 'react-router-dom';
 
-type SubjectTab = 'participants' | 'acts';
 type Scope = 'event' | 'org';
+type GroupKey = 'org-people' | 'org-performances' | 'event-people' | 'event-performances';
 type PolicyRow = Database['public']['Tables']['requirement_policies']['Row'];
 
 type RequirementPreset = {
@@ -42,114 +43,206 @@ type ResolvedPreset = {
     hasConflict: boolean;
 };
 
-const participantPresets: RequirementPreset[] = [
-    {
-        id: 'guardian',
-        code: 'guardian_contact_complete',
-        subjectType: 'participant',
-        label: 'Guardian Contact',
-        description: 'Capture guardian name and phone before the participant is cleared.',
-        appliesTo: 'Minors only',
-        category: 'safety',
-        inputType: 'field_complete',
-        required: true,
-        needsReview: false,
-        blocking: true,
-        bulk: false,
-    },
-    {
-        id: 'waiver',
-        code: 'participant_waiver',
-        subjectType: 'participant',
-        label: 'Waiver',
-        description: 'Collect a signed waiver or release artifact for each participant who needs one.',
-        appliesTo: 'All participants',
-        category: 'waiver',
-        inputType: 'file_upload',
-        required: true,
-        needsReview: true,
-        blocking: true,
-        bulk: true,
-    },
-    {
-        id: 'photo',
-        code: 'participant_photo',
-        subjectType: 'participant',
-        label: 'Participant Photo',
-        description: 'Collect a current participant photo for lineup, console, and intro workflows.',
-        appliesTo: 'All participants',
-        category: 'media',
-        inputType: 'file_upload',
-        required: true,
-        needsReview: true,
-        blocking: false,
-        bulk: true,
-    },
-];
+function getResolvedPresetRank(preset: ResolvedPreset) {
+    if (!preset.isActive) return 4;
+    const currentPolicy = preset.currentPolicy;
+    const blocking = currentPolicy?.blocking_level === 'blocking' || (!currentPolicy && preset.preset.blocking);
+    const review = currentPolicy?.review_mode === 'review_required' || (!currentPolicy && preset.preset.needsReview);
 
-const participantOptionalAddOns: RequirementPreset[] = [
-    {
-        id: 'identity',
-        code: 'identity_check',
-        subjectType: 'participant',
-        label: 'Identity Check',
-        description: 'Optional manual verification step for orgs or events that explicitly want it in their readiness model.',
-        appliesTo: 'Selected participants',
-        category: 'identity',
-        inputType: 'manual_review',
-        required: true,
-        needsReview: true,
-        blocking: false,
-        bulk: true,
-        availabilityLabel: 'Admin Request',
-        optional: true,
-    },
-];
+    if (blocking) return 1;
+    if (review) return 2;
+    return 3;
+}
 
-const actPresets: RequirementPreset[] = [
-    {
-        id: 'music',
-        code: 'ACT_AUDIO',
-        subjectType: 'act',
-        label: 'Music File',
-        description: 'Track the submitted performance music file and its approval state before lineup finalization.',
-        appliesTo: 'All acts',
-        category: 'media',
-        inputType: 'file_upload',
-        required: true,
-        needsReview: true,
-        blocking: false,
-        bulk: false,
-    },
-    {
-        id: 'intro',
-        code: 'ACT_INTRO',
-        subjectType: 'act',
-        label: 'Intro Approved',
-        description: 'Require intro approval before the act is truly stage ready.',
-        appliesTo: 'Acts with intro',
-        category: 'media',
-        inputType: 'manual_review',
-        required: true,
-        needsReview: true,
-        blocking: true,
-        bulk: false,
-    },
-    {
-        id: 'support',
-        code: 'ACT_SUPPORT_TEAM',
-        subjectType: 'act',
-        label: 'Team Manager Assigned',
-        description: 'Ensure a team manager is assigned before the performance is treated as show-ready.',
-        appliesTo: 'All acts',
-        category: 'admin',
-        inputType: 'manual_review',
-        required: true,
-        needsReview: false,
-        blocking: false,
-        bulk: false,
-    },
-];
+function resolvePresetsForScope({
+    scope,
+    presets,
+    orgPolicies,
+    eventPolicies,
+}: {
+    scope: Scope;
+    presets: RequirementPreset[];
+    orgPolicies: PolicyRow[];
+    eventPolicies: PolicyRow[];
+}): ResolvedPreset[] {
+    const safePresets = presets.filter(Boolean);
+    const safeOrgPolicies = orgPolicies.filter((policy): policy is PolicyRow => Boolean(policy?.code));
+    const safeEventPolicies = eventPolicies.filter((policy): policy is PolicyRow => Boolean(policy?.code));
+
+    return safePresets.map((preset) => {
+        const orgPolicy = safeOrgPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
+        const eventPolicy = safeEventPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
+        const hasConflict = Boolean(orgPolicy && eventPolicy);
+        const activeOrgPolicy = orgPolicy?.is_active ? orgPolicy : null;
+
+        if (scope === 'org') {
+            return {
+                preset,
+                orgPolicy,
+                eventPolicy,
+                currentPolicy: orgPolicy,
+                source: orgPolicy ? 'org' : 'recommended',
+                isActive: Boolean(orgPolicy?.is_active),
+                hasConflict,
+            };
+        }
+
+        if (activeOrgPolicy) {
+            return {
+                preset,
+                orgPolicy,
+                eventPolicy,
+                currentPolicy: activeOrgPolicy,
+                source: 'inherited',
+                isActive: true,
+                hasConflict,
+            };
+        }
+
+        return {
+            preset,
+            orgPolicy,
+            eventPolicy,
+            currentPolicy: eventPolicy,
+            source: eventPolicy ? 'event' : 'recommended',
+            isActive: Boolean(eventPolicy?.is_active),
+            hasConflict,
+        };
+    });
+}
+
+function buildScopeSummary(resolvedPresets: ResolvedPreset[]) {
+    const activePresets = resolvedPresets.filter((preset) => preset.isActive);
+    const stopReadiness = activePresets.filter(
+        (preset) => preset.currentPolicy?.blocking_level === 'blocking' || (!preset.currentPolicy && preset.preset.blocking)
+    ).length;
+    const needReviewOnly = activePresets.filter((preset) => {
+        const isBlocking = preset.currentPolicy?.blocking_level === 'blocking' || (!preset.currentPolicy && preset.preset.blocking);
+        const needsReview = preset.currentPolicy?.review_mode === 'review_required' || (!preset.currentPolicy && preset.preset.needsReview);
+        return !isBlocking && needsReview;
+    }).length;
+    const standard = Math.max(activePresets.length - stopReadiness - needReviewOnly, 0);
+    const breakdown = [
+        stopReadiness > 0 ? `${stopReadiness} stop readiness` : null,
+        needReviewOnly > 0 ? `${needReviewOnly} review` : null,
+        standard > 0 ? `${standard} standard` : null,
+    ].filter(Boolean) as string[];
+
+    return {
+        total: activePresets.length,
+        stopReadiness,
+        needReviewOnly,
+        standard,
+        bulk: activePresets.filter((preset) => preset.currentPolicy?.allow_bulk_approve || (!preset.currentPolicy && preset.preset.bulk)).length,
+        sentence: breakdown.length > 0
+            ? `${activePresets.length} active reqs (${breakdown.join(', ')})`
+            : `${activePresets.length} active reqs`,
+    };
+}
+
+function sortResolvedPresets(resolvedPresets: ResolvedPreset[]) {
+    return [...resolvedPresets].sort((a, b) => {
+        const rankDiff = getResolvedPresetRank(a) - getResolvedPresetRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        return a.preset.label.localeCompare(b.preset.label);
+    });
+}
+
+const guardianPreset: RequirementPreset = {
+    id: 'guardian',
+    code: 'guardian_contact_complete',
+    subjectType: 'participant',
+    label: 'Guardian Contact for Minors',
+    description: 'Capture guardian name and phone before a minor is cleared.',
+    appliesTo: 'Minors only',
+    category: 'safety',
+    inputType: 'field_complete',
+    required: true,
+    needsReview: false,
+    blocking: true,
+    bulk: false,
+};
+
+const waiverPreset: RequirementPreset = {
+    id: 'waiver',
+    code: 'participant_waiver',
+    subjectType: 'participant',
+    label: 'Waiver',
+    description: 'Collect a signed waiver or release artifact.',
+    appliesTo: 'All people',
+    category: 'waiver',
+    inputType: 'file_upload',
+    required: true,
+    needsReview: true,
+    blocking: true,
+    bulk: true,
+};
+
+const identityPreset: RequirementPreset = {
+    id: 'identity',
+    code: 'identity_check',
+    subjectType: 'participant',
+    label: 'Identity Check',
+    description: 'Verify identity before the person is considered clear.',
+    appliesTo: 'Selected people',
+    category: 'identity',
+    inputType: 'manual_review',
+    required: true,
+    needsReview: true,
+    blocking: false,
+    bulk: true,
+    optional: true,
+};
+
+const introPreset: RequirementPreset = {
+    id: 'intro',
+    code: 'ACT_INTRO',
+    subjectType: 'act',
+    label: 'Intro Approved',
+    description: 'Require intro approval before the performance is stage ready.',
+    appliesTo: 'Performances with intro',
+    category: 'media',
+    inputType: 'manual_review',
+    required: true,
+    needsReview: true,
+    blocking: true,
+    bulk: false,
+};
+
+const musicPreset: RequirementPreset = {
+    id: 'music',
+    code: 'ACT_AUDIO',
+    subjectType: 'act',
+    label: 'Music File',
+    description: 'Track the submitted performance music file.',
+    appliesTo: 'All performances',
+    category: 'media',
+    inputType: 'file_upload',
+    required: true,
+    needsReview: true,
+    blocking: false,
+    bulk: false,
+};
+
+const photoPreset: RequirementPreset = {
+    id: 'photo',
+    code: 'participant_photo',
+    subjectType: 'participant',
+    label: 'Participant Photo',
+    description: 'Collect a current participant photo for lineup and console use.',
+    appliesTo: 'All people',
+    category: 'media',
+    inputType: 'file_upload',
+    required: true,
+    needsReview: true,
+    blocking: false,
+    bulk: true,
+};
+
+const orgPeoplePresets: RequirementPreset[] = [waiverPreset, guardianPreset, identityPreset, photoPreset];
+const orgPerformancePresets: RequirementPreset[] = [introPreset, musicPreset];
+const eventPeoplePresets: RequirementPreset[] = [photoPreset];
+const eventPerformancePresets: RequirementPreset[] = [musicPreset];
 
 function buildPolicyPayload(
     preset: RequirementPreset,
@@ -180,46 +273,53 @@ function buildPolicyPayload(
     };
 }
 
-function toneForState(active: boolean, tone: 'default' | 'good' | 'warning' | 'critical' | 'info') {
-    if (!active) return 'default';
-    return tone;
+function getRequirementMutationErrorMessage(error: Error) {
+    const raw = error.message || 'Could not update requirement policy.';
+    if (raw.includes('cannot override inherited organization policy')) {
+        return 'This requirement is already controlled at the org level. Change it under Org Requirements instead of Event Requirements.';
+    }
+    return raw;
 }
 
 export default function RequirementsPage() {
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { organizationId, eventId } = useSelection();
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false } = useIsSuperAdmin();
-    const [subjectTab, setSubjectTab] = useState<SubjectTab>('participants');
-    const [scope, setScope] = useState<Scope>('event');
     const [message, setMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'on' | 'off'>('all');
+    const [openScopes, setOpenScopes] = useState<Record<Scope, boolean>>({ org: false, event: true });
+    const [openGroups, setOpenGroups] = useState<Record<GroupKey, boolean>>({
+        'org-people': true,
+        'org-performances': true,
+        'event-people': true,
+        'event-performances': true,
+    });
+    const toggleGroup = (key: GroupKey) => {
+        setOpenGroups((current) => ({ ...current, [key]: !current[key] }));
+    };
+    const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+    const openPanel = searchParams.get('panel');
+    const isSearchPanelOpen = openPanel === 'req-search';
+    const isFilterPanelOpen = openPanel === 'req-filter';
+
+    const closeTopPanel = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('panel');
+        setSearchParams(nextParams, { replace: true });
+    };
 
     const canManageRequirements =
         isSuperAdmin || currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
-    const canManageCurrentScope =
-        scope === 'org'
-            ? isSuperAdmin || currentOrgRole === 'Owner' || currentOrgRole === 'Admin'
-            : isSuperAdmin || currentEventRole === 'EventAdmin' || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
-    const subjectType = subjectTab === 'participants' ? 'participant' : 'act';
+    const canManageOrgScope = isSuperAdmin || currentOrgRole === 'Owner' || currentOrgRole === 'Admin';
+    const canManageEventScope = isSuperAdmin || currentEventRole === 'EventAdmin' || canManageOrgScope;
 
-    const presets = useMemo(
-        () => (subjectTab === 'participants' ? participantPresets : actPresets),
-        [subjectTab]
-    );
-    const optionalPresets = useMemo(
-        () => (subjectTab === 'participants' ? participantOptionalAddOns : []),
-        [subjectTab]
-    );
-    const allPresets = useMemo(
-        () => [...presets, ...optionalPresets],
-        [optionalPresets, presets]
-    );
-
-    const { data: orgPolicies = [], isLoading: isLoadingOrgPolicies } = useQuery({
-        queryKey: ['requirement-policies', 'org', organizationId, subjectType],
+    const { data: orgParticipantPolicies = [], isLoading: isLoadingOrgParticipantPolicies } = useQuery({
+        queryKey: ['requirement-policies', 'org', organizationId, 'participant'],
         queryFn: async () => {
             if (!organizationId) return [] as PolicyRow[];
             const { data, error } = await supabase
@@ -227,7 +327,7 @@ export default function RequirementsPage() {
                 .select('*')
                 .eq('organization_id', organizationId)
                 .is('event_id', null)
-                .eq('subject_type', subjectType)
+                .eq('subject_type', 'participant')
                 .order('sort_order')
                 .order('label');
 
@@ -237,15 +337,52 @@ export default function RequirementsPage() {
         enabled: !!organizationId,
     });
 
-    const { data: eventPolicies = [], isLoading: isLoadingEventPolicies } = useQuery({
-        queryKey: ['requirement-policies', 'event', eventId, subjectType],
+    const { data: orgActPolicies = [], isLoading: isLoadingOrgActPolicies } = useQuery({
+        queryKey: ['requirement-policies', 'org', organizationId, 'act'],
+        queryFn: async () => {
+            if (!organizationId) return [] as PolicyRow[];
+            const { data, error } = await supabase
+                .from('requirement_policies')
+                .select('*')
+                .eq('organization_id', organizationId)
+                .is('event_id', null)
+                .eq('subject_type', 'act')
+                .order('sort_order')
+                .order('label');
+
+            if (error) throw error;
+            return (data || []) as PolicyRow[];
+        },
+        enabled: !!organizationId,
+    });
+
+    const { data: eventParticipantPolicies = [], isLoading: isLoadingEventParticipantPolicies } = useQuery({
+        queryKey: ['requirement-policies', 'event', eventId, 'participant'],
         queryFn: async () => {
             if (!eventId) return [] as PolicyRow[];
             const { data, error } = await supabase
                 .from('requirement_policies')
                 .select('*')
                 .eq('event_id', eventId)
-                .eq('subject_type', subjectType)
+                .eq('subject_type', 'participant')
+                .order('sort_order')
+                .order('label');
+
+            if (error) throw error;
+            return (data || []) as PolicyRow[];
+        },
+        enabled: !!eventId,
+    });
+
+    const { data: eventActPolicies = [], isLoading: isLoadingEventActPolicies } = useQuery({
+        queryKey: ['requirement-policies', 'event', eventId, 'act'],
+        queryFn: async () => {
+            if (!eventId) return [] as PolicyRow[];
+            const { data, error } = await supabase
+                .from('requirement_policies')
+                .select('*')
+                .eq('event_id', eventId)
+                .eq('subject_type', 'act')
                 .order('sort_order')
                 .order('label');
 
@@ -302,10 +439,12 @@ export default function RequirementsPage() {
             setErrorMessage(null);
             setMessage('Requirements updated.');
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'org', organizationId, subjectType] }),
-                queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'event', eventId, subjectType] }),
+                queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'org', organizationId] }),
+                queryClient.invalidateQueries({ queryKey: ['requirement-policies', 'event', eventId] }),
                 queryClient.invalidateQueries({ queryKey: ['participants', eventId] }),
                 queryClient.invalidateQueries({ queryKey: ['participant'] }),
+                queryClient.invalidateQueries({ queryKey: ['acts', eventId] }),
+                queryClient.invalidateQueries({ queryKey: ['act'] }),
                 queryClient.invalidateQueries({ queryKey: ['dashboard-radar', eventId] }),
                 queryClient.invalidateQueries({ queryKey: ['dashboard-special-requests', eventId] }),
                 queryClient.invalidateQueries({ queryKey: ['dashboard-participant-requirement-policies', eventId] }),
@@ -313,79 +452,147 @@ export default function RequirementsPage() {
         },
         onError: (error: Error) => {
             setMessage(null);
-            setErrorMessage(error.message || 'Could not update requirement policy.');
+            setErrorMessage(getRequirementMutationErrorMessage(error));
         },
     });
 
-    const resolvedPresets = useMemo<ResolvedPreset[]>(() => {
-        return allPresets.map((preset) => {
-            const orgPolicy = orgPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
-            const eventPolicy = eventPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
-            const hasConflict = Boolean(orgPolicy && eventPolicy);
-            const activeOrgPolicy = orgPolicy?.is_active ? orgPolicy : null;
+    const orgPeopleResolved = useMemo(
+        () => sortResolvedPresets(resolvePresetsForScope({
+            scope: 'org',
+            presets: orgPeoplePresets,
+            orgPolicies: orgParticipantPolicies,
+            eventPolicies: [],
+        })),
+        [orgParticipantPolicies],
+    );
+    const orgPerformancesResolved = useMemo(
+        () => sortResolvedPresets(resolvePresetsForScope({
+            scope: 'org',
+            presets: orgPerformancePresets,
+            orgPolicies: orgActPolicies,
+            eventPolicies: [],
+        })),
+        [orgActPolicies],
+    );
+    const eventPeopleResolved = useMemo(
+        () => sortResolvedPresets(resolvePresetsForScope({
+            scope: 'event',
+            presets: eventPeoplePresets,
+            orgPolicies: orgParticipantPolicies,
+            eventPolicies: eventParticipantPolicies,
+        }).filter((preset) => preset.source !== 'inherited')),
+        [eventParticipantPolicies, orgParticipantPolicies],
+    );
+    const eventPerformancesResolved = useMemo(
+        () => sortResolvedPresets(resolvePresetsForScope({
+            scope: 'event',
+            presets: eventPerformancePresets,
+            orgPolicies: orgActPolicies,
+            eventPolicies: eventActPolicies,
+        }).filter((preset) => preset.source !== 'inherited')),
+        [eventActPolicies, orgActPolicies],
+    );
 
-            if (scope === 'org') {
-                return {
-                    preset,
-                    orgPolicy,
-                    eventPolicy,
-                    currentPolicy: orgPolicy,
-                    source: orgPolicy ? 'org' : 'recommended',
-                    isActive: Boolean(orgPolicy?.is_active),
-                    hasConflict,
-                };
-            }
-
-            if (activeOrgPolicy) {
-                return {
-                    preset,
-                    orgPolicy,
-                    eventPolicy,
-                    currentPolicy: activeOrgPolicy,
-                    source: 'inherited',
-                    isActive: true,
-                    hasConflict,
-                };
-            }
-
-            return {
-                preset,
-                orgPolicy,
-                eventPolicy,
-                currentPolicy: eventPolicy,
-                source: eventPolicy ? 'event' : 'recommended',
-                isActive: Boolean(eventPolicy?.is_active),
-                hasConflict,
-            };
+    const filterResolvedPresets = (presets: ResolvedPreset[]) =>
+        presets.filter((preset) => {
+            const matchesSearch = !deferredSearchQuery
+                || preset.preset.label.toLowerCase().includes(deferredSearchQuery)
+                || preset.preset.description.toLowerCase().includes(deferredSearchQuery);
+            if (!matchesSearch) return false;
+            if (activeFilter === 'on') return preset.isActive;
+            if (activeFilter === 'off') return !preset.isActive;
+            return true;
         });
-    }, [allPresets, eventPolicies, orgPolicies, scope]);
 
-    const summary = useMemo(() => {
-        const activePresets = resolvedPresets.filter((preset) => preset.isActive);
-        return {
-            total: activePresets.length,
-            blocking: activePresets.filter((preset) => preset.currentPolicy?.blocking_level === 'blocking' || (!preset.currentPolicy && preset.preset.blocking)).length,
-            review: activePresets.filter((preset) => preset.currentPolicy?.review_mode === 'review_required' || (!preset.currentPolicy && preset.preset.needsReview)).length,
-            bulk: activePresets.filter((preset) => preset.currentPolicy?.allow_bulk_approve || (!preset.currentPolicy && preset.preset.bulk)).length,
-        };
-    }, [resolvedPresets]);
+    const filteredOrgPeopleResolved = useMemo(() => filterResolvedPresets(orgPeopleResolved), [orgPeopleResolved, deferredSearchQuery, activeFilter]);
+    const filteredOrgPerformancesResolved = useMemo(() => filterResolvedPresets(orgPerformancesResolved), [orgPerformancesResolved, deferredSearchQuery, activeFilter]);
+    const filteredEventPeopleResolved = useMemo(() => filterResolvedPresets(eventPeopleResolved), [eventPeopleResolved, deferredSearchQuery, activeFilter]);
+    const filteredEventPerformancesResolved = useMemo(() => filterResolvedPresets(eventPerformancesResolved), [eventPerformancesResolved, deferredSearchQuery, activeFilter]);
 
-    const destinationLabel =
-        subjectTab === 'participants' ? 'Participants Workspace' : 'Performance Workspace';
-    const primaryPresets = resolvedPresets.filter((preset) => !preset.preset.optional);
-    const optionalResolvedPresets = resolvedPresets.filter((preset) => preset.preset.optional);
-    const isLoadingPolicies = isLoadingOrgPolicies || (scope === 'event' && isLoadingEventPolicies);
+    const filteredOrgSummary = useMemo(
+        () => buildScopeSummary([...filteredOrgPeopleResolved, ...filteredOrgPerformancesResolved]),
+        [filteredOrgPeopleResolved, filteredOrgPerformancesResolved],
+    );
+    const filteredEventSummary = useMemo(
+        () => buildScopeSummary([...filteredEventPeopleResolved, ...filteredEventPerformancesResolved]),
+        [filteredEventPeopleResolved, filteredEventPerformancesResolved],
+    );
+
+    const isLoadingPolicies =
+        isLoadingOrgParticipantPolicies
+        || isLoadingOrgActPolicies
+        || isLoadingEventParticipantPolicies
+        || isLoadingEventActPolicies;
 
     return (
-        <div className="space-y-4 pb-12">
+        <div className="min-w-0 space-y-4 overflow-x-hidden pb-12">
             <PageHeader
                 title="Manage Requirements"
                 subtitle={
                     canManageRequirements
-                        ? 'Real readiness policies for org baselines and event-specific additions.'
-                        : 'View-only preview of the active readiness policies for this org and event.'
+                        ? 'Choose what people and performances need.'
+                        : 'See what people and performances need.'
                 }
             />
+
+            {isSearchPanelOpen || isFilterPanelOpen ? (
+                <div className="surface-panel rounded-[1.05rem] border px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                                {isSearchPanelOpen ? 'Search' : 'Filter'}
+                            </p>
+                            <p className="mt-1 text-sm font-medium text-foreground/80">
+                                {isSearchPanelOpen ? 'Find a requirement quickly.' : 'Show only active or inactive requirements.'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={closeTopPanel}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-muted-foreground transition-colors hover:text-foreground"
+                            aria-label="Close search and filter tools"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    {isSearchPanelOpen ? (
+                        <label className="relative mt-3 block">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="Search requirements"
+                                className="h-11 w-full rounded-xl border border-border/60 bg-background pl-10 pr-4 text-sm outline-none transition-colors focus:border-primary/30"
+                            />
+                        </label>
+                    ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {([
+                                { value: 'all', label: 'All' },
+                                { value: 'on', label: 'On' },
+                                { value: 'off', label: 'Off' },
+                            ] as const).map((option) => {
+                                const isActive = activeFilter === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setActiveFilter(option.value)}
+                                        className={`inline-flex min-h-[40px] items-center rounded-xl border px-3 text-xs font-black uppercase tracking-[0.16em] ${
+                                            isActive
+                                                ? 'border-primary/25 bg-primary/12 text-primary'
+                                                : 'border-border/60 bg-background/70 text-muted-foreground'
+                                        }`}
+                                    >
+                                        <Funnel className="mr-2 h-3.5 w-3.5" />
+                                        {option.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            ) : null}
 
             {errorMessage ? (
                 <div className="surface-panel flex items-start gap-3 rounded-[1.2rem] border border-rose-500/20 bg-rose-500/5 p-3.5 text-rose-700">
@@ -400,160 +607,231 @@ export default function RequirementsPage() {
                 </div>
             ) : null}
 
-            <div className="surface-panel surface-section-requirements rounded-[1.2rem] border p-3.5">
-                <div className="space-y-3">
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Preset Coverage</p>
-                        <p className="text-sm font-semibold text-foreground">
-                            {summary.blocking > 0
-                                ? `${summary.blocking} blocking rules are active for ${
-                                      subjectTab === 'participants' ? 'participant' : 'performance'
-                                  } readiness.`
-                                : 'No active rules are currently enabled for this scope.'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            {scope === 'event'
-                                ? 'Event rules inherit active org baselines and may only add event-specific policies.'
-                                : 'Organization rules become the baseline for every event in this organization.'}
-                        </p>
-                    </div>
-
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="grid grid-cols-2 gap-2 rounded-[1.05rem] bg-muted/35 p-1.5">
-                            <button
-                                onClick={() => setScope('event')}
-                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
-                                    scope === 'event' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
-                                }`}
-                            >
-                                Event
-                            </button>
-                            <button
-                                onClick={() => setScope('org')}
-                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
-                                    scope === 'org' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'
-                                }`}
-                            >
-                                Org
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 rounded-[1.05rem] bg-muted/35 p-1.5">
-                            <button
-                                onClick={() => setSubjectTab('participants')}
-                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
-                                    subjectTab === 'participants'
-                                        ? 'bg-primary text-primary-foreground shadow-sm'
-                                        : 'text-muted-foreground'
-                                }`}
-                            >
-                                People
-                            </button>
-                            <button
-                                onClick={() => setSubjectTab('acts')}
-                                className={`min-h-[44px] rounded-xl px-3 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${
-                                    subjectTab === 'acts'
-                                        ? 'bg-primary text-primary-foreground shadow-sm'
-                                        : 'text-muted-foreground'
-                                }`}
-                            >
-                                Acts
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <SummaryPill label="Active" value={summary.total} tone="default" compact />
-                    <SummaryPill label="Blocking" value={summary.blocking} tone={summary.blocking > 0 ? 'critical' : 'good'} compact />
-                    <SummaryPill label="Review" value={summary.review} tone={summary.review > 0 ? 'warning' : 'good'} compact />
-                    <SummaryPill label="Bulk" value={summary.bulk} tone={summary.bulk > 0 ? 'info' : 'default'} compact />
-                    <button
-                        onClick={() => navigate(subjectTab === 'participants' ? '/participants' : '/performances')}
-                        className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-primary/20 bg-primary/5 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary"
-                    >
-                        Open {destinationLabel}
-                        <ChevronRight className="h-4 w-4" />
-                    </button>
-                </div>
-            </div>
-
-            {scope === 'event' ? (
-                <div className="surface-panel flex items-start gap-3 rounded-[1.2rem] border border-primary/10 bg-primary/5 p-3.5 text-primary">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p className="text-sm font-medium">
-                        Org rules lock the baseline for this event. Event-level rules here are additive only and cannot override inherited org codes.
-                    </p>
-                </div>
-            ) : null}
-
             {isLoadingPolicies ? (
                 <div className="surface-panel flex justify-center rounded-[1.2rem] border py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
                 <>
-                    <div className="space-y-2.5">
-                        {primaryPresets.map((resolvedPreset) => (
-                            <PolicyCard
-                                key={resolvedPreset.preset.id}
-                                resolvedPreset={resolvedPreset}
-                                canManageCurrentScope={canManageCurrentScope}
-                                scope={scope}
+                    <div className="space-y-3">
+                        <ScopeCard
+                            title="Event Requirements"
+                            summary={filteredEventSummary.sentence}
+                            infoLabel="Event requirements"
+                            infoBody="These requirements apply only to this event and affect readiness here without changing org-wide defaults."
+                            note="Primary setup for this event"
+                            tone="event"
+                            isOpen={openScopes.event}
+                            onToggle={() => setOpenScopes((current) => ({ ...current, event: !current.event }))}
+                        >
+                            <RequirementGroup
+                                title="People"
+                                isOpen={openGroups['event-people']}
+                                onExpandToggle={() => toggleGroup('event-people')}
+                                canManageScope={canManageEventScope}
+                                resolvedPresets={filteredEventPeopleResolved}
+                                scope="event"
                                 isPending={policyMutation.isPending}
-                                onToggle={(nextActive) => {
+                                onPolicyToggle={(resolvedPreset, nextActive) => {
                                     setMessage(null);
                                     setErrorMessage(null);
                                     void policyMutation.mutate({
                                         preset: resolvedPreset.preset,
                                         nextActive,
-                                        scopeToMutate: scope,
-                                        currentPolicy: scope === 'org' ? resolvedPreset.orgPolicy : resolvedPreset.eventPolicy,
+                                        scopeToMutate: 'event',
+                                        currentPolicy: resolvedPreset.eventPolicy,
                                     });
                                 }}
-                                onOpenWorkspace={() => navigate(subjectTab === 'participants' ? '/participants' : '/performances')}
                             />
-                        ))}
+                            <RequirementGroup
+                                title="Performances"
+                                isOpen={openGroups['event-performances']}
+                                onExpandToggle={() => toggleGroup('event-performances')}
+                                canManageScope={canManageEventScope}
+                                resolvedPresets={filteredEventPerformancesResolved}
+                                scope="event"
+                                isPending={policyMutation.isPending}
+                                onPolicyToggle={(resolvedPreset, nextActive) => {
+                                    setMessage(null);
+                                    setErrorMessage(null);
+                                    void policyMutation.mutate({
+                                        preset: resolvedPreset.preset,
+                                        nextActive,
+                                        scopeToMutate: 'event',
+                                        currentPolicy: resolvedPreset.eventPolicy,
+                                    });
+                                }}
+                            />
+                        </ScopeCard>
+
+                        <ScopeCard
+                            title="Org Requirements"
+                            summary={filteredOrgSummary.sentence}
+                            infoLabel="Org requirements"
+                            infoBody="Use org requirements only for org-wide safety, compliance, or liability checks that should apply to every event."
+                            note="Use sparingly for org-wide risk controls"
+                            tone="org"
+                            isOpen={openScopes.org}
+                            onToggle={() => setOpenScopes((current) => ({ ...current, org: !current.org }))}
+                        >
+                            <RequirementGroup
+                                title="People"
+                                isOpen={openGroups['org-people']}
+                                onExpandToggle={() => toggleGroup('org-people')}
+                                canManageScope={canManageOrgScope}
+                                resolvedPresets={filteredOrgPeopleResolved}
+                                scope="org"
+                                isPending={policyMutation.isPending}
+                                onPolicyToggle={(resolvedPreset, nextActive) => {
+                                    setMessage(null);
+                                    setErrorMessage(null);
+                                    void policyMutation.mutate({
+                                        preset: resolvedPreset.preset,
+                                        nextActive,
+                                        scopeToMutate: 'org',
+                                        currentPolicy: resolvedPreset.orgPolicy,
+                                    });
+                                }}
+                            />
+                            <RequirementGroup
+                                title="Performances"
+                                isOpen={openGroups['org-performances']}
+                                onExpandToggle={() => toggleGroup('org-performances')}
+                                canManageScope={canManageOrgScope}
+                                resolvedPresets={filteredOrgPerformancesResolved}
+                                scope="org"
+                                isPending={policyMutation.isPending}
+                                onPolicyToggle={(resolvedPreset, nextActive) => {
+                                    setMessage(null);
+                                    setErrorMessage(null);
+                                    void policyMutation.mutate({
+                                        preset: resolvedPreset.preset,
+                                        nextActive,
+                                        scopeToMutate: 'org',
+                                        currentPolicy: resolvedPreset.orgPolicy,
+                                    });
+                                }}
+                            />
+                        </ScopeCard>
                     </div>
-
-                    {optionalResolvedPresets.length > 0 ? (
-                        <div className="surface-panel rounded-[1.2rem] border p-3.5">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                                    Optional Admin Add-Ons
-                                </p>
-                                <p className="text-sm font-semibold text-foreground">
-                                    Keep extra verification steps out of the default operator workflow until an admin explicitly turns them on.
-                                </p>
-                            </div>
-
-                            <div className="mt-3 space-y-2.5">
-                                {optionalResolvedPresets.map((resolvedPreset) => (
-                                    <PolicyCard
-                                        key={resolvedPreset.preset.id}
-                                        resolvedPreset={resolvedPreset}
-                                        canManageCurrentScope={canManageCurrentScope}
-                                        scope={scope}
-                                        isPending={policyMutation.isPending}
-                                        onToggle={(nextActive) => {
-                                            setMessage(null);
-                                            setErrorMessage(null);
-                                            void policyMutation.mutate({
-                                                preset: resolvedPreset.preset,
-                                                nextActive,
-                                                scopeToMutate: scope,
-                                                currentPolicy: scope === 'org' ? resolvedPreset.orgPolicy : resolvedPreset.eventPolicy,
-                                            });
-                                        }}
-                                        onOpenWorkspace={() => navigate('/participants')}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    ) : null}
                 </>
             )}
         </div>
+    );
+}
+
+function ScopeCard({
+    title,
+    summary,
+    infoLabel,
+    infoBody,
+    note,
+    isOpen,
+    onToggle,
+    tone = 'default',
+    children,
+}: {
+    title: string;
+    summary: string;
+    infoLabel: string;
+    infoBody: string;
+    note?: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    tone?: 'default' | 'org' | 'event';
+    children: React.ReactNode;
+}) {
+    const shellTone =
+        tone === 'org'
+            ? 'border-sky-500/20 bg-[linear-gradient(180deg,rgba(14,165,233,0.06),rgba(14,165,233,0.02))] shadow-[0_10px_30px_-24px_rgba(14,165,233,0.45)]'
+            : tone === 'event'
+                ? 'border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(245,158,11,0.02))] shadow-[0_10px_30px_-24px_rgba(245,158,11,0.45)]'
+                : 'bg-background/60';
+
+    return (
+        <section className={`surface-panel overflow-hidden rounded-[1.2rem] border ${shellTone}`}>
+            <button
+                type="button"
+                onClick={onToggle}
+                className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left"
+            >
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground/85">{summary}</p>
+                    {note ? (
+                        <p className="mt-1 text-xs font-medium text-muted-foreground">{note}</p>
+                    ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                    <InlineInfoTip label={infoLabel} body={infoBody} align="right" />
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </button>
+            {isOpen ? <div className="border-t border-border/50 px-4 py-2">{children}</div> : null}
+        </section>
+    );
+}
+
+function RequirementGroup({
+    title,
+    isOpen,
+    onExpandToggle,
+    canManageScope,
+    resolvedPresets,
+    scope,
+    isPending,
+    onPolicyToggle,
+}: {
+    title: string;
+    isOpen: boolean;
+    onExpandToggle: () => void;
+    canManageScope: boolean;
+    resolvedPresets: ResolvedPreset[];
+    scope: Scope;
+    isPending: boolean;
+    onPolicyToggle: (resolvedPreset: ResolvedPreset, nextActive: boolean) => void;
+}) {
+    const groupSummary = buildScopeSummary(resolvedPresets).sentence;
+
+    return (
+        <section className="rounded-[0.95rem] border-b border-border/30 bg-background/78 px-3 last:border-b-0">
+            <button
+                type="button"
+                onClick={onExpandToggle}
+                aria-expanded={isOpen}
+                className="flex w-full items-start justify-between gap-3 py-3 text-left"
+            >
+                <div className="min-w-0">
+                    <p className="text-sm font-black text-foreground">{title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{groupSummary}</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen ? (
+                <div className="border-t border-border/40 pb-3">
+                    <div className="grid grid-cols-[minmax(0,1fr),96px] items-center px-1 pb-0.5">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Requirement</p>
+                        <p className="text-center text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                    </div>
+                    {resolvedPresets.length > 0 ? (
+                        <div className="divide-y divide-border/35 rounded-[0.95rem] border border-border/40 bg-background/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+                            {resolvedPresets.map((resolvedPreset) => (
+                                <PolicyCard
+                                    key={resolvedPreset.preset.id}
+                                    resolvedPreset={resolvedPreset}
+                                    canManageCurrentScope={canManageScope}
+                                    scope={scope}
+                                    isPending={isPending}
+                                    onToggle={(nextActive) => onPolicyToggle(resolvedPreset, nextActive)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="px-1 pt-2 text-sm text-muted-foreground">No event-specific requirements here.</p>
+                    )}
+                </div>
+            ) : null}
+        </section>
     );
 }
 
@@ -563,176 +841,92 @@ function PolicyCard({
     scope,
     isPending,
     onToggle,
-    onOpenWorkspace,
 }: {
     resolvedPreset: ResolvedPreset;
     canManageCurrentScope: boolean;
     scope: Scope;
     isPending: boolean;
     onToggle: (nextActive: boolean) => void;
-    onOpenWorkspace: () => void;
 }) {
     const { preset, currentPolicy, source, isActive, hasConflict } = resolvedPreset;
-    const requiredActive = isActive && (currentPolicy ? currentPolicy.is_required : preset.required);
     const reviewActive = isActive && (currentPolicy ? currentPolicy.review_mode === 'review_required' : preset.needsReview);
     const blockingActive = isActive && (currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking);
-    const bulkActive = isActive && (currentPolicy ? currentPolicy.allow_bulk_approve : preset.bulk);
-
-    const sourceLabel = source === 'org'
-        ? 'Org Baseline'
-        : source === 'event'
-            ? 'Event Rule'
-            : source === 'inherited'
-                ? 'Inherited'
-                : preset.optional
-                    ? preset.availabilityLabel || 'Optional'
-                    : 'Recommended';
-
-    const sourceTone = source === 'org'
-        ? 'bg-primary/10 text-primary'
-        : source === 'event'
-            ? 'bg-sky-500/10 text-sky-700'
-            : source === 'inherited'
-                ? 'bg-emerald-500/10 text-emerald-700'
-                : 'bg-muted text-muted-foreground';
+    const summaryText = [
+        source === 'inherited'
+            ? 'From org'
+            : source === 'event'
+                ? 'For this event'
+                : source === 'org'
+                    ? 'Org default'
+                    : preset.optional
+                        ? 'Optional'
+                        : 'Suggested',
+        preset.appliesTo,
+    ].join(' • ');
 
     const actionDisabled = isPending || (scope === 'event' && source === 'inherited');
-    const actionLabel = scope === 'event' && source === 'inherited'
-        ? 'Inherited From Org'
-        : isActive
-            ? 'Turn Off'
-            : source === 'recommended'
-                ? 'Turn On'
-                : 'Turn On';
+    const actionLabel = isActive ? 'On' : 'Off';
+    const statusTone = isActive
+        ? blockingActive
+            ? 'text-rose-700'
+            : reviewActive
+                ? 'text-orange-700'
+                : 'text-primary'
+        : 'text-muted-foreground';
 
     return (
-        <div className="surface-panel rounded-[1.2rem] border px-3.5 py-3.5">
-            <div className="flex flex-col gap-3">
-                <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-black text-foreground">{preset.label}</p>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${sourceTone}`}>
-                            {sourceLabel}
-                        </span>
-                        <span className="rounded-full bg-black/8 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                            {preset.appliesTo}
-                        </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{currentPolicy?.description || preset.description}</p>
-                </div>
-
-                <div className="space-y-2">
-                    <div className="flex flex-wrap gap-1.5">
-                        <StateChip
-                            label="Required"
-                            active={requiredActive}
-                            tone={toneForState(requiredActive, 'good')}
-                        />
-                        <StateChip
-                            label="Review"
-                            active={reviewActive}
-                            tone={toneForState(reviewActive, 'warning')}
-                        />
-                        <StateChip
-                            label="Blocks"
-                            active={blockingActive}
-                            tone={toneForState(blockingActive, 'critical')}
-                        />
-                    </div>
-                    <p className="text-[11px] font-medium text-muted-foreground">
-                        Bulk {bulkActive ? 'On' : 'Off'}
-                        {' • '}
-                        Active {isActive ? 'On' : 'Off'}
-                    </p>
+        <div className="px-3 py-3">
+            <div className="flex min-h-[52px] items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-foreground">{preset.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{summaryText}</p>
                     {hasConflict ? (
-                        <p className="text-xs font-medium text-amber-700">
-                            Legacy conflict detected: both org and event rules exist for this code. The org baseline should win.
+                        <p className="mt-1 text-xs font-medium text-amber-700">
+                            Org and event both define this requirement. Org should win.
                         </p>
                     ) : null}
                 </div>
-
-                <div className="grid gap-2 sm:grid-cols-2">
-                    {canManageCurrentScope ? (
-                        <button
-                            onClick={() => onToggle(!isActive)}
-                            disabled={actionDisabled}
-                            className={`inline-flex min-h-[44px] items-center justify-center rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.18em] ${
-                                actionDisabled
-                                    ? 'border-border/50 bg-muted text-muted-foreground'
-                                    : isActive
-                                        ? 'border-border/60 bg-background/70 text-foreground/70'
-                                        : 'border-primary/20 bg-primary/5 text-primary'
-                            }`}
-                        >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : actionLabel}
-                        </button>
-                    ) : (
-                        <div />
-                    )}
-
+                {canManageCurrentScope ? (
                     <button
-                        onClick={onOpenWorkspace}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.18em] text-foreground/70"
-                        aria-label={`Open ${preset.label}`}
+                        type="button"
+                        role="switch"
+                        aria-checked={isActive}
+                        onClick={() => onToggle(!isActive)}
+                        disabled={actionDisabled}
+                        className={`relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border transition-colors ${
+                            actionDisabled
+                                ? 'border-border/50 bg-muted/70'
+                                : isActive
+                                    ? 'border-emerald-500/35 bg-emerald-500/18'
+                                    : 'border-slate-400/70 bg-slate-200/80 dark:border-slate-500/70 dark:bg-slate-700/80'
+                        }`}
+                        aria-label={`${isActive ? 'Turn off' : 'Turn on'} ${preset.label}`}
+                        title={actionDisabled ? 'Inherited from org' : `${isActive ? 'Turn off' : 'Turn on'} ${preset.label}`}
                     >
-                        Open
-                        <ChevronRight className="h-4 w-4" />
+                        {isPending ? (
+                            <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : (
+                            <>
+                                <span className={`absolute left-2 text-[9px] font-black uppercase tracking-[0.14em] ${isActive ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-300'}`}>
+                                    {isActive ? 'On' : ''}
+                                </span>
+                                <span className={`absolute right-2 text-[9px] font-black uppercase tracking-[0.14em] ${!isActive ? 'text-slate-700 dark:text-slate-200' : 'text-emerald-600/70 dark:text-emerald-300/70'}`}>
+                                    {!isActive ? 'Off' : ''}
+                                </span>
+                                <span
+                                    className={`absolute h-6 w-6 rounded-full shadow-sm transition-transform ${
+                                        isActive ? 'bg-emerald-600' : 'bg-slate-600 dark:bg-slate-200'
+                                    } ${
+                                        isActive ? 'translate-x-[34px]' : 'translate-x-[3px]'
+                                    }`}
+                                />
+                            </>
+                        )}
                     </button>
-                </div>
+                ) : (
+                    <span className={`text-[10px] font-black uppercase tracking-[0.16em] ${statusTone}`}>{actionLabel}</span>
+                )}
             </div>
         </div>
-    );
-}
-
-function SummaryPill({
-    label,
-    value,
-    tone,
-    compact = false,
-}: {
-    label: string;
-    value: number;
-    tone: 'default' | 'good' | 'warning' | 'critical' | 'info';
-    compact?: boolean;
-}) {
-    const toneClasses = {
-        default: 'bg-muted/60 text-foreground',
-        good: 'bg-emerald-500/10 text-emerald-700',
-        warning: 'bg-orange-500/10 text-orange-700',
-        critical: 'bg-rose-500/10 text-rose-700',
-        info: 'bg-sky-500/10 text-sky-700',
-    };
-
-    return (
-        <div className={`${compact ? 'rounded-full px-3 py-1.5' : 'rounded-[1rem] px-3 py-3'} ${toneClasses[tone]}`}>
-            <p className="text-[9px] font-black uppercase tracking-[0.18em]">{label}</p>
-            <p className={`${compact ? 'mt-0.5 text-sm' : 'mt-1 text-lg'} font-black tracking-tight`}>{value}</p>
-        </div>
-    );
-}
-
-function StateChip({
-    label,
-    active,
-    tone,
-}: {
-    label: string;
-    active: boolean;
-    tone: 'default' | 'good' | 'warning' | 'critical' | 'info';
-}) {
-    const toneClasses = {
-        default: 'bg-muted text-muted-foreground',
-        good: 'bg-emerald-500/10 text-emerald-700',
-        warning: 'bg-orange-500/10 text-orange-700',
-        critical: 'bg-rose-500/10 text-rose-700',
-        info: 'bg-sky-500/10 text-sky-700',
-    };
-
-    return (
-        <span
-            className={`inline-flex min-h-[26px] items-center rounded-full px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${toneClasses[tone]}`}
-        >
-            {label}: {active ? 'On' : 'Off'}
-        </span>
     );
 }

@@ -26,6 +26,7 @@ import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCar
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 function SortableLineupItem({
     slot,
@@ -322,8 +323,14 @@ export default function LineupPage() {
             <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] p-3">
                 <div className="grid gap-3 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
-                        <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune right now.</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
+                            <InlineInfoTip
+                                label="Stage flow"
+                                body="Choose the stage you want to tune. Add performances, rename stages, and adjust the running order from here."
+                            />
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <Button
@@ -346,7 +353,7 @@ export default function LineupPage() {
                         </Button>
                     </div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <div className="flex flex-wrap gap-2 pb-1">
                     {isLoadingStages ? (
                         <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
                     ) : (
@@ -391,15 +398,19 @@ export default function LineupPage() {
                                 {stages?.find((stage) => stage.id === selectedStageId)?.name || 'Selected Stage'}
                             </h2>
                         </div>
-                        <div className="space-y-1 lg:max-w-[320px] lg:text-right">
-                            <p className="text-sm font-medium text-muted-foreground">
-                                {isLiveRun ? 'Only the future queue can be reordered while the show is live.' : 'Drag from the numbered handle to reorder this stage lineup.'}
-                            </p>
-                            {isLiveRun ? (
-                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
-                                    Acts within the next {coordinationLeadMinutes} minutes stay locked for backstage coordination.
-                                </p>
-                            ) : null}
+                        <div className="flex items-center justify-start gap-2 lg:justify-end">
+                            <span className="text-sm font-medium text-muted-foreground">
+                                {isLiveRun ? 'Live reorder rules active' : 'Drag to reorder'}
+                            </span>
+                            <InlineInfoTip
+                                align="right"
+                                label={isLiveRun ? 'Live reorder rules' : 'Reorder lineup'}
+                                body={
+                                    isLiveRun
+                                        ? `Only the future queue can be reordered while the show is live. Acts within the next ${coordinationLeadMinutes} minutes stay locked for backstage coordination.`
+                                        : 'Drag from the numbered handle to reorder this stage lineup.'
+                                }
+                            />
                         </div>
                     </div>
                     {selectedStageId ? (

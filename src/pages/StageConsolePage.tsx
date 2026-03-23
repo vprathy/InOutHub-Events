@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 const getStageConsoleStorageKey = (eventId: string | null) => eventId ? `stage-console:selected-stage:${eventId}` : null;
 
@@ -122,8 +123,14 @@ export default function StageConsolePage() {
             <div className="surface-panel surface-section-console space-y-3 rounded-[1.35rem] p-3">
                 <div className="grid gap-2 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
                     <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
-                    <p className="text-sm font-semibold text-foreground">Pick the stage you are actively calling.</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
+                            <InlineInfoTip
+                                label="Stage picker"
+                                body="Choose the stage you are actively calling. The console and live cues follow the selected stage."
+                            />
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">Pick the active stage.</p>
                     </div>
                     <div className="rounded-full border border-border/60 bg-background px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                         {selectedStageId ? 'Stage Selected' : 'Choose Stage'}

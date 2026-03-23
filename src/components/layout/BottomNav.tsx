@@ -18,7 +18,7 @@ export const BottomNav: React.FC = () => {
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/82 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1 backdrop-blur-xl shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-            <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6">
+            <div className="mx-auto w-full min-w-0 max-w-screen-xl px-4 sm:px-6">
                 <div className="mx-auto flex h-16 max-w-md items-stretch justify-around px-3">
                     {navItems.map((item) => (
                         <NavLink

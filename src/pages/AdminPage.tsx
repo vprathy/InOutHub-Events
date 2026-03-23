@@ -1,10 +1,11 @@
-import { ShieldCheck, ClipboardCheck, UsersRound, ChevronRight, Loader2 } from 'lucide-react';
+import { ClipboardCheck, UsersRound, ChevronRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useSelection } from '@/context/SelectionContext';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 export default function AdminPage() {
     const navigate = useNavigate();
@@ -52,10 +53,13 @@ export default function AdminPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="space-y-1.5">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Admin Module</p>
-                        <h2 className="text-lg font-black tracking-tight text-foreground">Choose the admin workflow you need for this org and event.</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Access handles staffing and roles. Requirements controls readiness policies and inherited event baselines.
-                        </p>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-black tracking-tight text-foreground">Choose the admin workflow you need.</h2>
+                            <InlineInfoTip
+                                label="Admin help"
+                                body="Access manages event staffing and roles. Requirements manages the people and act checks used in event operations."
+                            />
+                        </div>
                     </div>
                     <div className="rounded-full border border-border/70 bg-background px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
                         {isSuperAdmin ? 'Super Admin' : currentOrgRole === 'Owner' || currentOrgRole === 'Admin' ? 'Org Admin' : 'Event Admin'}
@@ -105,14 +109,6 @@ export default function AdminPage() {
                 </button>
             </div>
 
-            <div className="surface-panel rounded-[1.2rem] border p-4 text-sm text-muted-foreground">
-                <div className="flex items-start gap-3">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p>
-                        Dashboard remains the operational landing page. Admin is the dedicated home for privileged configuration and staffing controls.
-                    </p>
-                </div>
-            </div>
         </div>
     );
 }

@@ -11,6 +11,7 @@ import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { prepareIntroAutopilot } from '@/lib/introCapabilities';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
+import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 
 export default function ActsPage() {
     const { eventId } = useSelection();
@@ -183,9 +184,13 @@ export default function ActsPage() {
                     </div>
                 ) : null}
                 {!capabilities.canCreateActs ? (
-                    <p className="text-xs font-medium text-muted-foreground">
-                        Creating new performances is limited to EventAdmin for this event. Current access: {currentEventRole || 'No event role'}.
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Add is limited on your current access.</span>
+                        <InlineInfoTip
+                            label="Create performance access"
+                            body={`Creating new performances is limited to EventAdmin for this event. Current access: ${currentEventRole || 'No event role'}.`}
+                        />
+                    </div>
                 ) : null}
             </div>
 
@@ -216,7 +221,7 @@ export default function ActsPage() {
                         />
                     </div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <div className="flex flex-wrap gap-2 pb-1">
                     <button
                         onClick={() => updateFilter('all')}
                         className={`flex min-h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-fuchsia-600 text-primary-foreground shadow-md shadow-fuchsia-600/20' : 'bg-card border border-border text-muted-foreground'}`}

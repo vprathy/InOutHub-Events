@@ -19,6 +19,7 @@ export function PageHeader({
     const isCentered = align === 'center';
     const section = useSectionIdentity();
     const showTitle = !section;
+    const showSubtitle = !section && !!subtitle;
 
     return (
         <div className={`space-y-2 ${isCentered ? 'text-center' : ''}`}>
@@ -29,7 +30,7 @@ export function PageHeader({
                             {title}
                         </h1>
                     ) : null}
-                    {subtitle ? (
+                    {showSubtitle ? (
                         <p className="text-xs font-semibold text-muted-foreground sm:text-sm">
                             {subtitle}
                         </p>

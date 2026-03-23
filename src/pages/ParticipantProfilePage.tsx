@@ -917,8 +917,8 @@ export function ParticipantProfilePage() {
                                 onClick={() => setSelectedActId(act.id)}
                                 className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between ${selectedActId === act.id ? 'border-primary bg-primary/5 shadow-md' : 'border-border/50 hover:border-primary/20'}`}
                             >
-                                <div>
-                                    <p className="text-sm font-black whitespace-nowrap">{act.name}</p>
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-black">{act.name}</p>
                                     <p className="text-[10px] text-muted-foreground uppercase font-bold">{act.participantCount} performers joined</p>
                                 </div>
                                 {selectedActId === act.id && <CheckCircle className="w-4 h-4 text-primary" />}
