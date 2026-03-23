@@ -232,6 +232,10 @@ We validate progress through 4 end-to-end operational gates. Completion of a gat
   - participant/performance requirement visibility
   - `Show Flow`
   - `Live Console`
+- [ ] Define and validate the Phase 1 people model for manual entry:
+  - clarify whether crew/support lives in the same event people roster as participants
+  - ensure manual add captures the minimum metadata needed to avoid cast-vs-crew drift
+  - keep manual-entry language and affordances consistent with the chosen people model
 - [ ] Keep signed-in account profile work disabled for now; do not reintroduce profile confirmation/update UX unless explicitly prioritized again.
 
 ## UI / UX Hardening In Progress

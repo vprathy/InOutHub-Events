@@ -95,6 +95,13 @@ function getParticipantAssignmentStatus(participant: any, code: string): Require
     return (match?.status as RequirementStatus) || null;
 }
 
+function getPolicyBackedParticipantAssetType(policy: { code?: string | null; category?: string | null; input_type?: string | null }) {
+    if (policy.code === 'participant_waiver' || policy.category === 'waiver') return 'waiver';
+    if (policy.code === 'participant_photo' || policy.category === 'media') return 'photo';
+    if (policy.input_type === 'file_upload') return 'other';
+    return null;
+}
+
 function sortRequirementRows(rows: RequirementRow[]) {
     const statusWeight: Record<RequirementStatus, number> = {
         missing: 5,
@@ -129,6 +136,11 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
     const activePolicies = Array.isArray(participant?.activeRequirementPolicies)
         ? participant.activeRequirementPolicies.filter((policy: any) => policy.code !== 'special_request_reviewed')
         : [];
+    const activePolicyAssetTypes = new Set(
+        activePolicies
+            .map((policy: any) => getPolicyBackedParticipantAssetType(policy))
+            .filter((assetType: string | null): assetType is string => !!assetType)
+    );
     const waiverAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'waiver');
     const photoAssets = (participant?.assets || []).filter((asset: any) => asset.type === 'photo');
 
@@ -228,6 +240,14 @@ export function buildParticipantRequirementRows(participant: any): RequirementRo
     });
 
     (participant?.templatedAssets || []).forEach(({ template, fulfillment }: any) => {
+        const templateAssetType = template?.assetType || null;
+        const isSyntheticPolicyTemplate = typeof template?.id === 'string' && template.id.startsWith('policy-');
+        const duplicatesActivePolicy = !!templateAssetType && activePolicyAssetTypes.has(templateAssetType);
+
+        if (isSyntheticPolicyTemplate || duplicatesActivePolicy) {
+            return;
+        }
+
         const mappedStatus = mapParticipantAssetStatusToRequirementStatus(fulfillment?.status);
         rows.push({
             key: `template-${template.id}`,

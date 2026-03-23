@@ -337,10 +337,11 @@ export default function ParticipantsPage() {
                 <button
                     type="button"
                     onClick={() => setIsAddParticipantOpen(true)}
-                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
-                    aria-label="Add participant"
+                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
+                    aria-label="Add person"
                 >
                     <Plus className="h-5 w-5 stroke-[2.75]" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add Person</span>
                 </button>
             ) : null}
 
