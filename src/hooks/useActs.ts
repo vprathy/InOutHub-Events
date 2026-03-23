@@ -4,7 +4,7 @@ import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
 import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
 import { localInputToEventIso } from '@/lib/eventTime';
-import { fetchResolvedRequirementPolicies } from '@/lib/requirementPolicies';
+import { fetchResolvedRequirementPolicies, normalizeRequirementPolicyCode } from '@/lib/requirementPolicies';
 
 function hasActAudioSource(row: any) {
     const requirements = row.act_requirements || [];
@@ -81,7 +81,7 @@ export function useActsQuery(eventId: string) {
                     status: assignment.status,
                     notes: assignment.notes,
                     evidenceSummary: assignment.evidence_summary,
-                    policyCode: assignment.policy?.code,
+                    policyCode: normalizeRequirementPolicyCode(assignment.policy?.code),
                     policyLabel: assignment.policy?.label,
                     inputType: assignment.policy?.input_type,
                     reviewMode: assignment.policy?.review_mode,
@@ -432,7 +432,7 @@ export function useActDetail(actId: string | null) {
                 status: assignment.status,
                 notes: assignment.notes,
                 evidenceSummary: assignment.evidence_summary,
-                policyCode: assignment.policy?.code,
+                policyCode: normalizeRequirementPolicyCode(assignment.policy?.code),
                 policyLabel: assignment.policy?.label,
                 inputType: assignment.policy?.input_type,
                 reviewMode: assignment.policy?.review_mode,

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Participant, ParticipantDetail } from '@/types/domain';
 import { inferParticipantImportProfile, mapImportedParticipantRow } from '@/lib/participantImportMapping';
-import { fetchResolvedRequirementPolicies } from '@/lib/requirementPolicies';
+import { fetchResolvedRequirementPolicies, normalizeRequirementPolicyCode } from '@/lib/requirementPolicies';
 
 function extractTaggedValue(notes: string | null | undefined, tag: string) {
     if (!notes) return null;
@@ -34,7 +34,7 @@ function mapRequirementAssignments(rows: any[] | null | undefined) {
         status: assignment.status,
         notes: assignment.notes,
         evidenceSummary: assignment.evidence_summary,
-        policyCode: assignment.policy?.code,
+        policyCode: normalizeRequirementPolicyCode(assignment.policy?.code),
         policyLabel: assignment.policy?.label,
         inputType: assignment.policy?.input_type,
         reviewMode: assignment.policy?.review_mode,

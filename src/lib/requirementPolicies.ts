@@ -9,6 +9,11 @@ export type ResolvedRequirementPolicy = RequirementPolicy & {
     inheritedFromOrg: boolean;
 };
 
+export function normalizeRequirementPolicyCode(code?: string | null) {
+    if (code === 'identity_verified') return 'identity_check';
+    return code || null;
+}
+
 export const ACT_POLICY_REQUIREMENT_TYPE_MAP: Record<string, string> = {
     ACT_AUDIO: 'Audio',
     ACT_INTRO: 'IntroComposition',
@@ -31,8 +36,12 @@ export function resolveRequirementPolicies(
     (orgPolicies || [])
         .filter((policy) => policy.is_active)
         .forEach((policy) => {
-            resolved.set(policy.code, {
+            const normalizedCode = normalizeRequirementPolicyCode(policy.code);
+            if (!normalizedCode) return;
+
+            resolved.set(normalizedCode, {
                 ...policy,
+                code: normalizedCode,
                 source: 'org',
                 inheritedFromOrg: false,
             });
@@ -41,8 +50,12 @@ export function resolveRequirementPolicies(
     (eventPolicies || [])
         .filter((policy) => policy.is_active)
         .forEach((policy) => {
-            resolved.set(policy.code, {
+            const normalizedCode = normalizeRequirementPolicyCode(policy.code);
+            if (!normalizedCode) return;
+
+            resolved.set(normalizedCode, {
                 ...policy,
+                code: normalizedCode,
                 source: 'event',
                 inheritedFromOrg: false,
             });
