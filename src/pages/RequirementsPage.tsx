@@ -9,6 +9,7 @@ import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { supabase } from '@/lib/supabase';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
+import { normalizeRequirementPolicyCode } from '@/lib/requirementPolicies';
 
 type SubjectTab = 'participants' | 'acts';
 type Scope = 'event' | 'org';
@@ -318,8 +319,8 @@ export default function RequirementsPage() {
 
     const resolvedPresets = useMemo<ResolvedPreset[]>(() => {
         return allPresets.map((preset) => {
-            const orgPolicy = orgPolicies.find((policy) => policy.code === preset.code) || null;
-            const eventPolicy = eventPolicies.find((policy) => policy.code === preset.code) || null;
+            const orgPolicy = orgPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
+            const eventPolicy = eventPolicies.find((policy) => normalizeRequirementPolicyCode(policy.code) === preset.code) || null;
             const hasConflict = Boolean(orgPolicy && eventPolicy);
 
             if (scope === 'org') {
@@ -571,6 +572,9 @@ function PolicyCard({
     onOpenWorkspace: () => void;
 }) {
     const { preset, currentPolicy, source, isActive, hasConflict } = resolvedPreset;
+    const requiredActive = isActive && (currentPolicy ? currentPolicy.is_required : preset.required);
+    const reviewActive = isActive && (currentPolicy ? currentPolicy.review_mode === 'review_required' : preset.needsReview);
+    const blockingActive = isActive && (currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking);
 
     const sourceLabel = source === 'org'
         ? 'Org Baseline'
@@ -619,18 +623,18 @@ function PolicyCard({
                     <div className="flex flex-wrap gap-1.5">
                         <StateChip
                             label="Required"
-                            active={currentPolicy ? currentPolicy.is_required : preset.required}
-                            tone={toneForState(currentPolicy ? currentPolicy.is_required : preset.required, 'good')}
+                            active={requiredActive}
+                            tone={toneForState(requiredActive, 'good')}
                         />
                         <StateChip
                             label="Review"
-                            active={currentPolicy ? currentPolicy.review_mode === 'review_required' : preset.needsReview}
-                            tone={toneForState(currentPolicy ? currentPolicy.review_mode === 'review_required' : preset.needsReview, 'warning')}
+                            active={reviewActive}
+                            tone={toneForState(reviewActive, 'warning')}
                         />
                         <StateChip
                             label="Blocks"
-                            active={currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking}
-                            tone={toneForState(currentPolicy ? currentPolicy.blocking_level === 'blocking' : preset.blocking, 'critical')}
+                            active={blockingActive}
+                            tone={toneForState(blockingActive, 'critical')}
                         />
                     </div>
                     <p className="text-[11px] font-medium text-muted-foreground">
