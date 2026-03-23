@@ -87,14 +87,20 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithOtp({
             email: normalizedEmail,
             options: {
-                shouldCreateUser: false,
+                // Invited operators may not have an auth user yet. Allow first sign-in to
+                // create the auth user so pending org/event access can be fulfilled.
+                shouldCreateUser: true,
                 emailRedirectTo: buildLoginRedirectTo(nextPath),
             },
         });
 
         if (error) {
             setStatus('error');
-            setErrorMessage(error.message || 'Could not send email code.');
+            setErrorMessage(
+                error.message === 'Signups not allowed for otp'
+                    ? 'This email has pending access, but first-time email sign-in is blocked. Retry in a moment or use Google with the same email.'
+                    : error.message || 'Could not send email code.',
+            );
             return;
         }
 
@@ -230,7 +236,7 @@ export default function LoginPage() {
                                             ) : null}
 
                                             <p className="text-center text-xs font-medium leading-5 text-muted-foreground">
-                                                Watch for an email from Supabase. If it does not appear, check your junk folder.
+                                                Use the invited email. First sign-in creates your account and activates any pending access.
                                             </p>
 
                                             <Button type="submit" className="h-11 w-full rounded-2xl" disabled={status === 'google-loading' || status === 'code-loading' || status === 'verify-loading'}>
