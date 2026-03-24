@@ -54,13 +54,9 @@ export function OperationalMetricCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[1.45rem] font-black leading-none tracking-tight text-foreground">{value}</p>
-          <div className="mt-2">
-            <p
-              className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.12em] leading-[1rem] ${chipToneClasses[tone]}`}
-            >
-              {label}
-            </p>
-          </div>
+          <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+            {label}
+          </p>
           {detail ? (
             <p className="mt-1.5 text-xs text-muted-foreground">{detail}</p>
           ) : null}
@@ -92,7 +88,7 @@ export function OperationalMetricCard({
     return (
       <button
         onClick={onClick}
-        className={`surface-panel relative min-h-[88px] overflow-hidden rounded-[1rem] border px-3 py-2.5 text-left transition active:scale-[0.98] ${className}`}
+        className={`surface-panel relative min-h-[76px] overflow-hidden rounded-[1rem] border px-3 py-2.5 text-left transition active:scale-[0.98] ${className}`}
       >
         {content}
       </button>
@@ -100,7 +96,7 @@ export function OperationalMetricCard({
   }
 
   return (
-    <div className={`surface-panel relative min-h-[88px] overflow-hidden rounded-[1rem] border px-3 py-2.5 ${className}`}>
+    <div className={`surface-panel relative min-h-[76px] overflow-hidden rounded-[1rem] border px-3 py-2.5 ${className}`}>
       {content}
     </div>
   );
@@ -175,14 +171,14 @@ export function OperationalEmptyResponse({
   detail: string;
 }) {
   return (
-    <div className="surface-panel rounded-[1.5rem] p-4">
-      <div className="flex items-start gap-3">
-        <div className="rounded-2xl bg-emerald-500/10 p-2.5 text-emerald-600">
-          <BadgeAlert className="h-5 w-5" />
+    <div className="surface-panel rounded-[1.2rem] border px-3.5 py-3">
+      <div className="flex items-center gap-2">
+        <div className="text-emerald-600">
+          <BadgeAlert className="h-4 w-4" />
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-          <p className="text-sm font-bold text-foreground">{detail}</p>
+          <p className="truncate text-sm text-foreground/80">{detail}</p>
         </div>
       </div>
     </div>

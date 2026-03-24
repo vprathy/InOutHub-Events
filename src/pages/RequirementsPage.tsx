@@ -619,7 +619,6 @@ export default function RequirementsPage() {
                             summary={filteredEventSummary.sentence}
                             infoLabel="Event requirements"
                             infoBody="These requirements apply only to this event and affect readiness here without changing org-wide defaults."
-                            note="Primary setup for this event"
                             tone="event"
                             isOpen={openScopes.event}
                             onToggle={() => setOpenScopes((current) => ({ ...current, event: !current.event }))}
@@ -669,7 +668,6 @@ export default function RequirementsPage() {
                             summary={filteredOrgSummary.sentence}
                             infoLabel="Org requirements"
                             infoBody="Use org requirements only for org-wide safety, compliance, or liability checks that should apply to every event."
-                            note="Use sparingly for org-wide risk controls"
                             tone="org"
                             isOpen={openScopes.org}
                             onToggle={() => setOpenScopes((current) => ({ ...current, org: !current.org }))}
@@ -725,7 +723,6 @@ function ScopeCard({
     summary,
     infoLabel,
     infoBody,
-    note,
     isOpen,
     onToggle,
     tone = 'default',
@@ -735,7 +732,6 @@ function ScopeCard({
     summary: string;
     infoLabel: string;
     infoBody: string;
-    note?: string;
     isOpen: boolean;
     onToggle: () => void;
     tone?: 'default' | 'org' | 'event';
@@ -743,9 +739,9 @@ function ScopeCard({
 }) {
     const shellTone =
         tone === 'org'
-            ? 'border-sky-500/20 bg-[linear-gradient(180deg,rgba(14,165,233,0.06),rgba(14,165,233,0.02))] shadow-[0_10px_30px_-24px_rgba(14,165,233,0.45)]'
+            ? 'border-sky-500/18 bg-sky-500/[0.03]'
             : tone === 'event'
-                ? 'border-amber-500/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(245,158,11,0.02))] shadow-[0_10px_30px_-24px_rgba(245,158,11,0.45)]'
+                ? 'border-amber-500/18 bg-amber-500/[0.03]'
                 : 'bg-background/60';
 
     return (
@@ -753,21 +749,18 @@ function ScopeCard({
             <button
                 type="button"
                 onClick={onToggle}
-                className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left"
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
             >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-                    <p className="mt-1 text-sm font-medium text-foreground/85">{summary}</p>
-                    {note ? (
-                        <p className="mt-1 text-xs font-medium text-muted-foreground">{note}</p>
-                    ) : null}
+                    <p className="mt-1 truncate text-sm font-medium text-foreground/85">{summary}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <InlineInfoTip label={infoLabel} body={infoBody} align="right" />
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
             </button>
-            {isOpen ? <div className="border-t border-border/50 px-4 py-2">{children}</div> : null}
+            {isOpen ? <div className="border-t border-border/50 px-4 py-1.5">{children}</div> : null}
         </section>
     );
 }
@@ -794,12 +787,12 @@ function RequirementGroup({
     const groupSummary = buildScopeSummary(resolvedPresets).sentence;
 
     return (
-        <section className="rounded-[0.95rem] border-b border-border/30 bg-background/78 px-3 last:border-b-0">
+        <section className="border-b border-border/30 px-1 last:border-b-0">
             <button
                 type="button"
                 onClick={onExpandToggle}
                 aria-expanded={isOpen}
-                className="flex w-full items-start justify-between gap-3 py-3 text-left"
+                className="flex w-full items-center justify-between gap-3 py-3 text-left"
             >
                 <div className="min-w-0">
                     <p className="text-sm font-black text-foreground">{title}</p>
@@ -814,7 +807,7 @@ function RequirementGroup({
                         <p className="text-center text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Status</p>
                     </div>
                     {resolvedPresets.length > 0 ? (
-                        <div className="divide-y divide-border/35 rounded-[0.95rem] border border-border/40 bg-background/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+                        <div className="divide-y divide-border/35 rounded-[0.95rem] border border-border/35 bg-background/70">
                             {resolvedPresets.map((resolvedPreset) => (
                                 <PolicyCard
                                     key={resolvedPreset.preset.id}
