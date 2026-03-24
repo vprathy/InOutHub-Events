@@ -146,6 +146,8 @@ export interface ActDetails extends Act {
  */
 export interface ActWithCounts extends Act {
     participantCount: number;
+    managerName?: string | null;
+    contactPhone?: string | null;
     approvedPhotoCount?: number;
     assetCount: number;
     requirementCount: number;

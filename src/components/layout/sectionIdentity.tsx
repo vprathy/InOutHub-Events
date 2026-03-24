@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     ListOrdered,
     MonitorPlay,
+    Music,
     Search,
     ShieldCheck,
     Users,
@@ -58,7 +59,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Performances',
         group: 'Act Prep',
         hint: 'Cast, media, readiness',
-        subtitle: 'Manage cast, media, and act readiness',
+        subtitle: 'Manage cast, media and act readiness',
         icon: ListOrdered,
         shellClassName:
             'border-fuchsia-500/15 bg-[linear-gradient(90deg,rgba(217,70,239,0.10),rgba(251,146,60,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(232,121,249,0.18),rgba(251,191,36,0.05)_45%,transparent)]',
@@ -161,9 +162,11 @@ export function SectionIdentityStrip() {
 
     const isParticipants = section.key === 'participants';
     const isParticipantDetail = isParticipants && /^\/participants\/[^/]+$/.test(location.pathname);
+    const isPerformances = section.key === 'performances';
     const isRequirements = section.key === 'requirements';
     const canManageSources = capabilities.canSyncParticipants;
     const canEditParticipant = capabilities.canManageParticipantRecords;
+    const canManageActMedia = capabilities.canManageActMedia;
 
     const openSources = () => {
         const nextParams = new URLSearchParams(searchParams);
@@ -174,6 +177,12 @@ export function SectionIdentityStrip() {
     const openParticipantEdit = () => {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set('action', 'edit-profile');
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const openPerformanceAction = (action: 'prepare-intros') => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('action', action);
         setSearchParams(nextParams, { replace: true });
     };
 
@@ -228,6 +237,20 @@ export function SectionIdentityStrip() {
                             >
                                 <Database className="h-4 w-4 text-primary" />
                                 <span>Sources</span>
+                            </button>
+                        ) : null}
+                    </div>
+                ) : isPerformances ? (
+                    <div className="flex shrink-0 items-center gap-2 self-center">
+                        {canManageActMedia ? (
+                            <button
+                                type="button"
+                                onClick={() => openPerformanceAction('prepare-intros')}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-xs font-bold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                aria-label="Prepare intros"
+                            >
+                                <Music className="h-4 w-4 text-primary" />
+                                <span>Prepare Intros</span>
                             </button>
                         ) : null}
                     </div>

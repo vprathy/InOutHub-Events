@@ -29,8 +29,11 @@ export function useActsQuery(eventId: string) {
                 .select(`
                     *,
                     act_participants(
+                        role,
                         participant:participants(
                             id,
+                            first_name,
+                            last_name,
                             has_special_requests,
                             participant_assets(status, type)
                         )
@@ -74,6 +77,7 @@ export function useActsQuery(eventId: string) {
                 const specialRequestCount = actParticipants.filter((ap: any) =>
                     ap.participant?.has_special_requests
                 ).length;
+                const managerParticipant = actParticipants.find((ap: any) => ap.role === 'Manager')?.participant;
 
                 const introRequirement = (row.act_requirements || []).find((r: any) => r.requirement_type === 'IntroComposition');
                 const requirementAssignments = (row.requirement_assignments || []).map((assignment: any) => ({
@@ -153,6 +157,8 @@ export function useActsQuery(eventId: string) {
                     arrivalStatus: row.arrival_status as ArrivalStatus,
                     notes: row.notes,
                     participantCount: actParticipants.length,
+                    managerName: managerParticipant ? `${managerParticipant.first_name} ${managerParticipant.last_name}`.trim() : null,
+                    contactPhone: readinessSummary.nextPractice?.contactPhone || null,
                     approvedPhotoCount,
                     assetCount: row.act_assets?.length || 0,
                     requirementCount: row.act_requirements?.length || 0,
