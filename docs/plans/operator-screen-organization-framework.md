@@ -217,3 +217,75 @@ This framework should govern:
 - Performance Profile
 
 It is especially important for detail screens, because that is where drift and clutter accumulate fastest.
+
+## 2026-03-25 Selective Recovery From `codex/mobile-readiness-redesign`
+
+The older `codex/mobile-readiness-redesign` branch should not be merged wholesale back into `main`.
+It does, however, contain a few useful operator-first patterns that should stay on the roadmap as selective recovery items.
+
+### Recovery Item 1: Stage Setup Flow In Show Flow
+
+Why it is worth recovering:
+- Lineup operators benefit from a fast pre-show stage setup lane instead of assuming stages already exist and are named correctly.
+- This reduces setup friction before lineup and console work begin.
+
+Recommended placement:
+- Show Flow / Lineup workspace
+- admin/operator setup path, not hidden in general settings
+
+Recommended behavior:
+- create stage
+- rename stage
+- show the currently active stage clearly
+- keep stage setup lightweight and mobile-safe
+
+Roadmap timing:
+- after intake mapping review / lock hardening
+- before broader new-tenant onboarding polish
+
+### Recovery Item 2: Deterministic Next-Action Guidance On Profile Screens
+
+Why it is worth recovering:
+- Participant and Performance detail screens should proactively surface the next operational step instead of forcing operators to infer it from scattered badges and counts.
+- This matches the product's original smart-assistant intent without turning the app into an opaque AI chatbot.
+
+Recommended surfaces:
+- Participant Profile
+- Performance Profile
+
+Recommended behavior:
+- one primary next-action card near the top
+- clearer follow-up language for missing guardian/contact/media/readiness gaps
+- concise operator wording tied to actual blockers
+
+Guardrail:
+- keep guidance deterministic and contract-backed
+- do not invent recommendations from vague heuristics
+
+Roadmap timing:
+- after intake mapping review / lock hardening
+- in parallel with readiness/requirements convergence work
+
+### Recovery Item 3: Team / Media Labeling Cleanup On Performance Screens
+
+Why it is worth recovering:
+- The old branch had a clearer distinction between prep tasks, team management, and intro/media work.
+- That improves one-handed mobile scanning and reduces database-shaped language.
+
+Recommended behavior:
+- clearer labels such as `Prep Tasks`, `Team`, and `Intro & Media`
+- media/introduction actions grouped in one operator lane
+- remove low-signal duplicate status storytelling
+
+Roadmap timing:
+- fold into the next Performance Profile structural cleanup
+
+### Recovery Rule
+
+Treat the old branch as an idea source only.
+
+Do not revive or merge the branch as a single unit.
+Any recovery work should be:
+- file-by-file
+- contract-checked against `database_schema.sql`
+- validated against mobile-first operator flow

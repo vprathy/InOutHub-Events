@@ -356,8 +356,9 @@ Based on what is already shipped, the roadmap should now read:
 3. Validate one additional tenant/source shape through that confirmation flow.
 4. Add participant-side requirement bridge for post-approval operational work.
 5. Add performance-side requirement-backed consolidation after conversion.
-6. Define and then build manual emergency intake.
-7. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
+6. Selectively recover the highest-value proactive operator patterns from the old mobile-readiness branch via the operator-screen and intro plans, not by reviving that branch wholesale.
+7. Define and then build manual emergency intake.
+8. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
 
 ### Pivot Rule For New-Tenant Onboarding
 
