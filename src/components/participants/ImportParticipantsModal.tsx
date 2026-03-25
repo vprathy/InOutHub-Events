@@ -41,6 +41,14 @@ export function ImportParticipantsModal({
     embedded = false,
     initialMode = 'dashboard',
 }: ImportParticipantsModalProps) {
+    const extractSheetId = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        const idMatch = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (idMatch) return idMatch[1];
+        return trimmed;
+    };
+
     const [urlInput, setUrlInput] = useState('');
     const [spreadsheetId, setSpreadsheetId] = useState('');
     const [file, setFile] = useState<File | null>(null);
@@ -99,6 +107,7 @@ export function ImportParticipantsModal({
 
     const participantSources = sources.filter((source) => (source.config.intakeTarget || 'participants') === 'participants');
     const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
+    const resolvedSpreadsheetId = extractSheetId(urlInput || spreadsheetId);
 
     const buildSourceConfig = (source: EventSource | { config?: EventSource['config'] }, result: { mapping?: Record<string, string | undefined>; gaps?: string[]; headers?: string[] }) => ({
         ...(source.config || {}),
@@ -131,7 +140,12 @@ export function ImportParticipantsModal({
     };
 
     const handleLinkSheet = async () => {
-        if (!spreadsheetId || !sourceName) return;
+        const parsedSheetId = extractSheetId(urlInput || spreadsheetId);
+        if (!parsedSheetId || !sourceName.trim()) {
+            setStatus('error');
+            setErrorMessage('Paste a valid Google Sheet URL or ID before linking this source.');
+            return;
+        }
         setStatus('loading');
         setSyncGaps([]);
         try {
@@ -139,11 +153,11 @@ export function ImportParticipantsModal({
                 eventId,
                 name: sourceName,
                 type: 'google_sheet',
-                config: { intakeTarget, sheetId: spreadsheetId, url: urlInput }
+                config: { intakeTarget, sheetId: parsedSheetId, url: urlInput }
             });
 
             const result = await syncSheet({
-                sheetId: spreadsheetId,
+                sheetId: parsedSheetId,
                 savedMapping: newSource.config?.inferredMapping,
                 intakeTarget,
             });
@@ -625,9 +639,7 @@ export function ImportParticipantsModal({
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             setUrlInput(val);
-                                            const idMatch = val.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                                            if (idMatch) setSpreadsheetId(idMatch[1]);
-                                            else setSpreadsheetId(val);
+                                            setSpreadsheetId(extractSheetId(val));
                                         }}
                                         className="h-14 rounded-2xl bg-accent/20"
                                     />
@@ -648,7 +660,7 @@ export function ImportParticipantsModal({
                                     </div>
                                 )}
                             </div>
-                            <Button disabled={!spreadsheetId || !sourceName} onClick={handleLinkSheet} className="w-full h-16 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">
+                            <Button disabled={!resolvedSpreadsheetId || !sourceName.trim()} onClick={handleLinkSheet} className="w-full h-16 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">
                                 Link & Refresh
                             </Button>
                         </div>

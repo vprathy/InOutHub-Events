@@ -33,6 +33,7 @@ export default function ImportDataPage() {
         return { total, withMappingGaps };
     }, [sources]);
     const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';
+    const isImportFlowOpen = searchParams.get('action') === 'import';
 
     if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
         return (
@@ -141,7 +142,7 @@ export default function ImportDataPage() {
                 )}
             </div>
 
-            {!importsLocked ? (
+            {!importsLocked && !isImportFlowOpen ? (
                 <button
                     type="button"
                     onClick={() => {
