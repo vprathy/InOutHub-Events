@@ -35,7 +35,7 @@ export default function AdminPage() {
             <div className="space-y-5">
                 <PageHeader
                     title="Admin"
-                    subtitle="Administrative controls are available only to org admins, event admins, and super admins."
+                    subtitle="Administrative controls are available only to organization admins and event admins."
                 />
                 <div className="surface-panel rounded-[1.35rem] border p-6 text-sm text-muted-foreground">
                     This event context does not grant admin access.
@@ -70,7 +70,7 @@ export default function AdminPage() {
                         </div>
                     </div>
                     <div className="rounded-full border border-border/70 bg-background px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                        {isSuperAdmin ? 'Super Admin' : currentOrgRole === 'Owner' || currentOrgRole === 'Admin' ? 'Org Admin' : 'Event Admin'}
+                        {isSuperAdmin ? 'Admin' : currentOrgRole === 'Owner' || currentOrgRole === 'Admin' ? 'Org Admin' : 'Event Admin'}
                     </div>
                 </div>
             </div>

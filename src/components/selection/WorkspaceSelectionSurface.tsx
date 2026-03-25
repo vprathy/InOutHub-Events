@@ -178,7 +178,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
             const mapped = (data || []).map((org: any) => ({
                 id: org.id,
                 name: org.name,
-                roleLabel: userIsSuperAdmin ? 'Super Admin' : org.organization_members?.[0]?.role || 'Member',
+                roleLabel: userIsSuperAdmin ? 'Admin' : org.organization_members?.[0]?.role || 'Member',
                 reviewStatus: 'approved',
             }));
 
@@ -408,7 +408,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
                             {canEditOrganization
                                 ? 'Add the first event for this organization to unlock the dashboard, roster, performances, and show flow workspace.'
-                                : 'This organization has no events yet. An org admin or super admin needs to create the first event.'}
+                                : 'This organization has no events yet. An administrator needs to create the first event.'}
                         </p>
                         {canEditOrganization ? (
                             <div className="mt-5">

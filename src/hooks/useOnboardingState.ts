@@ -54,7 +54,7 @@ export function useOnboardingState(organizationId: string | null, eventId: strin
                 id: org.id,
                 name: org.name,
                 reviewStatus: 'approved',
-                roleLabel: isSuperAdmin ? 'Super Admin' : org.organization_members?.[0]?.role || 'Member',
+                roleLabel: isSuperAdmin ? 'Admin' : org.organization_members?.[0]?.role || 'Member',
             }));
         },
         enabled: !!user?.id && !isLoadingSuperAdmin,

@@ -540,16 +540,13 @@ export default function PerformanceRequestsPage() {
     if (!canOpenAdmin) {
         return (
             <div className="space-y-5">
-                <div className="min-w-0">
-                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
-                        Performance Requests
-                    </h1>
-                    <p className="text-xs font-semibold text-muted-foreground sm:text-sm">
-                        This intake workspace is limited to event admins, org admins, and super admins.
+                <div className="surface-panel rounded-[1.35rem] border p-6">
+                    <p className="text-sm font-semibold text-foreground">
+                        This event context does not grant performance-request access.
                     </p>
-                </div>
-                <div className="surface-panel rounded-[1.35rem] border p-6 text-sm text-muted-foreground">
-                    This event context does not grant performance-request access.
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Performance Requests is limited to event admins and organization admins.
+                    </p>
                 </div>
             </div>
         );

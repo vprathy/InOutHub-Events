@@ -45,7 +45,7 @@ export default function ImportDataPage() {
     if (!canOpenAdmin) {
         return (
             <div className="space-y-5">
-                <PageHeader title="Import Data" subtitle="Source connections and mapping review are limited to event admins, org admins, and super admins." />
+                <PageHeader title="Import Data" subtitle="Source connections and mapping review are limited to event admins and organization admins." />
                 <div className="surface-panel rounded-[1.35rem] border p-6 text-sm text-muted-foreground">
                     This event context does not grant import-management access.
                 </div>
