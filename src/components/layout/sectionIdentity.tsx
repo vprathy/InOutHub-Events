@@ -8,6 +8,7 @@ import {
     ListOrdered,
     MonitorPlay,
     Music,
+    RefreshCw,
     Search,
     ShieldCheck,
     Users,
@@ -16,6 +17,8 @@ import type { LucideIcon } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelection } from '@/context/SelectionContext';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
+import { useEventSources } from '@/hooks/useEventSources';
+import { useSyncGoogleSheet } from '@/hooks/useParticipants';
 
 type SectionIdentity = {
     key: string;
@@ -131,7 +134,7 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         label: 'Performance Requests',
         group: 'Admin',
         hint: 'Review & convert',
-        subtitle: 'Review imported requests before they become live performances',
+        subtitle: 'Review requests before they become performances',
         icon: Music,
         shellClassName:
             'border-violet-500/15 bg-[linear-gradient(90deg,rgba(139,92,246,0.12),rgba(236,72,153,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(167,139,250,0.18),rgba(244,114,182,0.05)_45%,transparent)]',
@@ -184,6 +187,8 @@ export function SectionIdentityStrip() {
     const [searchParams, setSearchParams] = useSearchParams();
     const { eventId } = useSelection();
     const capabilities = useEventCapabilities(eventId || null, null);
+    const { sources, updateSourceSyncStatus } = useEventSources(eventId || '');
+    const syncSheet = useSyncGoogleSheet(eventId || '');
 
     if (!section) return null;
 
@@ -191,6 +196,7 @@ export function SectionIdentityStrip() {
     const isParticipantDetail = isParticipants && /^\/participants\/[^/]+$/.test(location.pathname);
     const isPerformances = section.key === 'performances';
     const isRequirements = section.key === 'requirements';
+    const isPerformanceRequests = section.key === 'performance-requests';
     const canManageSources = capabilities.canSyncParticipants;
     const canEditParticipant = capabilities.canManageParticipantRecords;
     const canUsePremiumGeneration = capabilities.canUsePremiumGeneration;
@@ -211,6 +217,34 @@ export function SectionIdentityStrip() {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set('action', action);
         setSearchParams(nextParams, { replace: true });
+    };
+
+    const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
+    const primaryPerformanceRequestSource = performanceRequestSources.length === 1 ? performanceRequestSources[0] : null;
+
+    const syncPerformanceRequestSource = async () => {
+        if (!primaryPerformanceRequestSource?.config.sheetId) {
+            navigate('/admin/import-data');
+            return;
+        }
+
+        const result = await syncSheet.mutateAsync({
+            sheetId: primaryPerformanceRequestSource.config.sheetId,
+            savedMapping: primaryPerformanceRequestSource.config?.inferredMapping,
+            intakeTarget: 'performance_requests',
+        });
+
+        await updateSourceSyncStatus({
+            sourceId: primaryPerformanceRequestSource.id,
+            lastSyncedAt: new Date().toISOString(),
+            config: {
+                ...primaryPerformanceRequestSource.config,
+                inferredMapping: result.mapping,
+                mappingGaps: result.gaps || [],
+                detectedHeaders: result.headers || [],
+                mappingUpdatedAt: new Date().toISOString(),
+            },
+        });
     };
 
     const toggleRequirementsPanel = (panel: 'req-search' | 'req-filter') => {
@@ -301,6 +335,30 @@ export function SectionIdentityStrip() {
                         >
                             <Funnel className="h-4 w-4 text-primary" />
                         </button>
+                    </div>
+                ) : isPerformanceRequests ? (
+                    <div className="flex shrink-0 items-center gap-2 self-center">
+                        {primaryPerformanceRequestSource ? (
+                            <button
+                                type="button"
+                                onClick={() => void syncPerformanceRequestSource()}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                aria-label="Sync source"
+                            >
+                                <RefreshCw className={`h-4 w-4 text-primary ${syncSheet.isPending ? 'animate-spin' : ''}`} />
+                                <span>Sync Source</span>
+                            </button>
+                        ) : canManageSources ? (
+                            <button
+                                type="button"
+                                onClick={openSources}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                aria-label="Open import data"
+                            >
+                                <Database className="h-4 w-4 text-primary" />
+                                <span>Import Data</span>
+                            </button>
+                        ) : null}
                     </div>
                 ) : (
                     <div className={`hidden min-h-[30px] items-center rounded-full border px-2.5 text-[9px] font-black uppercase tracking-[0.18em] md:inline-flex ${section.badgeClassName}`}>

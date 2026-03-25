@@ -428,9 +428,11 @@ export interface PerformanceRequest {
     eventSourceId: string | null;
     sourceAnchor: string | null;
     title: string;
+    performanceType: string | null;
     leadName: string | null;
     leadEmail: string | null;
     leadPhone: string | null;
+    requestDate: string | null;
     durationEstimateMinutes: number;
     musicSupplied: boolean;
     rosterSupplied: boolean;

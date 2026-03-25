@@ -34,6 +34,8 @@ const VALUE_INFERENCE_FIELDS = ['phone', 'email', 'age', 'specialRequest', 'full
 const REQUEST_HEADER_ALIASES = {
     title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item', 'program name', 'program title'],
     leadName: ['requester name', 'requestor name', 'submitted by', 'primary contact name', 'primary contact', 'contact name', 'lead name', 'lead contact', 'teacher name', 'coach name', 'director name', 'manager name', 'team manager', 'name'],
+    leadFirstName: ['requester first name', 'requestor first name', 'primary contact first name', 'contact first name', 'lead first name', 'manager first name', 'teacher first name', 'first name'],
+    leadLastName: ['requester last name', 'requestor last name', 'primary contact last name', 'contact last name', 'lead last name', 'manager last name', 'teacher last name', 'last name'],
     leadEmail: ['requester email', 'requestor email', 'primary contact email', 'contact email', 'lead email', 'manager email', 'teacher email', 'email address', 'email'],
     leadPhone: ['requester phone', 'requestor phone', 'primary contact phone', 'contact phone', 'lead phone', 'manager phone', 'teacher phone', 'phone number', 'phone', 'mobile'],
     durationMinutes: ['duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
@@ -295,6 +297,8 @@ function inferPerformanceRequestProfile(headers: string[], rows: Record<string, 
     const headerMatches: Array<[string, string[], RegExp | undefined]> = [
         ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title|program)\b/],
         ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(requester|requestor|submitted|primary|contact|lead|teacher|coach|director|manager)\b.*\bname\b/],
+        ['leadFirstName', REQUEST_HEADER_ALIASES.leadFirstName, /\b(requester|requestor|primary|contact|lead|teacher|coach|director|manager)\b.*\bfirst\b.*\bname\b/],
+        ['leadLastName', REQUEST_HEADER_ALIASES.leadLastName, /\b(requester|requestor|primary|contact|lead|teacher|coach|director|manager)\b.*\blast\b.*\bname\b/],
         ['leadEmail', REQUEST_HEADER_ALIASES.leadEmail, /\bemail\b/],
         ['leadPhone', REQUEST_HEADER_ALIASES.leadPhone, /\b(phone|mobile|cell)\b/],
         ['durationMinutes', REQUEST_HEADER_ALIASES.durationMinutes, /\b(duration|runtime|length)\b/],
@@ -339,7 +343,7 @@ function inferPerformanceRequestProfile(headers: string[], rows: Record<string, 
 
     const gaps: string[] = []
     if (!profile.title) gaps.push('Performance title column was not recognized automatically.')
-    if (!profile.leadName && !profile.leadEmail) gaps.push('Lead contact columns were not recognized automatically.')
+    if (!profile.leadName && !(profile.leadFirstName && profile.leadLastName) && !profile.leadEmail) gaps.push('Lead contact columns were not recognized automatically.')
     return { profile, gaps }
 }
 
@@ -349,7 +353,7 @@ function assessPerformanceRequestImport(headers: string[], rows: Record<string, 
 
     const requestSignalCount = [
         profile.title ? 1 : 0,
-        profile.leadName || profile.leadEmail ? 1 : 0,
+        profile.leadName || (profile.leadFirstName && profile.leadLastName) || profile.leadEmail ? 1 : 0,
         profile.durationMinutes ? 1 : 0,
         profile.musicSupplied || profile.rosterSupplied ? 1 : 0,
         profile.sourceAnchor ? 1 : 0,
@@ -621,7 +625,8 @@ Deno.serve(async (req) => {
             const requests = parsedRows.map((rowData) => {
                 const read = (header?: string) => (header ? String(rowData[header] || '').trim() : '')
                 const title = read(profile.title)
-                const leadName = read(profile.leadName)
+                const combinedLeadName = [read(profile.leadFirstName), read(profile.leadLastName)].filter(Boolean).join(' ').trim()
+                const leadName = read(profile.leadName) || combinedLeadName
                 const leadEmail = read(profile.leadEmail)
                 const leadPhone = read(profile.leadPhone)
                 const durationRaw = read(profile.durationMinutes)

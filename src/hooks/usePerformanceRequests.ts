@@ -6,9 +6,13 @@ type RawPayload = Record<string, unknown>;
 
 const REQUEST_SOURCE_ALIASES = {
     title: ['program name', 'program title', 'performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title'],
+    performanceType: ['performance type', 'program type', 'act type', 'item type', 'category', 'dance style', 'style', 'genre', 'division', 'group type', 'entry type', 'team type'],
     leadName: ['requester name', 'requestor name', 'submitted by', 'primary contact name', 'primary contact', 'contact name', 'lead name', 'lead contact', 'teacher name', 'coach name', 'director name', 'manager name', 'team manager', 'name'],
+    leadFirstName: ['requester first name', 'requestor first name', 'first name', 'contact first name', 'primary contact first name'],
+    leadLastName: ['requester last name', 'requestor last name', 'last name', 'contact last name', 'primary contact last name'],
     leadEmail: ['requester email', 'requestor email', 'primary contact email', 'contact email', 'lead email', 'manager email', 'teacher email', 'email address', 'email'],
     leadPhone: ['requester phone', 'requestor phone', 'primary contact phone', 'contact phone', 'lead phone', 'manager phone', 'teacher phone', 'phone number', 'phone', 'mobile'],
+    requestDate: ['timestamp', 'submitted at', 'submitted on', 'submission date', 'date submitted', 'request date', 'entry date'],
     durationMinutes: ['program duration', 'duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
     notes: ['special request', 'special requests', 'request notes', 'notes', 'comments', 'description', 'message'],
 } as const;
@@ -64,25 +68,37 @@ function buildImportInsights(row: any) {
     const rawPayload = getRawPayload(row);
 
     const title = toText(row.title) || findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.value || 'Untitled Request';
+    const performanceTypeMatch = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.performanceType);
     const leadNameMatch = toText(row.lead_name)
         ? { value: toText(row.lead_name), sourceKey: null as string | null }
         : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadName);
+    const leadFirstNameMatch = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadFirstName);
+    const leadLastNameMatch = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadLastName);
     const leadEmailMatch = toText(row.lead_email)
         ? { value: toText(row.lead_email), sourceKey: null as string | null }
         : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadEmail, isEmail);
     const leadPhoneMatch = toText(row.lead_phone)
         ? { value: toText(row.lead_phone), sourceKey: null as string | null }
         : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadPhone, isPhone);
+    const requestDateMatch = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.requestDate);
     const durationSource = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.durationMinutes);
     const notesMatch = toText(row.notes)
         ? { value: toText(row.notes), sourceKey: null as string | null }
         : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.notes);
+    const combinedLeadName = leadNameMatch?.value
+        || [leadFirstNameMatch?.value, leadLastNameMatch?.value].filter(Boolean).join(' ').trim()
+        || null;
+    const combinedLeadSourceKey = leadNameMatch?.sourceKey
+        || [leadFirstNameMatch?.sourceKey, leadLastNameMatch?.sourceKey].filter(Boolean).join(' + ')
+        || null;
 
     const importInsights = [
         { label: 'Request Title', value: title, sourceKey: findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.sourceKey || null },
-        leadNameMatch ? { label: 'Requestor', value: leadNameMatch.value, sourceKey: leadNameMatch.sourceKey } : null,
+        performanceTypeMatch ? { label: 'Performance Type', value: performanceTypeMatch.value, sourceKey: performanceTypeMatch.sourceKey } : null,
+        combinedLeadName ? { label: 'Requestor', value: combinedLeadName, sourceKey: combinedLeadSourceKey } : null,
         leadEmailMatch ? { label: 'Email', value: leadEmailMatch.value, sourceKey: leadEmailMatch.sourceKey } : null,
         leadPhoneMatch ? { label: 'Phone', value: leadPhoneMatch.value, sourceKey: leadPhoneMatch.sourceKey } : null,
+        requestDateMatch ? { label: 'Request Date', value: requestDateMatch.value, sourceKey: requestDateMatch.sourceKey } : null,
         {
             label: 'Duration',
             value: `${Number.isFinite(Number(row.duration_estimate_minutes)) ? Number(row.duration_estimate_minutes) : 5} minutes`,
@@ -96,9 +112,11 @@ function buildImportInsights(row: any) {
 
     return {
         title,
-        leadName: leadNameMatch?.value || null,
+        performanceType: performanceTypeMatch?.value || null,
+        leadName: combinedLeadName,
         leadEmail: leadEmailMatch?.value || null,
         leadPhone: leadPhoneMatch?.value || null,
+        requestDate: requestDateMatch?.value || null,
         notes: notesMatch?.value || null,
         importInsights,
     };
@@ -115,9 +133,11 @@ function mapPerformanceRequest(row: any): PerformanceRequest {
         eventSourceId: row.event_source_id,
         sourceAnchor: row.source_anchor,
         title: resolved.title,
+        performanceType: resolved.performanceType,
         leadName: resolved.leadName,
         leadEmail: resolved.leadEmail,
         leadPhone: resolved.leadPhone,
+        requestDate: resolved.requestDate,
         durationEstimateMinutes: row.duration_estimate_minutes,
         musicSupplied: !!row.music_supplied,
         rosterSupplied: !!row.roster_supplied,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     ArrowRight,
     CheckCircle2,
@@ -7,17 +7,18 @@ import {
     Clock3,
     Loader2,
     Mail,
+    MessageSquare,
     Music,
     Phone,
-    RefreshCw,
     ShieldCheck,
+    Search,
     Sparkles,
     XCircle,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
-import type { OperationalTone } from '@/components/ui/OperationalCards';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { useSelection } from '@/context/SelectionContext';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
@@ -60,39 +61,241 @@ function formatActionLabel(action: string) {
     return action.replace(/_/g, ' ');
 }
 
-function getMetricTone(value: number, kind: 'pending' | 'approved' | 'converted' | 'total'): OperationalTone {
-    if (kind === 'pending') return value > 0 ? 'warning' : 'good';
-    if (kind === 'approved') return value > 0 ? 'info' : 'default';
-    if (kind === 'converted') return value > 0 ? 'good' : 'default';
-    return value > 0 ? 'default' : 'info';
-}
-
-function getMetricToneClasses(tone: OperationalTone) {
-    switch (tone) {
-        case 'warning':
-            return 'border-orange-500/20 bg-orange-500/5 text-orange-700';
-        case 'good':
-            return 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700';
-        case 'info':
-            return 'border-sky-500/20 bg-sky-500/5 text-sky-700';
-        case 'critical':
-            return 'border-destructive/20 bg-destructive/5 text-destructive';
-        default:
-            return 'border-border/70 bg-background/70 text-foreground';
-    }
-}
-
 function getLifecycleStage(requestStatus: string, conversionStatus: string) {
     if (conversionStatus === 'converted') return 'converted';
+    if (requestStatus === 'rejected') return 'rejected';
     if (requestStatus === 'approved') return 'approved';
-    if (requestStatus === 'reviewed') return 'reviewed';
-    return 'imported';
+    return 'pending';
 }
 
-function getLifecycleStepClasses(isActive: boolean, isComplete: boolean) {
-    if (isActive) return 'border-primary/25 bg-primary/10 text-primary';
-    if (isComplete) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700';
-    return 'border-border/70 bg-background/75 text-muted-foreground';
+function stageLabel(stage: string) {
+    if (stage === 'pending') return 'Pending';
+    if (stage === 'approved') return 'Approved';
+    if (stage === 'converted') return 'Converted';
+    if (stage === 'rejected') return 'Rejected';
+    return 'Imported';
+}
+
+function formatListDate(value: string | null | undefined) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+    });
+}
+
+function RequestDetailPanel({
+    request,
+    onApprove,
+    onReject,
+    onReview,
+    onConvert,
+    onOpenPerformance,
+    timeline,
+    isWorking,
+}: {
+    request: any;
+    onApprove: () => void;
+    onReject: () => void;
+    onReview: () => void;
+    onConvert: () => void;
+    onOpenPerformance: () => void;
+    timeline: ReturnType<typeof usePerformanceRequestTimeline>;
+    isWorking: boolean;
+}) {
+    return (
+        <div className="space-y-4">
+            <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request</p>
+                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">{request.title}</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {request.leadName || request.leadEmail || 'Requestor not captured'}{request.sourceAnchor ? ` • Anchor ${request.sourceAnchor}` : ''}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(request.requestStatus)}`}>
+                            {formatActionLabel(request.requestStatus)}
+                        </span>
+                        {request.conversionStatus !== 'not_started' ? (
+                            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getConversionStatusTone(request.conversionStatus)}`}>
+                                {formatActionLabel(request.conversionStatus)}
+                            </span>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="mt-4 rounded-[1.1rem] border border-border/70 bg-background/70 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Step</p>
+                    <p className="mt-1 text-sm font-black text-foreground">
+                        {request.conversionStatus === 'converted'
+                            ? 'This request is already live as a performance.'
+                            : request.requestStatus === 'approved'
+                                ? 'Convert this approved request into a performance.'
+                                : request.requestStatus === 'reviewed'
+                                    ? 'Approve this reviewed request when you are ready to create the performance.'
+                                    : 'Review the imported details, then approve or reject this request.'}
+                    </p>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                    {request.requestStatus === 'pending' ? (
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onReview}
+                            disabled={isWorking}
+                        >
+                            <Clock3 className="mr-1.5 h-4 w-4" />
+                            Mark Reviewed
+                        </Button>
+                    ) : null}
+                    {request.requestStatus !== 'approved' ? (
+                        <Button
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onApprove}
+                            disabled={isWorking}
+                        >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                            Approve
+                        </Button>
+                    ) : null}
+                    {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onReject}
+                            disabled={isWorking}
+                        >
+                            <XCircle className="mr-1.5 h-4 w-4" />
+                            Reject
+                        </Button>
+                    ) : null}
+                    {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
+                        <Button
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onConvert}
+                            disabled={isWorking}
+                        >
+                            <ArrowRight className="mr-1.5 h-4 w-4" />
+                            Convert to Performance
+                        </Button>
+                    ) : null}
+                    {request.convertedActId ? (
+                        <Button
+                            variant="ghost"
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onOpenPerformance}
+                        >
+                            Open Performance
+                        </Button>
+                    ) : null}
+                </div>
+
+                <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Imported Intake</p>
+                        <p className="mt-1 text-sm font-black text-foreground">What we understood from the source</p>
+                        <div className="mt-3 space-y-3 text-sm">
+                            {(request.importInsights || []).map((insight: any) => (
+                                <div key={`${insight.label}-${insight.sourceKey || insight.value}`} className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <span className="text-muted-foreground">{insight.label}</span>
+                                        {insight.sourceKey ? (
+                                            <p className="pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                                Source: {insight.sourceKey}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <span className="max-w-[60%] text-right font-bold text-foreground">{insight.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Contact & Notes</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Use this before you convert</p>
+                        <div className="mt-3 space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                                {request.leadPhone ? (
+                                    <a
+                                        href={`tel:${request.leadPhone}`}
+                                        className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-4 text-sm font-bold text-foreground"
+                                    >
+                                        <Phone className="mr-2 h-4 w-4 text-primary" />
+                                        Call Lead
+                                    </a>
+                                ) : null}
+                                {request.leadPhone ? (
+                                    <a
+                                        href={`sms:${request.leadPhone}`}
+                                        className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-4 text-sm font-bold text-foreground"
+                                    >
+                                        <MessageSquare className="mr-2 h-4 w-4 text-primary" />
+                                        Text Lead
+                                    </a>
+                                ) : null}
+                                {request.leadEmail ? (
+                                    <a
+                                        href={`mailto:${request.leadEmail}`}
+                                        className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-4 text-sm font-bold text-foreground"
+                                    >
+                                        <Mail className="mr-2 h-4 w-4 text-primary" />
+                                        Email Lead
+                                    </a>
+                                ) : null}
+                            </div>
+                            {!request.leadPhone && !request.leadEmail ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No direct requestor contact was captured for this request.
+                                </p>
+                            ) : null}
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Notes</p>
+                                <p className="mt-2 text-sm leading-6 text-foreground/85">
+                                    {request.notes || 'No intake notes were provided with this request.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Timeline</p>
+                {timeline.isLoading ? (
+                    <div className="mt-4 flex min-h-[8rem] items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                ) : timeline.data && timeline.data.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                        {timeline.data.map((event) => (
+                            <div key={event.id} className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-sm font-black text-foreground">{formatActionLabel(event.action)}</p>
+                                    <p className="text-xs text-muted-foreground">{formatDateTime(event.performedAt)}</p>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {event.actorName || event.actorEmail || 'System action'}
+                                </p>
+                                {event.note ? (
+                                    <p className="mt-3 text-sm leading-6 text-foreground/85">{event.note}</p>
+                                ) : null}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="mt-4 rounded-[1.2rem] border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                        No intake timeline events yet for this request.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function PerformanceRequestsPage() {
@@ -101,15 +304,20 @@ export default function PerformanceRequestsPage() {
     const { data: currentEventRole, isLoading: isLoadingEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole, isLoading: isLoadingOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false, isLoading: isLoadingSuperAdmin } = useIsSuperAdmin();
-    const { data: requests = [], error, refetch, isFetching } = usePerformanceRequestsQuery(eventId || null);
+    const { data: requests = [], error, refetch } = usePerformanceRequestsQuery(eventId || null);
 
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
     const [loadSupportCode, setLoadSupportCode] = useState<string | null>(null);
     const [actionSupportCode, setActionSupportCode] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeSegment, setActiveSegment] = useState<'pending' | 'approved' | 'converted' | 'rejected' | 'all'>('pending');
+    const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(25);
     const lastLoadErrorRef = useRef<string | null>(null);
     const lastActionErrorRef = useRef<string | null>(null);
     const detailRef = useRef<HTMLDivElement | null>(null);
     const pendingScrollRequestRef = useRef<string | null>(null);
+    const [isDesktop, setIsDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : false));
 
     const canOpenAdmin =
         isSuperAdmin
@@ -117,26 +325,63 @@ export default function PerformanceRequestsPage() {
         || currentOrgRole === 'Owner'
         || currentOrgRole === 'Admin';
 
+    const segmentedRequests = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+
+        return requests.filter((request) => {
+            const matchesSegment = activeSegment === 'all'
+                ? true
+                : activeSegment === 'converted'
+                    ? request.conversionStatus === 'converted'
+                    : activeSegment === 'approved'
+                        ? request.requestStatus === 'approved' && request.conversionStatus !== 'converted'
+                        : activeSegment === 'rejected'
+                            ? request.requestStatus === 'rejected'
+                            : request.requestStatus === 'pending' || request.requestStatus === 'reviewed';
+
+            if (!matchesSegment) return false;
+            if (!normalizedSearch) return true;
+
+            return [
+                request.title,
+                request.leadName,
+                request.leadEmail,
+                request.leadPhone,
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+        });
+    }, [activeSegment, requests, searchTerm]);
+
     const selectedRequest = useMemo(
-        () => requests.find((request) => request.id === selectedRequestId) || requests[0] || null,
-        [requests, selectedRequestId]
+        () => segmentedRequests.find((request) => request.id === selectedRequestId)
+            || requests.find((request) => request.id === selectedRequestId)
+            || segmentedRequests[0]
+            || requests[0]
+            || null,
+        [requests, segmentedRequests, selectedRequestId]
     );
+    const visibleRequests = useMemo(() => segmentedRequests.slice(0, visibleCount), [segmentedRequests, visibleCount]);
 
     useEffect(() => {
-        if (!selectedRequestId && requests[0]?.id) {
-            setSelectedRequestId(requests[0].id);
+        setVisibleCount(25);
+    }, [activeSegment, searchTerm]);
+
+    useEffect(() => {
+        if (!selectedRequestId && segmentedRequests[0]?.id) {
+            setSelectedRequestId(segmentedRequests[0].id);
             return;
         }
 
         if (selectedRequestId && !requests.some((request) => request.id === selectedRequestId)) {
-            setSelectedRequestId(requests[0]?.id || null);
+            setSelectedRequestId(segmentedRequests[0]?.id || requests[0]?.id || null);
         }
-    }, [requests, selectedRequestId]);
+    }, [requests, segmentedRequests, selectedRequestId]);
 
     useEffect(() => {
         if (!selectedRequest?.id || pendingScrollRequestRef.current !== selectedRequest.id) return;
         if (!detailRef.current) return;
-        if (window.innerWidth >= 1280) {
+        if (isDesktop) {
             pendingScrollRequestRef.current = null;
             return;
         }
@@ -145,7 +390,13 @@ export default function PerformanceRequestsPage() {
             detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             pendingScrollRequestRef.current = null;
         }, 120);
-    }, [selectedRequest?.id]);
+    }, [isDesktop, selectedRequest?.id]);
+
+    useEffect(() => {
+        const onResize = () => setIsDesktop(window.innerWidth >= 1280);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     const timeline = usePerformanceRequestTimeline(selectedRequest?.id || null);
     const setStatus = useSetPerformanceRequestStatus(eventId || null, selectedRequest?.id || null);
@@ -153,71 +404,19 @@ export default function PerformanceRequestsPage() {
 
     const stats = {
         total: requests.length,
-        pending: requests.filter((request) => request.requestStatus === 'pending').length,
-        approved: requests.filter((request) => request.requestStatus === 'approved').length,
+        pending: requests.filter((request) => request.requestStatus === 'pending' || request.requestStatus === 'reviewed').length,
+        approved: requests.filter((request) => request.requestStatus === 'approved' && request.conversionStatus !== 'converted').length,
         converted: requests.filter((request) => request.conversionStatus === 'converted').length,
+        rejected: requests.filter((request) => request.requestStatus === 'rejected').length,
     };
 
-    const metricCards = [
-        {
-            label: 'Pending Review',
-            value: stats.pending,
-            icon: Clock3,
-            tone: getMetricTone(stats.pending, 'pending'),
-            infoBody: 'Counts imported requests that still need operator review before they can be approved or rejected.',
-        },
-        {
-            label: 'Approved',
-            value: stats.approved,
-            icon: CheckCircle2,
-            tone: getMetricTone(stats.approved, 'approved'),
-            infoBody: 'Counts requests that have been approved and are ready for conversion into operational performances.',
-        },
-        {
-            label: 'Converted',
-            value: stats.converted,
-            icon: Music,
-            tone: getMetricTone(stats.converted, 'converted'),
-            infoBody: 'Counts approved requests that have already been turned into live performance records.',
-        },
-        {
-            label: 'Total Requests',
-            value: stats.total,
-            icon: ClipboardList,
-            tone: getMetricTone(stats.total, 'total'),
-            infoBody: 'Shows the full volume of staged performance requests currently in this event workspace.',
-        },
-    ] as const;
-
     const statusError = (setStatus.error as Error | null)?.message || (convertRequest.error as Error | null)?.message || null;
-    const selectedLifecycleStage = selectedRequest
-        ? getLifecycleStage(selectedRequest.requestStatus, selectedRequest.conversionStatus)
-        : 'imported';
-    const lifecycleSteps = [
-        {
-            key: 'imported',
-            label: 'Imported',
-            summary: `${stats.total} in workspace`,
-            detail: 'The source file has been staged here, but no operator decision has been made yet.',
-        },
-        {
-            key: 'reviewed',
-            label: 'Pending Review',
-            summary: `${stats.pending} waiting`,
-            detail: 'Open a request, confirm the imported details, then mark it reviewed or approve it directly.',
-        },
-        {
-            key: 'approved',
-            label: 'Approved',
-            summary: `${stats.approved} ready`,
-            detail: 'Approved requests are cleared to become operational performances.',
-        },
-        {
-            key: 'converted',
-            label: 'Converted',
-            summary: `${stats.converted} live`,
-            detail: 'The request has already been turned into a real performance record.',
-        },
+    const segmentOptions = [
+        { key: 'pending', label: 'Pending', count: stats.pending },
+        { key: 'approved', label: 'Approved', count: stats.approved },
+        { key: 'converted', label: 'Converted', count: stats.converted },
+        { key: 'rejected', label: 'Rejected', count: stats.rejected },
+        { key: 'all', label: 'All', count: stats.total },
     ] as const;
 
     useEffect(() => {
@@ -291,7 +490,14 @@ export default function PerformanceRequestsPage() {
     if (!canOpenAdmin) {
         return (
             <div className="space-y-5">
-                <PageHeader title="Performance Requests" subtitle="This intake workspace is limited to event admins, org admins, and super admins." />
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
+                        Performance Requests
+                    </h1>
+                    <p className="text-xs font-semibold text-muted-foreground sm:text-sm">
+                        This intake workspace is limited to event admins, org admins, and super admins.
+                    </p>
+                </div>
                 <div className="surface-panel rounded-[1.35rem] border p-6 text-sm text-muted-foreground">
                     This event context does not grant performance-request access.
                 </div>
@@ -318,68 +524,82 @@ export default function PerformanceRequestsPage() {
         }
     };
 
+    const openRequest = (requestId: string) => {
+        pendingScrollRequestRef.current = requestId;
+        setSelectedRequestId(requestId);
+        if (!isDesktop) {
+            setIsMobileDetailOpen(true);
+        }
+    };
+
     return (
         <div className="space-y-5 pb-12">
-            <PageHeader
-                title="Performance Requests"
-                subtitle="Review imported external requests before they become operational performances."
-            />
-
-            <div className="surface-panel rounded-[1.35rem] p-3">
-                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Request Snapshot</p>
-                <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {metricCards.map((metric) => (
-                        <div key={metric.label} className={`rounded-[1.05rem] border p-3 ${getMetricToneClasses(metric.tone)}`}>
-                            <div className="flex items-center justify-between gap-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.16em]">{metric.label}</p>
-                                <metric.icon className="h-4 w-4 opacity-70" />
-                            </div>
-                            <p className="mt-2 text-2xl font-black leading-none">{metric.value}</p>
-                        </div>
-                    ))}
-                </div>
-                <p className="px-1 pt-3 text-xs text-muted-foreground">
-                    Review the queue below, then approve and convert only the requests that should become real performances.
-                </p>
-            </div>
-
             <div className="surface-panel rounded-[1.35rem] p-4">
-                <div className="space-y-1 px-1">
+                <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Workflow</p>
-                    <p className="text-sm font-black text-foreground">How a request moves through this workspace</p>
-                    <p className="text-sm text-muted-foreground">
-                        Imported requests land here first. You review them, approve the ones you want, then convert approved requests into real performances.
-                    </p>
-                </div>
-                <div className="mt-4 grid gap-2 md:grid-cols-4">
-                    {lifecycleSteps.map((step, index) => {
-                        const stageOrder = ['imported', 'reviewed', 'approved', 'converted'];
-                        const activeIndex = stageOrder.indexOf(selectedLifecycleStage);
-                        const stepIndex = stageOrder.indexOf(step.key);
-                        const isActive = step.key === selectedLifecycleStage;
-                        const isComplete = activeIndex > stepIndex;
+                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                        {[
+                            {
+                                key: 'pending',
+                                label: 'Pending',
+                                count: stats.pending,
+                                activeClasses: 'border-orange-500/20 bg-orange-500/8 text-orange-700',
+                                idleClasses: 'border-orange-500/10 bg-orange-500/5 text-orange-700/85',
+                            },
+                            {
+                                key: 'approved',
+                                label: 'Approved',
+                                count: stats.approved,
+                                activeClasses: 'border-sky-500/20 bg-sky-500/8 text-sky-700',
+                                idleClasses: 'border-sky-500/10 bg-sky-500/5 text-sky-700/85',
+                            },
+                            {
+                                key: 'converted',
+                                label: 'Converted',
+                                count: stats.converted,
+                                activeClasses: 'border-emerald-500/20 bg-emerald-500/8 text-emerald-700',
+                                idleClasses: 'border-emerald-500/10 bg-emerald-500/5 text-emerald-700/85',
+                            },
+                            {
+                                key: 'rejected',
+                                label: 'Rejected',
+                                count: stats.rejected,
+                                activeClasses: 'border-border bg-background text-foreground',
+                                idleClasses: 'border-border/70 bg-background/75 text-muted-foreground',
+                            },
+                            {
+                                key: 'all',
+                                label: 'All',
+                                count: stats.total,
+                                activeClasses: 'border-primary/20 bg-primary/8 text-primary',
+                                idleClasses: 'border-primary/10 bg-primary/5 text-primary/85',
+                            },
+                        ].map((item) => {
+                            const isActive = activeSegment === item.key;
 
-                        return (
-                            <div key={step.key} className={`rounded-[1.05rem] border p-3 ${getLifecycleStepClasses(isActive, isComplete)}`}>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.16em]">
-                                        Step {index + 1}
+                            return (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`min-h-[56px] rounded-[0.95rem] border px-1.5 py-2 text-center transition-colors ${
+                                        isActive ? `${item.activeClasses} shadow-[0_0_0_1px_rgba(20,184,166,0.10)]` : item.idleClasses
+                                    }`}
+                                    onClick={() => setActiveSegment(item.key as typeof activeSegment)}
+                                >
+                                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] sm:text-[10px]">
+                                        {item.label}
                                     </span>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.16em]">
-                                        {step.summary}
+                                    <span className="mt-1 block text-lg font-black leading-none text-foreground sm:text-xl">
+                                        {item.count}
                                     </span>
-                                </div>
-                                <p className="mt-2 text-sm font-black">{step.label}</p>
-                                <p className="mt-1 text-xs leading-5 opacity-90">{step.detail}</p>
-                            </div>
-                        );
-                    })}
-                </div>
-                {selectedRequest ? (
-                    <p className="px-1 pt-3 text-xs text-muted-foreground">
-                        Selected request: <span className="font-bold text-foreground">{selectedRequest.title}</span> is currently at <span className="font-bold text-foreground">{lifecycleSteps.find((step) => step.key === selectedLifecycleStage)?.label || 'Imported'}</span>.
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        Work the <span className="font-bold text-foreground">Pending</span> queue first. Approved requests are ready to convert. Converted ones are already live performances.
                     </p>
-                ) : null}
+                </div>
             </div>
 
             {statusError ? (
@@ -494,296 +714,160 @@ export default function PerformanceRequestsPage() {
             ) : (
                 <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
                     <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</p>
-                                <p className="mt-1 text-sm font-black text-foreground">Request Queue</p>
-                                <p className="mt-1 text-sm text-muted-foreground">{requests.length} imported request{requests.length === 1 ? '' : 's'}</p>
-                                <p className="mt-1 text-xs text-muted-foreground xl:hidden">Tap a request to open its detail panel below.</p>
+                        <div className="space-y-3">
+                            <div className="grid gap-2">
+                                <div className="relative">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        value={searchTerm}
+                                        onChange={(event) => setSearchTerm(event.target.value)}
+                                        placeholder="Search by request title or requestor"
+                                        className="min-h-11 rounded-xl pl-9 text-sm"
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Showing <span className="font-bold text-foreground">{segmentOptions.find((segment) => segment.key === activeSegment)?.label || 'Pending'}</span> requests.
+                                </p>
                             </div>
-                            <Button
-                                variant="ghost"
-                                className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
-                                onClick={() => refetch()}
-                                disabled={isFetching}
-                            >
-                                <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-                                Refresh
-                            </Button>
                         </div>
 
                         <div className="mt-4 space-y-2">
-                            {requests.map((request) => {
+                            {visibleRequests.map((request) => {
                                 const isSelected = request.id === selectedRequest?.id;
-                                const secondaryLine = [
-                                    request.leadName || request.leadEmail || 'Requestor not captured',
-                                    `${request.durationEstimateMinutes}m`,
-                                    formatDateTime(request.createdAt),
-                                ].filter(Boolean).join(' • ');
+                                const lifecycle = stageLabel(getLifecycleStage(request.requestStatus, request.conversionStatus));
+                                const primaryName = request.leadName || request.leadEmail || 'Requestor not captured';
+                                const secondaryTitle = request.performanceType
+                                    ? `${request.title || 'Untitled request'} • ${request.performanceType}`
+                                    : request.title || 'Untitled request';
+                                const displayDate = formatListDate(request.requestDate) || formatListDate(request.createdAt) || 'Imported';
 
                                 return (
                                     <button
                                         key={request.id}
                                         type="button"
-                                        className={`w-full rounded-[1.15rem] border px-3 py-3 text-left transition-colors ${
+                                        className={`w-full rounded-[0.95rem] border px-2.5 py-2 text-left transition-colors ${
                                             isSelected ? 'border-primary/30 bg-primary/5 shadow-[0_0_0_1px_rgba(20,184,166,0.12)]' : 'border-border/70 bg-background/75'
                                         }`}
-                                        onClick={() => {
-                                            pendingScrollRequestRef.current = request.id;
-                                            setSelectedRequestId(request.id);
-                                        }}
+                                        onClick={() => openRequest(request.id)}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(request.requestStatus)}`}>
-                                                        {formatActionLabel(request.requestStatus)}
+                                                <div className="flex items-center gap-2">
+                                                    <p className="min-w-0 flex-1 truncate text-[15px] font-black text-foreground">{primaryName}</p>
+                                                    <span className="shrink-0 text-[12px] font-semibold text-muted-foreground">
+                                                        {request.durationEstimateMinutes}m
                                                     </span>
-                                                    {request.conversionStatus !== 'not_started' ? (
-                                                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getConversionStatusTone(request.conversionStatus)}`}>
-                                                            {formatActionLabel(request.conversionStatus)}
-                                                        </span>
-                                                    ) : null}
-                                                    {isSelected ? (
-                                                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-primary">Selected</span>
-                                                    ) : null}
+                                                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(request.requestStatus)}`}>
+                                                        {lifecycle}
+                                                    </span>
                                                 </div>
-                                                <p className="mt-2 text-base font-black text-foreground">{request.title}</p>
-                                                <p className="mt-1 text-xs text-muted-foreground">{secondaryLine}</p>
-                                            </div>
-                                            <div className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-                                                <ArrowRight className="h-4 w-4" />
+                                                <div className="mt-1 flex items-center justify-between gap-3">
+                                                    <p className="min-w-0 truncate text-[12px] text-muted-foreground">
+                                                        {secondaryTitle} • {displayDate}
+                                                    </p>
+                                                    <div className="flex shrink-0 items-center gap-1.5">
+                                                        {request.leadPhone ? (
+                                                            <a
+                                                                href={`tel:${request.leadPhone}`}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                aria-label={`Call ${primaryName}`}
+                                                                title="Call requestor"
+                                                            >
+                                                                <Phone className="h-4 w-4 text-primary" />
+                                                            </a>
+                                                        ) : null}
+                                                        {request.leadPhone ? (
+                                                            <a
+                                                                href={`sms:${request.leadPhone}`}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                aria-label={`Text ${primaryName}`}
+                                                                title="Text requestor"
+                                                            >
+                                                                <MessageSquare className="h-4 w-4 text-primary" />
+                                                            </a>
+                                                        ) : null}
+                                                        {request.leadEmail ? (
+                                                            <a
+                                                                href={`mailto:${request.leadEmail}`}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                aria-label={`Email ${primaryName}`}
+                                                                title="Email requestor"
+                                                            >
+                                                                <Mail className="h-4 w-4 text-primary" />
+                                                            </a>
+                                                        ) : null}
+                                                        <div className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                                                            <ArrowRight className="h-4 w-4" />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </button>
                                 );
                             })}
+                            {segmentedRequests.length === 0 ? (
+                                <div className="rounded-[1.15rem] border border-dashed border-border/70 px-4 py-6 text-center text-sm text-muted-foreground">
+                                    No requests match this filter yet.
+                                </div>
+                            ) : null}
+                            {segmentedRequests.length > visibleRequests.length ? (
+                                <Button
+                                    variant="outline"
+                                    className="mt-2 min-h-11 w-full rounded-xl text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => setVisibleCount((count) => count + 25)}
+                                >
+                                    Load 25 More
+                                </Button>
+                            ) : null}
+                            {segmentedRequests.length > 0 ? (
+                                <p className="px-1 text-xs text-muted-foreground">
+                                    Showing {visibleRequests.length} of {segmentedRequests.length} request{segmentedRequests.length === 1 ? '' : 's'} in this view.
+                                </p>
+                            ) : null}
                         </div>
                     </div>
 
-                    {selectedRequest ? (
-                        <div ref={detailRef} className="space-y-4">
-                            <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</p>
-                                        <p className="mt-1 text-sm font-black text-foreground xl:hidden">Selected Request</p>
-                                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">{selectedRequest.title}</h2>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            Imported {formatDateTime(selectedRequest.createdAt)}{selectedRequest.sourceAnchor ? ` • Anchor ${selectedRequest.sourceAnchor}` : ''}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(selectedRequest.requestStatus)}`}>
-                                            {formatActionLabel(selectedRequest.requestStatus)}
-                                        </span>
-                                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getConversionStatusTone(selectedRequest.conversionStatus)}`}>
-                                            {formatActionLabel(selectedRequest.conversionStatus)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="mt-5 flex flex-wrap gap-2">
-                                    {selectedRequest.requestStatus === 'pending' ? (
-                                        <Button
-                                            variant="outline"
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => void handleStatusAction('review')}
-                                            disabled={setStatus.isPending}
-                                        >
-                                            <Clock3 className="mr-1.5 h-4 w-4" />
-                                            Mark Reviewed
-                                        </Button>
-                                    ) : null}
-                                    {selectedRequest.requestStatus !== 'approved' ? (
-                                        <Button
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => void handleStatusAction('approve')}
-                                            disabled={setStatus.isPending}
-                                        >
-                                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                            Approve
-                                        </Button>
-                                    ) : null}
-                                    {selectedRequest.requestStatus !== 'rejected' && selectedRequest.conversionStatus !== 'converted' ? (
-                                        <Button
-                                            variant="outline"
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => void handleStatusAction('reject')}
-                                            disabled={setStatus.isPending}
-                                        >
-                                            <XCircle className="mr-1.5 h-4 w-4" />
-                                            Reject
-                                        </Button>
-                                    ) : null}
-                                    {selectedRequest.requestStatus === 'approved' && selectedRequest.conversionStatus !== 'converted' ? (
-                                        <Button
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => void handleConvert()}
-                                            disabled={convertRequest.isPending}
-                                        >
-                                            {convertRequest.isPending ? (
-                                                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <ArrowRight className="mr-1.5 h-4 w-4" />
-                                            )}
-                                            Convert to Performance
-                                        </Button>
-                                    ) : null}
-                                    {selectedRequest.convertedActId ? (
-                                        <Button
-                                            variant="ghost"
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                            onClick={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
-                                        >
-                                            Open Performance
-                                        </Button>
-                                    ) : null}
-                                </div>
-
-                                <div className="mt-5 rounded-[1.1rem] border border-border/70 bg-background/70 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Step</p>
-                                    <p className="mt-1 text-sm font-black text-foreground">
-                                        {selectedRequest.conversionStatus === 'converted'
-                                            ? 'This request is already live as a performance.'
-                                            : selectedRequest.requestStatus === 'approved'
-                                                ? 'Convert this approved request into a performance.'
-                                                : selectedRequest.requestStatus === 'reviewed'
-                                                    ? 'Approve this reviewed request when you are ready to create the performance.'
-                                                    : 'Review the imported details, then mark it reviewed, approve it, or reject it.'}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {selectedRequest.conversionStatus === 'converted'
-                                            ? 'Use Open Performance to continue setup, readiness, lineup, and console work.'
-                                            : selectedRequest.requestStatus === 'approved'
-                                                ? 'Conversion creates the operational performance shell. Cast, media, and readiness can be completed after that.'
-                                                : selectedRequest.requestStatus === 'reviewed'
-                                                    ? 'Approval means this request should move forward into operations.'
-                                                    : 'Nothing becomes a real performance until an operator approves and converts it.'}
-                                    </p>
-                                </div>
-
-                                <div className="mt-5 grid gap-3 lg:grid-cols-2">
-                                    <div className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Imported Intake</p>
-                                        <p className="mt-1 text-sm font-black text-foreground">What we used from the source</p>
-                                        <div className="mt-3 space-y-3 text-sm">
-                                            {(selectedRequest.importInsights || []).map((insight) => (
-                                                <div key={`${insight.label}-${insight.sourceKey || insight.value}`} className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <span className="text-muted-foreground">{insight.label}</span>
-                                                        {insight.sourceKey ? (
-                                                            <p className="pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                                                                Source: {insight.sourceKey}
-                                                            </p>
-                                                        ) : null}
-                                                    </div>
-                                                    <span className="max-w-[60%] text-right font-bold text-foreground">{insight.value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Operational State</p>
-                                        <p className="mt-1 text-sm font-black text-foreground">Review, contact, and conversion</p>
-                                        <div className="mt-3 space-y-3">
-                                            <div className="space-y-3 text-sm">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <span className="text-muted-foreground">Reviewed</span>
-                                                    <span className="text-right font-bold text-foreground">{formatDateTime(selectedRequest.reviewedAt)}</span>
-                                                </div>
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <span className="text-muted-foreground">Approved</span>
-                                                    <span className="text-right font-bold text-foreground">{formatDateTime(selectedRequest.approvedAt)}</span>
-                                                </div>
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <span className="text-muted-foreground">Conversion</span>
-                                                    <span className="text-right font-bold text-foreground">{formatActionLabel(selectedRequest.conversionStatus)}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {selectedRequest.leadPhone ? (
-                                                    <a
-                                                        href={`tel:${selectedRequest.leadPhone}`}
-                                                        className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-4 text-sm font-bold text-foreground"
-                                                    >
-                                                        <Phone className="mr-2 h-4 w-4 text-primary" />
-                                                        Call Lead
-                                                    </a>
-                                                ) : null}
-                                                {selectedRequest.leadEmail ? (
-                                                    <a
-                                                        href={`mailto:${selectedRequest.leadEmail}`}
-                                                        className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-4 text-sm font-bold text-foreground"
-                                                    >
-                                                        <Mail className="mr-2 h-4 w-4 text-primary" />
-                                                        Email Lead
-                                                    </a>
-                                                ) : null}
-                                            </div>
-                                            {!selectedRequest.leadPhone && !selectedRequest.leadEmail ? (
-                                                <p className="text-sm text-muted-foreground">
-                                                    No direct requestor contact was captured for this request. Review the imported source fields before converting.
-                                                </p>
-                                            ) : null}
-                                            <div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Notes</p>
-                                                <p className="mt-2 text-sm leading-6 text-foreground/85">
-                                                    {selectedRequest.notes || 'No intake notes were provided with this request.'}
-                                                </p>
-                                            </div>
-                                            {selectedRequest.convertedActId ? (
-                                                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Operational Result</p>
-                                                    <Link
-                                                        to={`/performances/${selectedRequest.convertedActId}`}
-                                                        className="mt-2 inline-flex items-center text-sm font-black text-emerald-700"
-                                                    >
-                                                        {selectedRequest.convertedActName || 'Open converted performance'}
-                                                        <ArrowRight className="ml-1.5 h-4 w-4" />
-                                                    </Link>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Reference</p>
-                                <p className="mt-1 text-sm font-black text-foreground">Timeline</p>
-                                {timeline.isLoading ? (
-                                    <div className="mt-4 flex min-h-[8rem] items-center justify-center">
-                                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                    </div>
-                                ) : timeline.data && timeline.data.length > 0 ? (
-                                    <div className="mt-4 space-y-3">
-                                        {timeline.data.map((event) => (
-                                            <div key={event.id} className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <p className="text-sm font-black text-foreground">{formatActionLabel(event.action)}</p>
-                                                    <p className="text-xs text-muted-foreground">{formatDateTime(event.performedAt)}</p>
-                                                </div>
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    {event.actorName || event.actorEmail || 'System action'}
-                                                </p>
-                                                {event.note ? (
-                                                    <p className="mt-3 text-sm leading-6 text-foreground/85">{event.note}</p>
-                                                ) : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 rounded-[1.2rem] border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
-                                        No intake timeline events yet for this request.
-                                    </div>
-                                )}
-                            </div>
+                    {isDesktop && selectedRequest ? (
+                        <div ref={detailRef}>
+                            <RequestDetailPanel
+                                request={selectedRequest}
+                                onReview={() => void handleStatusAction('review')}
+                                onApprove={() => void handleStatusAction('approve')}
+                                onReject={() => void handleStatusAction('reject')}
+                                onConvert={() => void handleConvert()}
+                                onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
+                                timeline={timeline}
+                                isWorking={setStatus.isPending || convertRequest.isPending}
+                            />
                         </div>
-                    ) : null}
+                    ) : (
+                        <div className="hidden xl:block" />
+                    )}
                 </div>
             )}
+
+            <Modal
+                isOpen={!isDesktop && !!selectedRequest && isMobileDetailOpen}
+                onClose={() => setIsMobileDetailOpen(false)}
+                title={selectedRequest?.title || 'Request Detail'}
+            >
+                {selectedRequest ? (
+                    <RequestDetailPanel
+                        request={selectedRequest}
+                        onReview={() => void handleStatusAction('review')}
+                        onApprove={() => void handleStatusAction('approve')}
+                        onReject={() => void handleStatusAction('reject')}
+                        onConvert={() => void handleConvert()}
+                        onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
+                        timeline={timeline}
+                        isWorking={setStatus.isPending || convertRequest.isPending}
+                    />
+                ) : null}
+            </Modal>
         </div>
     );
 }
