@@ -363,7 +363,7 @@ Based on what is already shipped, the roadmap should now read:
 5. Selectively recover the highest-value proactive operator patterns from the old mobile-readiness branch via the operator-screen and intro plans, not by reviving that branch wholesale.
 6. Define and then build manual emergency intake.
 7. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
-8. Add the first org-owner insight layer so the product explains drift and blocked readiness, not just operator tasks.
+8. Add the first readiness insight layer so the product explains participant/performance prep risk and blocked readiness, not just operator tasks.
 
 ### Pivot Rule For New-Tenant Onboarding
 

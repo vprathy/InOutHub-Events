@@ -223,8 +223,14 @@ It is especially important for detail screens, because that is where drift and c
 The dashboard should evolve from a generic tool launcher into an insight-led command surface.
 
 That means:
-- the first question should be `what is going wrong or drifting?`
+- the first question should be `what is not ready yet?`
 - the second question should be `what should I open next?`
+
+For InOutHub specifically, this should stay anchored to the journey toward show readiness:
+- which participants need follow-up?
+- which performances are blocked on prep?
+- which teams have missing contact, media, or special-request resolution?
+- what is most likely to cause a problem before or during the show?
 
 Do not interpret this as license to remove operator tools or bury workflows.
 
@@ -238,13 +244,16 @@ Wrong product order:
 2. decorative counts
 3. no explanation of risk or drift
 
-### First Org-Owner Insight Set
+### First Readiness Insight Set
 
-The first org-owner layer should focus on explainable operational signals:
-- execution pace variance by event or stage
-- blocked acts count
-- at-risk readiness count
-- unresolved drift or conflict signals
+The first insight layer should focus on explainable readiness signals:
+- blocked performances
+- missing participant follow-up
+- intro / media not ready
+- unresolved contact or special-request gaps
+- readiness risk rollups by event
+
+Execution pace variance can exist, but it should be a later or secondary signal unless the current workflow is explicitly rehearsal- or show-day-focused.
 
 These should be explainable and tied to actions, not just rendered as generic analytics.
 

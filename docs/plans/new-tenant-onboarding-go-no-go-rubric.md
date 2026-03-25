@@ -116,7 +116,7 @@ Now that intake and the rehearsal spine both validate, the product should shift 
 
 Recommended allocation for the next batch:
 - `~70%` onboarding automation, source trust, and tenant enablement
-- `~30%` execution/readiness hardening and dashboard/operator polish
+- `~30%` readiness/workflow hardening and targeted dashboard/operator polish
 
 ### Product Narrative Guidance
 
@@ -131,10 +131,11 @@ The roadmap should now emphasize three claims:
 - protected live window
 - role-safe execution
 
-3. `Insight Layer`
+3. `Readiness Insights`
 - move beyond tools alone
-- explain drift, blocked work, and readiness risk at the org-owner level
+- explain participant/performance prep risk, blocked work, and unresolved readiness
 - keep operator workflows intact underneath
+- treat execution pace as a later or secondary signal, not the first story
 
 So the current product stance is:
 - `begin controlled onboarding preparation`
