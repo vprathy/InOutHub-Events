@@ -40,6 +40,7 @@ Working rule:
 - [ ] Keep participant requirements limited to actual admin-defined obligations, not inbound participant requests.
 - [ ] Keep performance requirements limited to the approved Phase 1 set.
 - [ ] Review the current hybrid requirements bridge and define the Phase 2 cleanup path.
+- [ ] Define and implement post-approval readiness convergence so converted requests seed the right operational follow-up instead of stopping at shell creation.
 
 ### Intro System Final Checks
 - [ ] Verify approved intro playback timing and cinematic polish.

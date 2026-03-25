@@ -81,6 +81,9 @@ This table stages intake data from spreadsheets, forms, or Google Sheets.
 Next hardening plan:
 - `/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md`
 
+Next post-conversion convergence plan:
+- `/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md`
+
 ## 4. Guardrails (Physical Truth Check)
 - Maintain `Tarangini` org's Google Sheet compatibility.
 - No direct writes to `acts` during intake.

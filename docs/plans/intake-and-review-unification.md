@@ -313,6 +313,9 @@ Roadmap placement:
 
 Conversion creates the operational shell, but it does not yet seed readiness and requirement work as intentionally as it should.
 
+Detailed implementation plan:
+- `/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md`
+
 Needed behavior:
 - approved and converted requests should bootstrap the right operational requirement posture
 - imported fields like music/roster/duration should influence the downstream readiness picture where appropriate
