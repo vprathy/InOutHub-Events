@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useEventSources, type EventSource } from '@/hooks/useEventSources';
 import { ActionMenu } from '@/components/ui/ActionMenu';
-import type { ParticipantImportField, ParticipantImportProfile } from '@/lib/participantImportMapping';
+import type {
+    ParticipantImportField,
+    PerformanceRequestImportField,
+} from '@/lib/participantImportMapping';
 import { isImportRunStale } from '@/types/intake';
 import { reportClientError } from '@/lib/clientErrorReporting';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
@@ -35,6 +38,20 @@ const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper
     { key: 'products', label: 'Products / Group', helper: 'Class, package, or group labels' },
     { key: 'specialRequest', label: 'Special Request', helper: 'Accommodation or placement request text' },
     { key: 'notes', label: 'Notes', helper: 'Freeform notes to preserve during import' },
+];
+
+const REQUEST_MAPPING_FIELDS: Array<{ key: PerformanceRequestImportField; label: string; helper: string }> = [
+    { key: 'title', label: 'Request Title', helper: 'Performance, act, or program title' },
+    { key: 'leadFirstName', label: 'Requestor First Name', helper: 'Primary contact first name' },
+    { key: 'leadLastName', label: 'Requestor Last Name', helper: 'Primary contact last name' },
+    { key: 'leadName', label: 'Requestor Full Name', helper: 'Use when contact name arrives in one column' },
+    { key: 'leadEmail', label: 'Requestor Email', helper: 'Primary contact email' },
+    { key: 'leadPhone', label: 'Requestor Phone', helper: 'Primary contact phone' },
+    { key: 'durationMinutes', label: 'Duration', helper: 'Estimated runtime in minutes' },
+    { key: 'musicSupplied', label: 'Music Supplied', helper: 'Yes or no music status' },
+    { key: 'rosterSupplied', label: 'Roster Supplied', helper: 'Yes or no roster status' },
+    { key: 'notes', label: 'Notes', helper: 'Freeform request notes' },
+    { key: 'sourceAnchor', label: 'Source Identity', helper: 'Stable request id, submission id, or timestamp' },
 ];
 
 const IMPORT_PROGRESS_STEPS = [
@@ -77,8 +94,45 @@ type SyncSummary = {
     probableTarget?: 'participants' | 'performance_requests' | 'unknown';
     confidence?: 'high' | 'medium' | 'low';
     gaps: string[];
+    warnings?: string[];
+    blockingIssues?: string[];
+    reviewRequired?: boolean;
+    profileHash?: string;
+    driftSummary?: string[];
+    sourceState?: 'inferred' | 'locked' | 'drifted' | 'blocked';
+    preservedFieldCount?: number;
+    usedFields?: Array<{ field: string; header: string }>;
     headers: string[];
     mapping: Record<string, string | undefined>;
+};
+
+type RecentImportRun = {
+    id: string;
+    event_source_id: string | null;
+    source_name?: string | null;
+    import_target?: 'participants' | 'performance_requests';
+    status: string;
+    started_at: string;
+    stats?: { new?: number; updated?: number; missing?: number };
+    error_message?: string | null;
+    blocking_issues?: string[] | null;
+};
+
+type ImportSyncResult = {
+    stats?: { new: number; updated: number; missing: number; total?: number };
+    mapping?: Record<string, string | undefined>;
+    gaps?: string[];
+    warnings?: string[];
+    blockingIssues?: string[];
+    probableTarget?: 'participants' | 'performance_requests' | 'unknown';
+    confidence?: 'high' | 'medium' | 'low';
+    headers?: string[];
+    reviewRequired?: boolean;
+    profileHash?: string;
+    driftSummary?: string[];
+    sourceState?: 'inferred' | 'locked' | 'drifted' | 'blocked';
+    preservedFieldCount?: number;
+    usedFields?: Array<{ field: string; header: string }>;
 };
 
 function formatIntakeTargetLabel(target: 'participants' | 'performance_requests') {
@@ -92,6 +146,51 @@ function summarizeMappedFields(mapping: Record<string, string | undefined>) {
             label: IMPORT_FIELD_LABELS[field] || field,
             header: header as string,
         }));
+}
+
+function buildLockedSourceConfig(
+    source: EventSource | { config?: EventSource['config'] },
+    result: SyncSummary,
+    approvedMapping: Record<string, string | undefined>,
+): EventSource['config'] {
+    return {
+        ...(source.config || {}),
+        inferredMapping: result.mapping,
+        lockedMapping: approvedMapping,
+        mappingGaps: result.gaps || [],
+        mappingWarnings: result.warnings || [],
+        detectedHeaders: result.headers || [],
+        mappingMode: result.sourceState === 'blocked' ? 'blocked' : 'locked',
+        mappingUpdatedAt: new Date().toISOString(),
+        profileHash: result.profileHash,
+        lockedProfileHash: result.profileHash,
+        lockedTarget: result.probableTarget || result.intakeTarget,
+        probableTarget: result.probableTarget || result.intakeTarget,
+        reviewRequired: false,
+        driftSummary: [],
+        lastConfirmedAt: new Date().toISOString(),
+    };
+}
+
+function buildInferredSourceConfig(
+    source: EventSource | { config?: EventSource['config'] },
+    result: SyncSummary,
+): EventSource['config'] {
+    return {
+        ...(source.config || {}),
+        inferredMapping: result.mapping,
+        mappingGaps: result.gaps || [],
+        mappingWarnings: result.warnings || [],
+        detectedHeaders: result.headers || [],
+        mappingMode: result.sourceState || 'inferred',
+        mappingUpdatedAt: new Date().toISOString(),
+        profileHash: result.profileHash,
+        lockedTarget: source.config?.lockedTarget,
+        lockedProfileHash: source.config?.lockedProfileHash,
+        probableTarget: result.probableTarget || result.intakeTarget,
+        reviewRequired: result.reviewRequired ?? true,
+        driftSummary: result.driftSummary || [],
+    };
 }
 
 export function ImportParticipantsModal({
@@ -121,7 +220,8 @@ export function ImportParticipantsModal({
     const [syncGaps, setSyncGaps] = useState<string[]>([]);
     const [lastSyncSummary, setLastSyncSummary] = useState<SyncSummary | null>(null);
     const [mappingSource, setMappingSource] = useState<EventSource | null>(null);
-    const [draftMapping, setDraftMapping] = useState<ParticipantImportProfile>({});
+    const [mappingAssessment, setMappingAssessment] = useState<SyncSummary | null>(null);
+    const [draftMapping, setDraftMapping] = useState<Record<string, string | undefined>>({});
     const [showTechnicalSetup, setShowTechnicalSetup] = useState(false);
     const [intakeTarget, setIntakeTarget] = useState<'participants' | 'performance_requests'>('participants');
     const [serviceAccountEmail] = useState('inouthub-importer@inouthub-events.iam.gserviceaccount.com');
@@ -159,6 +259,7 @@ export function ImportParticipantsModal({
             setSyncGaps([]);
             setLastSyncSummary(null);
             setMappingSource(null);
+            setMappingAssessment(null);
             setDraftMapping({});
             setShowTechnicalSetup(false);
             setIntakeTarget('participants');
@@ -173,14 +274,12 @@ export function ImportParticipantsModal({
         }
     }, [isOpen, initialMode]);
 
-    if (!isOpen) return null;
-
     const participantSources = sources.filter((source) => (source.config.intakeTarget || 'participants') === 'participants');
     const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
     const resolvedSpreadsheetId = extractSheetId(urlInput || spreadsheetId);
     const latestRunBySource = useMemo(() => {
-        const map = new Map<string, any>();
-        for (const run of importRuns || []) {
+        const map = new Map<string, RecentImportRun>();
+        for (const run of (importRuns || []) as RecentImportRun[]) {
             if (!run.event_source_id) continue;
             if (!map.has(run.event_source_id)) {
                 map.set(run.event_source_id, run);
@@ -188,15 +287,6 @@ export function ImportParticipantsModal({
         }
         return map;
     }, [importRuns]);
-
-    const buildSourceConfig = (source: EventSource | { config?: EventSource['config'] }, result: { mapping?: Record<string, string | undefined>; gaps?: string[]; headers?: string[] }) => ({
-        ...(source.config || {}),
-        inferredMapping: result.mapping,
-        mappingGaps: result.gaps || [],
-        detectedHeaders: result.headers || [],
-        mappingMode: source.config?.mappingMode || 'inferred',
-        mappingUpdatedAt: new Date().toISOString(),
-    });
 
     const recordImportError = async (message: string, error: unknown, context?: Record<string, unknown>) => {
         const result = await reportClientError({
@@ -226,6 +316,14 @@ export function ImportParticipantsModal({
             headers?: string[];
             probableTarget?: 'participants' | 'performance_requests' | 'unknown';
             confidence?: 'high' | 'medium' | 'low';
+            warnings?: string[];
+            blockingIssues?: string[];
+            reviewRequired?: boolean;
+            profileHash?: string;
+            driftSummary?: string[];
+            sourceState?: 'inferred' | 'locked' | 'drifted' | 'blocked';
+            preservedFieldCount?: number;
+            usedFields?: Array<{ field: string; header: string }>;
         }
     ): SyncSummary => ({
         sourceName: sourceNameValue,
@@ -234,6 +332,14 @@ export function ImportParticipantsModal({
         probableTarget: result.probableTarget,
         confidence: result.confidence,
         gaps: result.gaps || [],
+        warnings: result.warnings || [],
+        blockingIssues: result.blockingIssues || [],
+        reviewRequired: result.reviewRequired,
+        profileHash: result.profileHash,
+        driftSummary: result.driftSummary || [],
+        sourceState: result.sourceState,
+        preservedFieldCount: result.preservedFieldCount,
+        usedFields: result.usedFields || [],
         headers: result.headers || [],
         mapping: result.mapping || {},
     });
@@ -254,25 +360,29 @@ export function ImportParticipantsModal({
         return () => window.clearInterval(interval);
     }, [status]);
 
+    if (!isOpen) return null;
+
     const openMappingReview = (source: EventSource) => {
         setMappingSource(source);
-        setDraftMapping(source.config?.inferredMapping || {});
+        setMappingAssessment(buildSyncSummary(source.name, source.config.intakeTarget || 'participants', {
+            mapping: source.config?.inferredMapping || {},
+            gaps: source.config?.mappingGaps || [],
+            warnings: source.config?.mappingWarnings || [],
+            probableTarget: source.config?.probableTarget,
+            reviewRequired: source.config?.reviewRequired,
+            profileHash: source.config?.profileHash,
+            driftSummary: source.config?.driftSummary || [],
+            sourceState: source.config?.mappingMode === 'blocked'
+                ? 'blocked'
+                : source.config?.mappingMode === 'drifted'
+                    ? 'drifted'
+                    : source.config?.mappingMode === 'locked'
+                        ? 'locked'
+                        : 'inferred',
+            headers: source.config?.detectedHeaders || [],
+        }));
+        setDraftMapping(source.config?.lockedMapping || source.config?.inferredMapping || {});
         setUiMode('mapping_review');
-    };
-
-    const handleSaveMapping = async () => {
-        if (!mappingSource) return;
-        await updateSourceSyncStatus({
-            sourceId: mappingSource.id,
-            lastSyncedAt: mappingSource.lastSyncedAt || new Date().toISOString(),
-            config: {
-                ...mappingSource.config,
-                inferredMapping: draftMapping,
-                mappingMode: 'locked',
-                mappingUpdatedAt: new Date().toISOString(),
-            },
-        });
-        setUiMode('dashboard');
     };
 
     const handleLinkSheet = async () => {
@@ -291,32 +401,35 @@ export function ImportParticipantsModal({
                 eventId,
                 name: sourceName,
                 type: 'google_sheet',
-                config: { intakeTarget, sheetId: parsedSheetId, url: urlInput }
+                config: { intakeTarget, sheetId: parsedSheetId, url: urlInput, mappingMode: 'inferred', reviewRequired: true }
             });
 
             const result = await syncSheet({
                 sheetId: parsedSheetId,
-                savedMapping: newSource.config?.inferredMapping,
+                mode: 'profile_only',
+                savedMapping: newSource.config?.lockedMapping || newSource.config?.inferredMapping,
                 intakeTarget,
             });
+            const profileSummary = buildSyncSummary(sourceName, intakeTarget, result);
             await updateSourceSyncStatus({
                 sourceId: newSource.id,
-                lastSyncedAt: new Date().toISOString(),
-                config: buildSourceConfig(newSource, result),
+                config: buildInferredSourceConfig(newSource, profileSummary),
             });
-
-            setSyncStats(result.stats);
-            setSyncGaps(result.gaps || []);
-            setLastSyncSummary(buildSyncSummary(sourceName, intakeTarget, result));
-            setStatus('success');
-            setTimeout(() => {
-                setUiMode('dashboard');
-                setStatus('idle');
-            }, 1500);
-        } catch (err: any) {
+            setMappingSource({
+                ...newSource,
+                lastSyncedAt: null,
+                createdAt: new Date().toISOString(),
+                config: buildInferredSourceConfig(newSource, profileSummary),
+            });
+            setMappingAssessment(profileSummary);
+            setDraftMapping(profileSummary.mapping);
+            setStatus('idle');
+            setUiMode('mapping_review');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to link Google Sheet';
             setStatus('error');
-            setErrorMessage(err.message || 'Failed to link Google Sheet');
-            await recordImportError(err.message || 'Failed to link Google Sheet', err, {
+            setErrorMessage(message);
+            await recordImportError(message, err, {
                 sourceName,
                 sourceType: 'google_sheet',
                 spreadsheetId: parsedSheetId,
@@ -335,34 +448,36 @@ export function ImportParticipantsModal({
                 eventId,
                 name: sourceName,
                 type: 'csv', // Keeping 'csv' type in DB for compatibility but UI says Spreadsheet
-                config: { intakeTarget, fileName: file.name }
+                config: { intakeTarget, fileName: file.name, mappingMode: 'inferred', reviewRequired: true }
             });
 
             const result = await importSpreadsheet({
                 file,
                 sourceId: newSource.id,
-                savedMapping: newSource.config?.inferredMapping,
+                mode: 'profile_only',
+                savedMapping: newSource.config?.lockedMapping || newSource.config?.inferredMapping,
                 intakeTarget,
             });
+            const profileSummary = buildSyncSummary(sourceName, intakeTarget, result);
             await updateSourceSyncStatus({
                 sourceId: newSource.id,
-                lastSyncedAt: new Date().toISOString(),
-                config: buildSourceConfig(newSource, result),
+                config: buildInferredSourceConfig(newSource, profileSummary),
             });
-
-            setSyncStats(result.stats || null);
-            setSyncGaps(result.gaps || []);
-            setLastSyncSummary(buildSyncSummary(sourceName, intakeTarget, result));
-            setStatus('success');
-            setTimeout(() => {
-                setUiMode('dashboard');
-                setStatus('idle');
-                setFile(null);
-            }, 1500);
-        } catch (err: any) {
+            setMappingSource({
+                ...newSource,
+                lastSyncedAt: null,
+                createdAt: new Date().toISOString(),
+                config: buildInferredSourceConfig(newSource, profileSummary),
+            });
+            setMappingAssessment(profileSummary);
+            setDraftMapping(profileSummary.mapping);
+            setStatus('idle');
+            setUiMode('mapping_review');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to upload spreadsheet';
             setStatus('error');
-            setErrorMessage(err.message || 'Failed to upload spreadsheet');
-            await recordImportError(err.message || 'Failed to upload spreadsheet', err, {
+            setErrorMessage(message);
+            await recordImportError(message, err, {
                 sourceName,
                 sourceType: 'spreadsheet_upload',
                 fileName: file.name,
@@ -372,6 +487,11 @@ export function ImportParticipantsModal({
 
     const handleSyncAll = async () => {
         if (sources.length === 0) return;
+        const untrustedSource = sources.find((source) => source.config.reviewRequired || source.config.mappingMode !== 'locked');
+        if (untrustedSource) {
+            openMappingReview(untrustedSource);
+            return;
+        }
         setStatus('loading');
         setCurrentSyncContext({ sourceName: 'All Imports', intakeTarget: 'participants' });
         setReportedSupportCode(null);
@@ -383,13 +503,15 @@ export function ImportParticipantsModal({
                 if (source.type === 'google_sheet' && source.config.sheetId) {
                     const result = await syncSheet({
                         sheetId: source.config.sheetId,
-                        savedMapping: source.config.inferredMapping,
+                        mode: 'confirm_and_sync',
+                        savedMapping: source.config.lockedMapping || source.config.inferredMapping,
                         intakeTarget: source.config.intakeTarget || 'participants',
                     });
+                    const syncSummary = buildSyncSummary(source.name, source.config.intakeTarget || 'participants', result);
                     await updateSourceSyncStatus({
                         sourceId: source.id,
                         lastSyncedAt: new Date().toISOString(),
-                        config: buildSourceConfig(source, result),
+                        config: buildLockedSourceConfig(source, syncSummary, source.config.lockedMapping || source.config.inferredMapping || {}),
                     });
                     combinedStats.new += result.stats.new;
                     combinedStats.updated += result.stats.updated;
@@ -411,10 +533,11 @@ export function ImportParticipantsModal({
             });
             setStatus('success');
             setTimeout(() => setStatus('idle'), 2000);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Global sync failed';
             setStatus('error');
-            setErrorMessage(err.message || 'Global sync failed');
-            await recordImportError(err.message || 'Global sync failed', err, {
+            setErrorMessage(message);
+            await recordImportError(message, err, {
                 sourceCount: sources.length,
                 syncMode: 'all_sources',
             });
@@ -422,6 +545,10 @@ export function ImportParticipantsModal({
     };
 
     const handleSyncSingleSource = async (source: EventSource) => {
+        if (source.config.reviewRequired || source.config.mappingMode !== 'locked') {
+            openMappingReview(source);
+            return;
+        }
         setStatus('loading');
         const sourceTarget = source.config.intakeTarget || 'participants';
         setCurrentSyncContext({ sourceName: source.name, intakeTarget: sourceTarget });
@@ -431,28 +558,100 @@ export function ImportParticipantsModal({
             if (source.type === 'google_sheet' && source.config.sheetId) {
                 const result = await syncSheet({
                     sheetId: source.config.sheetId,
-                    savedMapping: source.config.inferredMapping,
+                    mode: 'confirm_and_sync',
+                    savedMapping: source.config.lockedMapping || source.config.inferredMapping,
                     intakeTarget: sourceTarget,
                 });
+                const syncSummary = buildSyncSummary(source.name, sourceTarget, result);
                 await updateSourceSyncStatus({
                     sourceId: source.id,
                     lastSyncedAt: new Date().toISOString(),
-                    config: buildSourceConfig(source, result),
+                    config: buildLockedSourceConfig(source, syncSummary, source.config.lockedMapping || source.config.inferredMapping || {}),
                 });
                 setSyncStats(result.stats);
                 setSyncGaps(result.gaps || []);
-                setLastSyncSummary(buildSyncSummary(source.name, sourceTarget, result));
+                setLastSyncSummary(syncSummary);
             }
             setStatus('success');
             setTimeout(() => setStatus('idle'), 1500);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : `Failed to sync ${source.name}`;
             setStatus('error');
-            setErrorMessage(err.message || `Failed to sync ${source.name}`);
-            await recordImportError(err.message || `Failed to sync ${source.name}`, err, {
+            setErrorMessage(message);
+            await recordImportError(message, err, {
                 sourceId: source.id,
                 sourceName: source.name,
                 sourceType: source.type,
                 syncMode: 'single_source',
+            });
+        }
+    };
+
+    const handleSaveMappingOnly = async () => {
+        if (!mappingSource || !mappingAssessment) return;
+        await updateSourceSyncStatus({
+            sourceId: mappingSource.id,
+            config: {
+                ...buildInferredSourceConfig(mappingSource, mappingAssessment),
+                lockedMapping: draftMapping,
+            },
+        });
+        setUiMode('dashboard');
+    };
+
+    const handleConfirmAndSync = async () => {
+        if (!mappingSource || !mappingAssessment) return;
+        setStatus('loading');
+        setCurrentSyncContext({
+            sourceName: mappingSource.name,
+            intakeTarget: mappingSource.config.intakeTarget || 'participants',
+        });
+        try {
+            let result: ImportSyncResult | null = null;
+            if (mappingSource.type === 'google_sheet' && mappingSource.config.sheetId) {
+                result = await syncSheet({
+                    sheetId: mappingSource.config.sheetId,
+                    mode: 'confirm_and_sync',
+                    savedMapping: draftMapping,
+                    intakeTarget: mappingSource.config.intakeTarget || 'participants',
+                });
+            } else if (file) {
+                result = await importSpreadsheet({
+                    file,
+                    sourceId: mappingSource.id,
+                    mode: 'confirm_and_sync',
+                    savedMapping: draftMapping,
+                    intakeTarget: mappingSource.config.intakeTarget || 'participants',
+                });
+            }
+
+            if (!result) {
+                throw new Error('This source needs its original spreadsheet file before it can be synced again.')
+            }
+
+            const syncSummary = buildSyncSummary(mappingSource.name, mappingSource.config.intakeTarget || 'participants', result);
+            await updateSourceSyncStatus({
+                sourceId: mappingSource.id,
+                lastSyncedAt: new Date().toISOString(),
+                config: buildLockedSourceConfig(mappingSource, syncSummary, draftMapping),
+            });
+            setSyncStats(result.stats || null);
+            setSyncGaps(result.gaps || []);
+            setLastSyncSummary(syncSummary);
+            setStatus('success');
+            setMappingAssessment(null);
+            setTimeout(() => {
+                setUiMode('dashboard');
+                setStatus('idle');
+            }, 1500);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : `Failed to sync ${mappingSource.name}`;
+            setStatus('error');
+            setErrorMessage(message);
+            await recordImportError(message, err, {
+                sourceId: mappingSource.id,
+                sourceName: mappingSource.name,
+                syncMode: 'confirm_and_sync',
             });
         }
     };
@@ -686,17 +885,28 @@ export function ImportParticipantsModal({
                                                         </>
                                                     ) : null}
                                                     <span>•</span>
-                                                    <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
+                                                    <span>
+                                                        {source.config.reviewRequired
+                                                            ? 'Needs review'
+                                                            : source.config.mappingMode === 'locked'
+                                                                ? 'Locked'
+                                                                : source.config.mappingGaps?.length
+                                                                    ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
+                                                                    : 'Mapped'}
+                                                    </span>
                                                 </div>
-                                                {latestRunBySource.get(source.id) ? (
+                                                {(() => {
+                                                    const latestRun = latestRunBySource.get(source.id);
+                                                    return latestRun ? (
                                                     <p className="mt-1 text-[10px] text-muted-foreground">
-                                                        {latestRunBySource.get(source.id).status === 'succeeded'
-                                                            ? `${latestRunBySource.get(source.id).stats?.new || 0} new, ${latestRunBySource.get(source.id).stats?.updated || 0} updated on latest sync`
-                                                            : latestRunBySource.get(source.id).status === 'running'
+                                                        {latestRun.status === 'succeeded'
+                                                            ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
+                                                            : latestRun.status === 'running'
                                                                 ? 'Sync in progress'
-                                                                : latestRunBySource.get(source.id).error_message || 'Latest sync needs attention'}
+                                                                : latestRun.error_message || 'Latest sync needs attention'}
                                                     </p>
-                                                ) : null}
+                                                    ) : null;
+                                                })()}
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {source.type === 'google_sheet' ? (
@@ -743,17 +953,28 @@ export function ImportParticipantsModal({
                                                         </>
                                                     ) : null}
                                                     <span>•</span>
-                                                    <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
+                                                    <span>
+                                                        {source.config.reviewRequired
+                                                            ? 'Needs review'
+                                                            : source.config.mappingMode === 'locked'
+                                                                ? 'Locked'
+                                                                : source.config.mappingGaps?.length
+                                                                    ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
+                                                                    : 'Mapped'}
+                                                    </span>
                                                 </div>
-                                                {latestRunBySource.get(source.id) ? (
+                                                {(() => {
+                                                    const latestRun = latestRunBySource.get(source.id);
+                                                    return latestRun ? (
                                                     <p className="mt-1 text-[10px] text-muted-foreground">
-                                                        {latestRunBySource.get(source.id).status === 'succeeded'
-                                                            ? `${latestRunBySource.get(source.id).stats?.new || 0} new, ${latestRunBySource.get(source.id).stats?.updated || 0} updated on latest sync`
-                                                            : latestRunBySource.get(source.id).status === 'running'
+                                                        {latestRun.status === 'succeeded'
+                                                            ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
+                                                            : latestRun.status === 'running'
                                                                 ? 'Sync in progress'
-                                                                : latestRunBySource.get(source.id).error_message || 'Latest sync needs attention'}
+                                                                : latestRun.error_message || 'Latest sync needs attention'}
                                                     </p>
-                                                ) : null}
+                                                    ) : null;
+                                                })()}
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {source.type === 'google_sheet' ? (
@@ -766,6 +987,7 @@ export function ImportParticipantsModal({
                                                     </button>
                                                 ) : null}
                                                 <ActionMenu options={[
+                                                    { label: 'Review Mapping', icon: <SlidersHorizontal className="w-4 h-4" />, onClick: () => openMappingReview(source) },
                                                     { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
                                                 ]} />
                                             </div>
@@ -788,7 +1010,7 @@ export function ImportParticipantsModal({
                                 <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70 divide-y divide-border/70">
                                     {importRuns && importRuns.length > 0 ? importRuns.map((run) => {
                                         const isStale = isImportRunStale(run);
-                                        const stats = run.stats as any || {};
+                                        const stats = (typeof run.stats === 'object' && run.stats && !Array.isArray(run.stats) ? run.stats : {}) as { new?: number; updated?: number; missing?: number };
                                         return (
                                             <div key={run.id} className="p-3 text-left">
                                                 <div className="flex items-center justify-between">
@@ -838,23 +1060,69 @@ export function ImportParticipantsModal({
                             <div className="space-y-1">
                                 <h3 className="text-sm font-black tracking-tight text-foreground">Review Mapping</h3>
                                 <p className="text-xs text-muted-foreground">
-                                    {mappingSource?.name || 'Source'} should land in the right participant fields before operators trust the sync.
+                                    Confirm what {mappingSource?.name || 'this source'} means before this import becomes a trusted repeat sync.
                                 </p>
                             </div>
-                            {mappingSource?.config.mappingGaps && mappingSource.config.mappingGaps.length > 0 && (
-                                <div className="rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 dark:bg-amber-950/20">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Needs Confirmation</p>
+                            {mappingAssessment ? (
+                                <div className="rounded-2xl border border-border/70 bg-accent/15 p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Detected Target</p>
+                                    <p className="mt-1 text-sm font-bold text-foreground">
+                                        {formatIntakeTargetLabel((mappingAssessment.probableTarget === 'unknown' ? mappingAssessment.intakeTarget : (mappingAssessment.probableTarget || mappingAssessment.intakeTarget)) as 'participants' | 'performance_requests')}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Confidence {mappingAssessment.confidence || 'n/a'}{mappingAssessment.reviewRequired ? ' • Review required before sync' : ''}
+                                    </p>
+                                </div>
+                            ) : null}
+                            {mappingAssessment?.blockingIssues && mappingAssessment.blockingIssues.length > 0 && (
+                                <div className="rounded-2xl border border-red-400/30 bg-red-50 px-4 py-3 dark:bg-red-950/20">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-700 dark:text-red-300">Blocked</p>
                                     <div className="mt-2 space-y-1">
-                                        {mappingSource.config.mappingGaps.map((gap) => (
+                                        {mappingAssessment.blockingIssues.map((issue) => (
+                                            <p key={issue} className="text-xs font-medium text-red-800 dark:text-red-100">{issue}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {mappingAssessment?.warnings && mappingAssessment.warnings.length > 0 && (
+                                <div className="rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 dark:bg-amber-950/20">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Warnings</p>
+                                    <div className="mt-2 space-y-1">
+                                        {mappingAssessment.warnings.map((gap) => (
                                             <p key={gap} className="text-xs font-medium text-amber-800 dark:text-amber-100">{gap}</p>
                                         ))}
                                     </div>
                                 </div>
                             )}
+                            {mappingAssessment?.driftSummary && mappingAssessment.driftSummary.length > 0 && (
+                                <div className="rounded-2xl border border-blue-400/30 bg-blue-50 px-4 py-3 dark:bg-blue-950/20">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">Source Drift</p>
+                                    <div className="mt-2 space-y-1">
+                                        {mappingAssessment.driftSummary.map((item) => (
+                                            <p key={item} className="text-xs font-medium text-blue-800 dark:text-blue-100">{item}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {mappingAssessment ? (
+                                <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Import Understanding</p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {summarizeMappedFields(draftMapping).map((item) => (
+                                            <span key={`${item.label}-${item.header}`} className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-foreground/80">
+                                                {item.label}: {item.header}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        {mappingAssessment.preservedFieldCount ?? Math.max(mappingAssessment.headers.length - summarizeMappedFields(draftMapping).length, 0)} extra columns will be preserved in raw payload but not used for import decisions.
+                                    </p>
+                                </div>
+                            ) : null}
                             <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                                {MAPPING_FIELDS.map((field) => {
+                                {(mappingSource?.config.intakeTarget === 'performance_requests' ? REQUEST_MAPPING_FIELDS : MAPPING_FIELDS).map((field) => {
                                     const headers = mappingSource?.config.detectedHeaders || [];
-                                    const selectedValue = draftMapping[field.key] || '';
+                                    const selectedValue = draftMapping[field.key as string] || '';
                                     return (
                                         <div key={field.key} className="rounded-2xl border border-border/70 bg-accent/15 p-3.5">
                                             <div className="mb-2">
@@ -865,7 +1133,7 @@ export function ImportParticipantsModal({
                                                 value={selectedValue}
                                                 onChange={(event) => setDraftMapping((current) => ({
                                                     ...current,
-                                                    [field.key]: event.target.value || undefined,
+                                                    [field.key as string]: event.target.value || undefined,
                                                 }))}
                                                 className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                                             >
@@ -878,19 +1146,27 @@ export function ImportParticipantsModal({
                                     );
                                 })}
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                 <Button
                                     variant="ghost"
                                     onClick={() => setUiMode('dashboard')}
                                     className="h-12 rounded-2xl"
                                 >
-                                    Back
+                                    Cancel
                                 </Button>
                                 <Button
-                                    onClick={handleSaveMapping}
+                                    variant="ghost"
+                                    onClick={handleSaveMappingOnly}
+                                    className="h-12 rounded-2xl"
+                                >
+                                    Save Mapping Only
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmAndSync}
+                                    disabled={!!mappingAssessment?.blockingIssues?.length}
                                     className="h-12 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
                                 >
-                                    Save Mapping
+                                    Confirm & Sync
                                 </Button>
                             </div>
                         </div>

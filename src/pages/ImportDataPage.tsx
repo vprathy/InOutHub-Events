@@ -29,7 +29,7 @@ export default function ImportDataPage() {
 
     const sourceStats = useMemo(() => {
         const total = sources.length;
-        const withMappingGaps = sources.filter((source) => (source.config.mappingGaps?.length || 0) > 0).length;
+        const withMappingGaps = sources.filter((source) => source.config.reviewRequired || (source.config.mappingGaps?.length || 0) > 0).length;
         return { total, withMappingGaps };
     }, [sources]);
     const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';

@@ -57,6 +57,10 @@ type EventSourceSummary = {
     name: string
     config?: {
         sheetId?: string
+        mappingMode?: 'inferred' | 'locked' | 'drifted' | 'blocked'
+        lockedTarget?: 'participants' | 'performance_requests' | 'unknown'
+        lockedProfileHash?: string
+        reviewRequired?: boolean
     } | null
 }
 
@@ -66,6 +70,32 @@ type PerformanceRequestLookupRow = {
     request_status: string
     conversion_status: string
     converted_act_id: string | null
+}
+
+function hashSourceProfile(input: {
+    intakeTarget: 'participants' | 'performance_requests'
+    headers: string[]
+    profile: Record<string, string | undefined>
+}) {
+    const payload = JSON.stringify({
+        intakeTarget: input.intakeTarget,
+        headers: [...input.headers].map(normalizeHeader).sort(),
+        profile: Object.entries(input.profile)
+            .filter(([, header]) => !!header)
+            .sort(([a], [b]) => a.localeCompare(b)),
+    })
+    let hash = 0
+    for (let i = 0; i < payload.length; i++) {
+        hash = ((hash << 5) - hash) + payload.charCodeAt(i)
+        hash |= 0
+    }
+    return `profile_${Math.abs(hash)}`
+}
+
+function summarizeUsedFields(profile: Record<string, string | undefined>) {
+    return Object.entries(profile)
+        .filter(([, header]) => !!header)
+        .map(([field, header]) => ({ field, header }))
 }
 
 function normalizeHeader(value: string) {
@@ -498,6 +528,7 @@ Deno.serve(async (req) => {
             sheetId,
             eventId,
             dryRun = true,
+            mode: requestedMode,
             savedMapping,
             intakeTarget = 'participants',
             headers: providedHeaders,
@@ -509,6 +540,13 @@ Deno.serve(async (req) => {
         } = body
         trackedEventId = eventId ?? null
         const importMethod = requestedImportMethod || (sheetId ? 'google_sheet' : 'spreadsheet_upload')
+        const mode: 'profile_only' | 'confirm_and_sync' =
+            requestedMode === 'confirm_and_sync' || requestedMode === 'profile_only'
+                ? requestedMode
+                : dryRun
+                    ? 'profile_only'
+                    : 'confirm_and_sync'
+        const shouldWriteImportedEntities = mode === 'confirm_and_sync' && !dryRun
         if (!eventId || (!sheetId && !Array.isArray(providedRows))) {
             console.log('Missing body params:', { eventId: !!eventId, sheetId: !!sheetId, rows: Array.isArray(providedRows) })
             throw new Error('Missing eventId and import source payload')
@@ -627,8 +665,63 @@ Deno.serve(async (req) => {
         const eventSourceId = matchedSource?.id || providedSourceId || null
         const resolvedSourceName = matchedSource?.name || providedSourceName || (sheetId ? 'Google Sheet Import' : 'Spreadsheet Upload')
         const sourceReference = sheetId || sourceInstance
+        const profileHash = hashSourceProfile({ intakeTarget, headers, profile })
+        const usedFields = summarizeUsedFields(profile)
+        const preservedFieldCount = Math.max(headers.length - new Set(usedFields.map((item) => item.header)).size, 0)
+        const warnings = Array.from(new Set(gaps))
+        const driftSummary: string[] = []
+        const lockedProfileHash = matchedSource?.config?.lockedProfileHash || null
+        const lockedTarget = matchedSource?.config?.lockedTarget || null
 
-        if (!dryRun) {
+        if (lockedTarget && lockedTarget !== probableTarget) {
+            driftSummary.push(`Detected target changed from ${lockedTarget} to ${probableTarget}.`)
+        }
+        if (lockedProfileHash && lockedProfileHash !== profileHash) {
+            driftSummary.push('Source headers or key field mappings changed since the last confirmed mapping.')
+        }
+
+        const reviewRequired = blockingIssues.length > 0
+            || confidence !== 'high'
+            || warnings.length > 0
+            || driftSummary.length > 0
+            || matchedSource?.config?.mappingMode !== 'locked'
+
+        const sourceState: 'inferred' | 'locked' | 'drifted' | 'blocked' =
+            blockingIssues.length > 0
+                ? 'blocked'
+                : driftSummary.length > 0
+                    ? 'drifted'
+                    : matchedSource?.config?.mappingMode === 'locked' && !reviewRequired
+                        ? 'locked'
+                        : 'inferred'
+
+        const buildProfileResponse = (extra: Record<string, unknown> = {}) => ({
+            success: true,
+            mode,
+            mapping: profile,
+            gaps,
+            warnings,
+            probableTarget,
+            confidence,
+            blockingIssues,
+            headers,
+            usedFields,
+            preservedFieldCount,
+            previewRows: parsedRows.slice(0, 3),
+            profileHash,
+            reviewRequired,
+            driftSummary,
+            sourceState,
+            ...extra,
+        })
+
+        if (mode === 'profile_only') {
+            return new Response(JSON.stringify(buildProfileResponse()), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+        }
+
+        if (shouldWriteImportedEntities) {
             const { data: importRun, error: importRunError } = await supabaseClient
                 .from('import_runs')
                 .insert({
@@ -647,6 +740,9 @@ Deno.serve(async (req) => {
                         headers,
                         mapping: profile,
                         gaps,
+                        profileHash,
+                        reviewRequired,
+                        driftSummary,
                         sheetId: sheetId || null,
                         sourceName: resolvedSourceName,
                         sourceInstance: sourceReference,
@@ -751,21 +847,17 @@ Deno.serve(async (req) => {
             const existingByAnchor = new Map(((existingRecords as PerformanceRequestLookupRow[] | null) || []).map((row) => [row.source_anchor, row]))
             const newAnchors = anchors.filter((anchor) => !existingByAnchor.has(anchor))
 
-            if (dryRun) {
+            if (dryRun && mode !== 'confirm_and_sync') {
                 return new Response(JSON.stringify({
-                    success: true,
+                    ...buildProfileResponse({
                     stats: {
                         total: deduplicatedRequests.length,
                         new: newAnchors.length,
                         updated: deduplicatedRequests.length - newAnchors.length,
                         missing: 0
                     },
-                    mapping: profile,
-                    gaps,
-                    probableTarget,
-                    confidence,
-                    headers,
                     preview: deduplicatedRequests.slice(0, 5),
+                    }),
                 }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 })
@@ -847,18 +939,14 @@ Deno.serve(async (req) => {
             }
 
             return new Response(JSON.stringify({
-                success: true,
+                ...buildProfileResponse({
                 stats: {
                     total: deduplicatedRequests.length,
                     new: newAnchors.length,
                     updated: deduplicatedRequests.length - newAnchors.length,
                     missing: 0
                 },
-                mapping: profile,
-                gaps,
-                probableTarget,
-                confidence,
-                headers,
+                }),
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             })
@@ -963,22 +1051,18 @@ Deno.serve(async (req) => {
         const newAnchors = [...incomingAnchors].filter(a => !existingAnchors.has(a))
         const updatedAnchors = [...incomingAnchors].filter(a => existingAnchors.has(a))
 
-        if (dryRun) {
+        if (dryRun && mode !== 'confirm_and_sync') {
             return new Response(JSON.stringify({
-                success: true,
+                ...buildProfileResponse({
                 stats: {
                     total: deduplicatedParticipants.length,
                     new: newAnchors.length,
                     updated: updatedAnchors.length,
                     missing: missingAnchors.length
                 },
-                mapping: profile,
-                gaps,
-                probableTarget,
-                confidence,
-                headers,
                 preview: deduplicatedParticipants.slice(0, 5),
                 missingPreview: missingAnchors.slice(0, 5)
+                }),
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             })
@@ -1127,19 +1211,15 @@ Deno.serve(async (req) => {
         }
 
         return new Response(JSON.stringify({
-            success: true,
+            ...buildProfileResponse({
             stats: {
                 total: deduplicatedParticipants.length,
                 new: newAnchors.length,
                 updated: updatedAnchors.length,
                 missing: missingAnchors.length
             },
-            mapping: profile,
-            gaps,
-            probableTarget,
-            confidence,
-            headers,
             message: 'Sync completed successfully'
+            }),
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })

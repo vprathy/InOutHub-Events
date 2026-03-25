@@ -13,10 +13,20 @@ export type EventSource = {
         fileName?: string;
         rowCount?: number;
         inferredMapping?: Record<string, string | undefined>;
+        lockedMapping?: Record<string, string | undefined>;
         mappingGaps?: string[];
+        mappingWarnings?: string[];
         detectedHeaders?: string[];
-        mappingMode?: 'inferred' | 'locked';
+        mappingMode?: 'inferred' | 'locked' | 'drifted' | 'blocked';
         mappingUpdatedAt?: string;
+        profileHash?: string;
+        lockedProfileHash?: string;
+        lockedTarget?: 'participants' | 'performance_requests' | 'unknown';
+        probableTarget?: 'participants' | 'performance_requests' | 'unknown';
+        reviewRequired?: boolean;
+        driftSummary?: string[];
+        lastConfirmedAt?: string;
+        lastConfirmedBy?: string;
     };
     lastSyncedAt: string | null;
     createdAt: string;
@@ -85,10 +95,10 @@ export function useEventSources(eventId: string) {
     });
 
     const updateSourceSyncMutation = useMutation({
-        mutationFn: async ({ sourceId, lastSyncedAt, config }: { sourceId: string; lastSyncedAt: string; config?: EventSource['config'] }) => {
+        mutationFn: async ({ sourceId, lastSyncedAt, config }: { sourceId: string; lastSyncedAt?: string | null; config?: EventSource['config'] }) => {
             const { error } = await (supabase as any)
                 .from('event_sources')
-                .update({ last_synced_at: lastSyncedAt, ...(config ? { config } : {}) })
+                .update({ ...(lastSyncedAt !== undefined ? { last_synced_at: lastSyncedAt } : {}), ...(config ? { config } : {}) })
                 .eq('id', sourceId);
 
             if (error) throw error;

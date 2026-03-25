@@ -240,10 +240,15 @@ export function SectionIdentityStrip() {
             navigate('/admin/import-data');
             return;
         }
+        if (primaryPerformanceRequestSource.config.reviewRequired || primaryPerformanceRequestSource.config.mappingMode !== 'locked') {
+            navigate('/admin/import-data');
+            return;
+        }
 
         const result = await syncSheet.mutateAsync({
             sheetId: primaryPerformanceRequestSource.config.sheetId,
-            savedMapping: primaryPerformanceRequestSource.config?.inferredMapping,
+            mode: 'confirm_and_sync',
+            savedMapping: primaryPerformanceRequestSource.config?.lockedMapping || primaryPerformanceRequestSource.config?.inferredMapping,
             intakeTarget: 'performance_requests',
         });
 
@@ -254,8 +259,16 @@ export function SectionIdentityStrip() {
                 ...primaryPerformanceRequestSource.config,
                 inferredMapping: result.mapping,
                 mappingGaps: result.gaps || [],
+                mappingWarnings: result.warnings || [],
                 detectedHeaders: result.headers || [],
+                mappingMode: 'locked',
                 mappingUpdatedAt: new Date().toISOString(),
+                profileHash: result.profileHash,
+                lockedProfileHash: result.profileHash,
+                lockedTarget: result.probableTarget || 'performance_requests',
+                probableTarget: result.probableTarget || 'performance_requests',
+                reviewRequired: false,
+                driftSummary: [],
             },
         });
     };

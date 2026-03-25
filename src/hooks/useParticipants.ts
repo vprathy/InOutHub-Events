@@ -206,11 +206,13 @@ export function useImportParticipants(eventId: string) {
             sourceId,
             savedMapping,
             intakeTarget = 'participants',
+            mode = 'confirm_and_sync',
         }: {
             file: File;
             sourceId?: string;
             savedMapping?: Record<string, string | undefined>;
             intakeTarget?: 'participants' | 'performance_requests';
+            mode?: 'profile_only' | 'confirm_and_sync';
         }) => {
             const XLSX = await import('xlsx');
             const data = await file.arrayBuffer();
@@ -224,7 +226,8 @@ export function useImportParticipants(eventId: string) {
             const { data: result, error } = await supabase.functions.invoke('import-participants', {
                 body: {
                     eventId,
-                    dryRun: false,
+                    mode,
+                    dryRun: mode === 'profile_only',
                     intakeTarget,
                     importMethod: 'spreadsheet_upload',
                     sourceName: file.name,
@@ -256,14 +259,23 @@ export function useSyncGoogleSheet(eventId: string) {
             dryRun = false,
             savedMapping,
             intakeTarget = 'participants',
+            mode,
         }: {
             sheetId: string;
             dryRun?: boolean;
             savedMapping?: Record<string, string | undefined>;
             intakeTarget?: 'participants' | 'performance_requests';
+            mode?: 'profile_only' | 'confirm_and_sync';
         }) => {
             const { data, error } = await supabase.functions.invoke('import-participants', {
-                body: { sheetId, eventId, dryRun, savedMapping, intakeTarget }
+                body: {
+                    sheetId,
+                    eventId,
+                    dryRun: mode ? mode === 'profile_only' : dryRun,
+                    mode,
+                    savedMapping,
+                    intakeTarget,
+                }
             });
 
             if (error) throw error;
