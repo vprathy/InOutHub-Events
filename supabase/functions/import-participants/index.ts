@@ -45,6 +45,29 @@ const REQUEST_HEADER_ALIASES = {
     sourceAnchor: ['submission id', 'request id', 'entry id', 'row id', 'timestamp', 'order id'],
 }
 
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[]
+
+type ServiceAccount = {
+    client_email: string
+    private_key: string
+}
+
+type EventSourceSummary = {
+    id: string
+    name: string
+    config?: {
+        sheetId?: string
+    } | null
+}
+
+type PerformanceRequestLookupRow = {
+    id: string
+    source_anchor: string
+    request_status: string
+    conversion_status: string
+    converted_act_id: string | null
+}
+
 function normalizeHeader(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
@@ -391,7 +414,7 @@ function coerceBooleanFlag(value: string) {
 }
 
 // Helper to get Google Access Token using Service Account (Deno Native)
-async function getGoogleAccessToken(serviceAccount: any) {
+async function getGoogleAccessToken(serviceAccount: ServiceAccount) {
     const now = Math.floor(Date.now() / 1000)
     const payload = {
         iss: serviceAccount.client_email,
@@ -502,7 +525,7 @@ Deno.serve(async (req) => {
 
         let headers: string[] = []
         let parsedRows: Record<string, string>[] = []
-        let sourceInstance = providedSourceInstance || sheetId || providedSourceName || 'spreadsheet-upload'
+        const sourceInstance = providedSourceInstance || sheetId || providedSourceName || 'spreadsheet-upload'
 
         if (sheetId) {
             // 2. Auth with Google Sheets API using Service Account
@@ -592,12 +615,12 @@ Deno.serve(async (req) => {
         }
         trackedOrganizationId = eventRecord.organization_id
 
-        const { data: sourceRows } = await (supabaseClient as any)
+        const { data: sourceRows } = await supabaseClient
             .from('event_sources')
             .select('id, name, config')
             .eq('event_id', eventId)
 
-        const matchedSource = ((sourceRows as any[]) || []).find((source) =>
+        const matchedSource = ((sourceRows as EventSourceSummary[] | null) || []).find((source) =>
             (sheetId && source.config?.sheetId === sheetId) || (providedSourceId && source.id === providedSourceId)
         )
         let importRunId: string | null = null
@@ -606,7 +629,7 @@ Deno.serve(async (req) => {
         const sourceReference = sheetId || sourceInstance
 
         if (!dryRun) {
-            const { data: importRun, error: importRunError } = await (supabaseClient as any)
+            const { data: importRun, error: importRunError } = await supabaseClient
                 .from('import_runs')
                 .insert({
                     organization_id: eventRecord.organization_id,
@@ -640,7 +663,7 @@ Deno.serve(async (req) => {
 
         if (blockingIssues.length > 0) {
             if (importRunId) {
-                await (supabaseClient as any)
+                await supabaseClient
                     .from('import_runs')
                     .update({
                         status: 'blocked',
@@ -649,7 +672,7 @@ Deno.serve(async (req) => {
                     })
                     .eq('id', importRunId)
 
-                await (supabaseClient as any)
+                await supabaseClient
                     .from('intake_audit_events')
                     .insert({
                         organization_id: eventRecord.organization_id,
@@ -716,7 +739,7 @@ Deno.serve(async (req) => {
             const deduplicatedRequests = Array.from(deduplicatedRequestsMap.values())
 
             const anchors = deduplicatedRequests.map((request) => request.source_anchor).filter(Boolean)
-            const { data: existingRecords, error: fetchError } = await (supabaseClient as any)
+            const { data: existingRecords, error: fetchError } = await supabaseClient
                 .from('performance_requests')
                 .select('id, source_anchor, request_status, conversion_status, converted_act_id')
                 .eq('event_id', eventId)
@@ -725,7 +748,7 @@ Deno.serve(async (req) => {
 
             if (fetchError) throw fetchError
 
-            const existingByAnchor = new Map((existingRecords || []).map((row: any) => [row.source_anchor, row]))
+            const existingByAnchor = new Map(((existingRecords as PerformanceRequestLookupRow[] | null) || []).map((row) => [row.source_anchor, row]))
             const newAnchors = anchors.filter((anchor) => !existingByAnchor.has(anchor))
 
             if (dryRun) {
@@ -748,7 +771,7 @@ Deno.serve(async (req) => {
                 })
             }
 
-            const { error: upsertError } = await (supabaseClient as any)
+            const { error: upsertError } = await supabaseClient
                 .from('performance_requests')
                 .upsert(deduplicatedRequests, {
                     onConflict: 'event_id,event_source_id,source_anchor'
@@ -756,7 +779,7 @@ Deno.serve(async (req) => {
 
             if (upsertError) throw upsertError
 
-            const { data: currentRows, error: currentRowsError } = await (supabaseClient as any)
+            const { data: currentRows, error: currentRowsError } = await supabaseClient
                 .from('performance_requests')
                 .select('id, source_anchor, request_status, conversion_status, converted_act_id')
                 .eq('event_id', eventId)
@@ -765,7 +788,7 @@ Deno.serve(async (req) => {
 
             if (currentRowsError) throw currentRowsError
 
-            const currentByAnchor = new Map((currentRows || []).map((row: any) => [row.source_anchor, row]))
+            const currentByAnchor = new Map(((currentRows as PerformanceRequestLookupRow[] | null) || []).map((row) => [row.source_anchor, row]))
 
             if (importRunId) {
                 const importRunRecords = deduplicatedRequests.map((request) => {
@@ -782,7 +805,7 @@ Deno.serve(async (req) => {
                     }
                 })
 
-                const { error: runRecordError } = await (supabaseClient as any)
+                const { error: runRecordError } = await supabaseClient
                     .from('import_run_records')
                     .insert(importRunRecords)
 
@@ -795,7 +818,7 @@ Deno.serve(async (req) => {
                     missing: 0
                 }
 
-                const { error: finalizeError } = await (supabaseClient as any)
+                const { error: finalizeError } = await supabaseClient
                     .from('import_runs')
                     .update({
                         status: 'succeeded',
@@ -806,7 +829,7 @@ Deno.serve(async (req) => {
 
                 if (finalizeError) throw finalizeError
 
-                const { error: auditError } = await (supabaseClient as any)
+                const { error: auditError } = await supabaseClient
                     .from('intake_audit_events')
                     .insert({
                         organization_id: eventRecord.organization_id,
@@ -964,7 +987,7 @@ Deno.serve(async (req) => {
         const now = new Date().toISOString()
         const participantsToUpsert = deduplicatedParticipants.map(p => {
             let status = 'active'
-            const raw = p.src_raw as any
+            const raw = p.src_raw as Record<string, JsonValue>
             const statusSignal = (raw['Status'] || raw['Payment Status'] || raw['Canceled'] || '').toLowerCase()
             if (statusSignal.includes('refund') || statusSignal.includes('cancel')) status = 'refunded'
             else if (statusSignal.includes('withdraw') || statusSignal.includes('drop')) status = 'withdrawn'
@@ -999,7 +1022,7 @@ Deno.serve(async (req) => {
         if (importRunId) {
             const importedParticipantIds = (currentRows || []).map((row) => row.id)
             if (importedParticipantIds.length > 0) {
-                const { error: lineageError } = await (supabaseClient as any)
+                const { error: lineageError } = await supabaseClient
                     .from('participants')
                     .update({ last_import_run_id: importRunId })
                     .in('id', importedParticipantIds)
@@ -1012,7 +1035,7 @@ Deno.serve(async (req) => {
                 .filter(Boolean)
 
             if (newParticipantIds.length > 0) {
-                const { error: createLineageError } = await (supabaseClient as any)
+                const { error: createLineageError } = await supabaseClient
                     .from('participants')
                     .update({ created_by_import_run_id: importRunId })
                     .in('id', newParticipantIds)
@@ -1062,8 +1085,8 @@ Deno.serve(async (req) => {
                 }
             })
 
-            const { error: runRecordError } = await (supabaseClient as any)
-                .from('import_run_records')
+                const { error: runRecordError } = await supabaseClient
+                    .from('import_run_records')
                 .insert([...importRunRecords, ...missingRunRecords])
 
             if (runRecordError) throw runRecordError
@@ -1075,7 +1098,7 @@ Deno.serve(async (req) => {
                 missing: missingAnchors.length
             }
 
-            const { error: finalizeError } = await (supabaseClient as any)
+            const { error: finalizeError } = await supabaseClient
                 .from('import_runs')
                 .update({
                     status: 'succeeded',
@@ -1086,7 +1109,7 @@ Deno.serve(async (req) => {
 
             if (finalizeError) throw finalizeError
 
-            const { error: auditError } = await (supabaseClient as any)
+            const { error: auditError } = await supabaseClient
                 .from('intake_audit_events')
                 .insert({
                     organization_id: eventRecord.organization_id,
@@ -1124,7 +1147,7 @@ Deno.serve(async (req) => {
     } catch (error) {
         console.error('Edge Function error:', error)
         if (trackedImportRunId && runTrackingClient) {
-            await (runTrackingClient as any)
+            await runTrackingClient
                 .from('import_runs')
                 .update({
                     status: 'failed',
@@ -1134,7 +1157,7 @@ Deno.serve(async (req) => {
                 .eq('id', trackedImportRunId)
 
             if (trackedEventId && trackedOrganizationId) {
-                await (runTrackingClient as any)
+                await runTrackingClient
                     .from('intake_audit_events')
                     .insert({
                         organization_id: trackedOrganizationId,

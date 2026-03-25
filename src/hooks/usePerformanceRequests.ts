@@ -1,8 +1,87 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@/types/database.types';
 import type { IntakeAuditEvent, PerformanceRequest } from '@/types/domain';
 
 type RawPayload = Record<string, unknown>;
+type QueryError = { message: string };
+type AuditActorRow = { first_name: string | null; last_name: string | null; email: string | null };
+type PerformanceRequestRow = {
+    id: string;
+    organization_id: string;
+    event_id: string;
+    import_run_id: string | null;
+    event_source_id: string | null;
+    source_anchor: string | null;
+    title: string | null;
+    lead_name: string | null;
+    lead_email: string | null;
+    lead_phone: string | null;
+    duration_estimate_minutes: number;
+    music_supplied: boolean | null;
+    roster_supplied: boolean | null;
+    notes: string | null;
+    raw_payload: Json | null;
+    request_status: PerformanceRequest['requestStatus'];
+    conversion_status: PerformanceRequest['conversionStatus'];
+    converted_act_id: string | null;
+    converted_act_name?: string | null;
+    reviewed_at: string | null;
+    reviewed_by: string | null;
+    approved_at: string | null;
+    approved_by: string | null;
+    converted_at: string | null;
+    converted_by: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+};
+type IntakeAuditEventRow = {
+    id: string;
+    entity_id: string | null;
+    entity_type: string;
+    action: string;
+    note: string | null;
+    before_data: Json;
+    after_data: Json;
+    metadata: Json;
+    performed_at: string;
+    performed_by: string | null;
+    actor: AuditActorRow | null;
+};
+type PerformanceRequestStats = {
+    total: number;
+    pending: number;
+    approved: number;
+    converted: number;
+    rejected: number;
+};
+type RequestListQuery = {
+    eq(column: string, value: unknown): RequestListQuery;
+    neq(column: string, value: unknown): RequestListQuery;
+    or(filters: string): RequestListQuery;
+    order(column: string, options: { ascending: boolean }): RequestListQuery;
+    range(from: number, to: number): Promise<{ data: PerformanceRequestRow[] | null; error: QueryError | null; count: number | null }>;
+    maybeSingle(): Promise<{ data: PerformanceRequestRow | null; error: QueryError | null }>;
+};
+type PerformanceRequestTableClient = {
+    from(table: 'v_performance_requests_hardened'): {
+        select(columns: string, options?: { count?: 'exact' }): RequestListQuery;
+    };
+    from(table: 'intake_audit_events'): {
+        select(columns: string): {
+            eq(column: string, value: unknown): {
+                eq(column: string, value: unknown): {
+                    order(column: string, options: { ascending: boolean }): Promise<{ data: IntakeAuditEventRow[] | null; error: QueryError | null }>;
+                };
+            };
+        };
+    };
+    rpc(fn: 'get_performance_request_stats', args: { p_event_id: string | null }): Promise<{ data: PerformanceRequestStats | PerformanceRequestStats[] | null; error: QueryError | null }>;
+    rpc(fn: 'set_performance_request_status', args: { p_request_id: string | null; p_action: string; p_note: string | null }): Promise<{ data: PerformanceRequestRow; error: QueryError | null }>;
+    rpc(fn: 'convert_performance_request_to_act', args: { p_request_id: string | null; p_setup_time_minutes: number }): Promise<{ data: string; error: QueryError | null }>;
+};
+
+const performanceRequestClient = supabase as unknown as PerformanceRequestTableClient;
 
 const REQUEST_SOURCE_ALIASES = {
     title: ['program name', 'program title', 'performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title'],
@@ -25,8 +104,10 @@ function toText(value: unknown) {
     return value == null ? '' : String(value).trim();
 }
 
-function getRawPayload(row: any): RawPayload {
-    return row?.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {};
+function getRawPayload(row: { raw_payload?: Json | null }): RawPayload {
+    return row?.raw_payload && typeof row.raw_payload === 'object' && !Array.isArray(row.raw_payload)
+        ? row.raw_payload as RawPayload
+        : {};
 }
 
 function findRawValue(
@@ -64,7 +145,7 @@ function isPhone(value: string) {
     return digits.length >= 10;
 }
 
-function buildImportInsights(row: any) {
+function buildImportInsights(row: PerformanceRequestRow) {
     const rawPayload = getRawPayload(row);
 
     const title = toText(row.title) || findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.value || 'Untitled Request';
@@ -122,7 +203,7 @@ function buildImportInsights(row: any) {
     };
 }
 
-function mapPerformanceRequest(row: any): PerformanceRequest {
+function mapPerformanceRequest(row: PerformanceRequestRow): PerformanceRequest {
     const resolved = buildImportInsights(row);
 
     return {
@@ -159,7 +240,7 @@ function mapPerformanceRequest(row: any): PerformanceRequest {
     };
 }
 
-function mapIntakeAuditEvent(row: any): IntakeAuditEvent {
+function mapIntakeAuditEvent(row: IntakeAuditEventRow): IntakeAuditEvent {
     const actor = row.actor || null;
     const actorName = [actor?.first_name, actor?.last_name].filter(Boolean).join(' ').trim();
 
@@ -181,7 +262,7 @@ function mapIntakeAuditEvent(row: any): IntakeAuditEvent {
 
 type PerformanceRequestSegment = 'pending' | 'approved' | 'converted' | 'rejected' | 'all';
 
-function applyRequestSegmentFilter(query: any, segment: PerformanceRequestSegment) {
+function applyRequestSegmentFilter(query: RequestListQuery, segment: PerformanceRequestSegment) {
     if (segment === 'converted') {
         return query.eq('conversion_status', 'converted');
     }
@@ -201,7 +282,7 @@ function applyRequestSegmentFilter(query: any, segment: PerformanceRequestSegmen
     return query;
 }
 
-function applyRequestSearch(query: any, normalizedSearch: string) {
+function applyRequestSearch(query: RequestListQuery, normalizedSearch: string) {
     if (!normalizedSearch) return query;
 
     return query.or(
@@ -232,7 +313,7 @@ export function usePerformanceRequestsQuery({
         queryFn: async ({ pageParam }) => {
             const normalizedSearch = searchTerm.trim();
             const offset = typeof pageParam === 'number' ? pageParam : 0;
-            let query = (supabase as any)
+            let query = performanceRequestClient
                 .from('v_performance_requests_hardened')
                 .select('*', { count: 'exact' })
                 .eq('event_id', eventId);
@@ -246,7 +327,7 @@ export function usePerformanceRequestsQuery({
 
             if (error) throw error;
 
-            const requests = ((data as any[]) || []).map(mapPerformanceRequest);
+            const requests = (data || []).map(mapPerformanceRequest);
             const totalCount = count || 0;
             const nextOffset = offset + requests.length;
 
@@ -266,7 +347,7 @@ export function usePerformanceRequestCounts(eventId: string | null) {
         queryKey: ['performance-requests-counts', eventId],
         enabled: !!eventId,
         queryFn: async () => {
-            const { data, error } = await (supabase as any).rpc('get_performance_request_stats', {
+            const { data, error } = await performanceRequestClient.rpc('get_performance_request_stats', {
                 p_event_id: eventId,
             });
 
@@ -290,7 +371,7 @@ export function usePerformanceRequestTimeline(requestId: string | null) {
         queryKey: ['performance-request-timeline', requestId],
         enabled: !!requestId,
         queryFn: async () => {
-            const { data, error } = await (supabase as any)
+            const { data, error } = await performanceRequestClient
                 .from('intake_audit_events')
                 .select(`
                     id,
@@ -310,7 +391,7 @@ export function usePerformanceRequestTimeline(requestId: string | null) {
                 .order('performed_at', { ascending: false });
 
             if (error) throw error;
-            return ((data as any[]) || []).map(mapIntakeAuditEvent);
+            return (data || []).map(mapIntakeAuditEvent);
         },
     });
 }
@@ -320,7 +401,7 @@ export function useSetPerformanceRequestStatus(eventId: string | null, requestId
 
     return useMutation({
         mutationFn: async ({ action, note }: { action: 'review' | 'approve' | 'reject' | 'move_back_to_pending'; note?: string | null }) => {
-            const { data, error } = await (supabase as any).rpc('set_performance_request_status', {
+            const { data, error } = await performanceRequestClient.rpc('set_performance_request_status', {
                 p_request_id: requestId,
                 p_action: action,
                 p_note: note || null,
@@ -342,7 +423,7 @@ export function useConvertPerformanceRequest(eventId: string | null, requestId: 
 
     return useMutation({
         mutationFn: async () => {
-            const { data, error } = await (supabase as any).rpc('convert_performance_request_to_act', {
+            const { data, error } = await performanceRequestClient.rpc('convert_performance_request_to_act', {
                 p_request_id: requestId,
                 p_setup_time_minutes: 2,
             });
@@ -364,7 +445,7 @@ export function usePerformanceRequestForAct(actId: string | null) {
         queryKey: ['performance-request-for-act', actId],
         enabled: !!actId,
         queryFn: async () => {
-            const { data, error } = await (supabase as any)
+            const { data, error } = await performanceRequestClient
                 .from('v_performance_requests_hardened')
                 .select('*')
                 .eq('converted_act_id', actId)

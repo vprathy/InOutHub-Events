@@ -1,4 +1,4 @@
-import type { Database } from '@/types/database.types';
+import type { Database, Json } from '@/types/database.types';
 import type { ResolvedRequirementPolicy } from '@/lib/requirementPolicies';
 
 // ==========================================
@@ -107,7 +107,7 @@ export interface ActDetails extends Act {
         id: string;
         status: string;
         notes?: string | null;
-        evidenceSummary?: any;
+        evidenceSummary?: Json;
         policyCode?: string | null;
         policyLabel?: string | null;
         inputType?: string | null;
@@ -136,7 +136,7 @@ export interface ActWithCounts extends Act {
         id: string;
         status: string;
         notes?: string | null;
-        evidenceSummary?: any;
+        evidenceSummary?: Json;
         policyCode?: string | null;
         policyLabel?: string | null;
         inputType?: string | null;
@@ -321,7 +321,7 @@ export interface Participant {
         id: string;
         status: string;
         notes?: string | null;
-        evidenceSummary?: any;
+        evidenceSummary?: Json;
         policyCode?: string | null;
         policyLabel?: string | null;
         inputType?: string | null;
@@ -337,7 +337,7 @@ export interface Participant {
     sourceAnchorValue: string | null;
     sourceImportedAt: string | null;
     sourceLastSeenAt: string | null;
-    srcRaw: any | null;
+    srcRaw: Json | null;
     isPIIUnmasked?: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -417,7 +417,7 @@ export interface ParticipantDetail extends Participant {
     }[];
     operationalNotes: ParticipantNote[];
     operationalContacts?: OperationalContact[];
-    auditLogs: any[];
+    auditLogs: Json[];
 }
 
 export interface PerformanceRequest {
@@ -437,7 +437,7 @@ export interface PerformanceRequest {
     musicSupplied: boolean;
     rosterSupplied: boolean;
     notes: string | null;
-    rawPayload: any;
+    rawPayload: Json;
     requestStatus: 'pending' | 'reviewed' | 'approved' | 'rejected';
     conversionStatus: 'not_started' | 'converted' | 'failed';
     convertedActId: string | null;
@@ -463,9 +463,9 @@ export interface IntakeAuditEvent {
     entityType: string;
     action: string;
     note: string | null;
-    beforeData: any;
-    afterData: any;
-    metadata: any;
+    beforeData: Json;
+    afterData: Json;
+    metadata: Json;
     performedAt: string;
     performedBy: string | null;
     actorName: string | null;
