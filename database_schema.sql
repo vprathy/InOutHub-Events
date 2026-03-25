@@ -128,6 +128,7 @@ CREATE TABLE participants (
     guardian_relationship TEXT,
     age INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, source_system, source_instance, source_anchor_type, source_anchor_value)
 );
 
@@ -400,6 +401,56 @@ CREATE TABLE intake_audit_events (
     performed_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
     performed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE client_error_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    support_code TEXT NOT NULL UNIQUE,
+    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+    reported_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    feature_area TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'error' CHECK (severity IN ('warning', 'error', 'critical')),
+    route TEXT,
+    message TEXT NOT NULL,
+    error_context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    correlation_id TEXT,
+    event_role TEXT,
+    org_role TEXT,
+    pwa_version TEXT,
+    user_agent TEXT,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'triaged', 'resolved', 'ignored')),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE VIEW v_recent_client_error_events AS
+SELECT
+    ce.id,
+    ce.support_code,
+    ce.organization_id,
+    ce.event_id,
+    ce.reported_by,
+    ce.feature_area,
+    ce.severity,
+    ce.route,
+    ce.message,
+    ce.error_context,
+    ce.correlation_id,
+    ce.event_role,
+    ce.org_role,
+    ce.pwa_version,
+    ce.user_agent,
+    ce.status,
+    ce.created_at,
+    up.first_name AS reporter_first_name,
+    up.last_name AS reporter_last_name,
+    up.email AS reporter_email,
+    org.name AS organization_name,
+    ev.name AS event_name
+FROM client_error_events ce
+LEFT JOIN user_profiles up ON up.id = ce.reported_by
+LEFT JOIN organizations org ON org.id = ce.organization_id
+LEFT JOIN events ev ON ev.id = ce.event_id
+ORDER BY ce.created_at DESC;
 
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1695,6 +1746,27 @@ CREATE POLICY "intake_audit_events_manage" ON intake_audit_events FOR ALL USING 
     auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
 );
 
+ALTER TABLE client_error_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "client_error_events_insert_scoped" ON client_error_events FOR INSERT WITH CHECK (
+    auth.uid() = reported_by
+    AND (
+        auth_is_super_admin()
+        OR (event_id IS NOT NULL AND auth_event_role(event_id) IS NOT NULL)
+        OR (organization_id IS NOT NULL AND auth_org_role(organization_id) IS NOT NULL)
+    )
+);
+CREATE POLICY "client_error_events_select_internal" ON client_error_events FOR SELECT USING (
+    auth_is_super_admin()
+);
+CREATE POLICY "client_error_events_manage_internal" ON client_error_events FOR ALL USING (
+    auth_is_super_admin()
+) WITH CHECK (
+    auth_is_super_admin()
+);
+
+GRANT SELECT ON v_recent_client_error_events TO authenticated;
+GRANT SELECT ON v_recent_client_error_events TO service_role;
+
 ALTER TABLE performance_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "performance_requests_select" ON performance_requests FOR SELECT USING (
     auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL
@@ -1751,6 +1823,10 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER on_performance_request_updated
     BEFORE UPDATE ON performance_requests
     FOR EACH ROW EXECUTE FUNCTION handle_performance_requests_updated_at();
+    
+CREATE TRIGGER on_participants_updated
+    BEFORE UPDATE ON participants
+    FOR EACH ROW EXECUTE FUNCTION handle_performance_requests_updated_at();
 
 DROP TRIGGER IF EXISTS trg_reconcile_source_participant_access ON participants;
 CREATE TRIGGER trg_reconcile_source_participant_access
@@ -1793,3 +1869,6 @@ CREATE INDEX IF NOT EXISTS idx_requirement_assignments_status ON requirement_ass
 CREATE INDEX IF NOT EXISTS idx_performance_requests_event_id ON performance_requests(event_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_performance_requests_import_id ON performance_requests(import_run_id);
 CREATE INDEX IF NOT EXISTS idx_performance_requests_status ON performance_requests(request_status, conversion_status);
+CREATE INDEX IF NOT EXISTS idx_client_error_events_created_at ON client_error_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_error_events_feature_area ON client_error_events(feature_area, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_error_events_event_id ON client_error_events(event_id, created_at DESC);

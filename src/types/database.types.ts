@@ -1581,9 +1581,117 @@ export type Database = {
                     },
                 ]
             }
+            client_error_events: {
+                Row: {
+                    correlation_id: string | null
+                    created_at: string
+                    error_context: Json
+                    event_id: string | null
+                    event_role: string | null
+                    feature_area: string
+                    id: string
+                    message: string
+                    organization_id: string | null
+                    org_role: string | null
+                    pwa_version: string | null
+                    reported_by: string | null
+                    route: string | null
+                    severity: string
+                    status: string
+                    support_code: string
+                    user_agent: string | null
+                }
+                Insert: {
+                    correlation_id?: string | null
+                    created_at?: string
+                    error_context?: Json
+                    event_id?: string | null
+                    event_role?: string | null
+                    feature_area: string
+                    id?: string
+                    message: string
+                    organization_id?: string | null
+                    org_role?: string | null
+                    pwa_version?: string | null
+                    reported_by?: string | null
+                    route?: string | null
+                    severity?: string
+                    status?: string
+                    support_code: string
+                    user_agent?: string | null
+                }
+                Update: {
+                    correlation_id?: string | null
+                    created_at?: string
+                    error_context?: Json
+                    event_id?: string | null
+                    event_role?: string | null
+                    feature_area?: string
+                    id?: string
+                    message?: string
+                    organization_id?: string | null
+                    org_role?: string | null
+                    pwa_version?: string | null
+                    reported_by?: string | null
+                    route?: string | null
+                    severity?: string
+                    status?: string
+                    support_code?: string
+                    user_agent?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "client_error_events_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "client_error_events_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "client_error_events_reported_by_fkey"
+                        columns: ["reported_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
         }
         Views: {
-            [_ in never]: never
+            v_recent_client_error_events: {
+                Row: {
+                    correlation_id: string | null
+                    created_at: string | null
+                    error_context: Json | null
+                    event_id: string | null
+                    event_name: string | null
+                    event_role: string | null
+                    feature_area: string | null
+                    id: string | null
+                    message: string | null
+                    organization_id: string | null
+                    organization_name: string | null
+                    org_role: string | null
+                    pwa_version: string | null
+                    reported_by: string | null
+                    reporter_email: string | null
+                    reporter_first_name: string | null
+                    reporter_last_name: string | null
+                    route: string | null
+                    severity: string | null
+                    status: string | null
+                    support_code: string | null
+                    user_agent: string | null
+                }
+                Relationships: []
+            }
         }
         Functions: {
             assign_asset_template_bulk: {

@@ -63,6 +63,7 @@ Working rule:
 ### Support & Admin Hardening
 - [ ] Keep Super Admin internal-only and out of customer workflows.
 - [ ] Add a runbook or internal tooling for super-admin bootstrap and audit.
+- [x] Capture customer-side intake workspace errors with support codes for internal review.
 - [ ] Consider scoped support access or impersonation instead of long-term global super-admin dependence.
 
 ### UI System Cleanup

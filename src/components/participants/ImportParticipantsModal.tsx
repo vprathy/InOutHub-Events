@@ -10,6 +10,9 @@ import { useEventSources, type EventSource } from '@/hooks/useEventSources';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import type { ParticipantImportField, ParticipantImportProfile } from '@/lib/participantImportMapping';
 import { isImportRunStale } from '@/types/intake';
+import { reportClientError } from '@/lib/clientErrorReporting';
+import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
+import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 
 interface ImportParticipantsModalProps {
     eventId: string;
@@ -56,6 +59,7 @@ export function ImportParticipantsModal({
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [uiMode, setUiMode] = useState<'dashboard' | 'add_source_select' | 'link_sheet' | 'upload_spreadsheet' | 'mapping_review'>('dashboard');
     const [errorMessage, setErrorMessage] = useState('');
+    const [reportedSupportCode, setReportedSupportCode] = useState<string | null>(null);
     const [syncStats, setSyncStats] = useState<{ new: number; updated: number; missing: number } | null>(null);
     const [syncGaps, setSyncGaps] = useState<string[]>([]);
     const [mappingSource, setMappingSource] = useState<EventSource | null>(null);
@@ -65,6 +69,8 @@ export function ImportParticipantsModal({
     const [serviceAccountEmail] = useState('inouthub-importer@inouthub-events.iam.gserviceaccount.com');
 
     const { organizationId } = useSelection();
+    const { data: currentEventRole } = useCurrentEventRole(eventId || null);
+    const { data: currentOrgRole } = useCurrentOrgRole(organizationId || null);
     const { sources, addSource, removeSource, updateSourceSyncStatus } = useEventSources(eventId);
     const { mutateAsync: importSpreadsheet } = useImportParticipants(eventId);
     const { mutateAsync: syncSheet } = useSyncGoogleSheet(eventId);
@@ -88,6 +94,7 @@ export function ImportParticipantsModal({
             setStatus('idle');
             setUiMode('dashboard');
             setErrorMessage('');
+            setReportedSupportCode(null);
             setSyncStats(null);
             setSyncGaps([]);
             setMappingSource(null);
@@ -118,6 +125,24 @@ export function ImportParticipantsModal({
         mappingUpdatedAt: new Date().toISOString(),
     });
 
+    const recordImportError = async (message: string, error: unknown, context?: Record<string, unknown>) => {
+        const result = await reportClientError({
+            featureArea: 'import_data',
+            message,
+            error,
+            organizationId: organizationId || null,
+            eventId,
+            orgRole: currentOrgRole || null,
+            eventRole: currentEventRole || null,
+            context: {
+                intakeTarget,
+                uiMode,
+                ...context,
+            },
+        });
+        setReportedSupportCode(result.supportCode);
+    };
+
     const openMappingReview = (source: EventSource) => {
         setMappingSource(source);
         setDraftMapping(source.config?.inferredMapping || {});
@@ -147,6 +172,7 @@ export function ImportParticipantsModal({
             return;
         }
         setStatus('loading');
+        setReportedSupportCode(null);
         setSyncGaps([]);
         try {
             const newSource = await addSource({
@@ -177,12 +203,18 @@ export function ImportParticipantsModal({
         } catch (err: any) {
             setStatus('error');
             setErrorMessage(err.message || 'Failed to link Google Sheet');
+            await recordImportError(err.message || 'Failed to link Google Sheet', err, {
+                sourceName,
+                sourceType: 'google_sheet',
+                spreadsheetId: parsedSheetId,
+            });
         }
     };
 
     const handleUploadSpreadsheet = async () => {
         if (!file || !sourceName) return;
         setStatus('loading');
+        setReportedSupportCode(null);
         setSyncGaps([]);
         try {
             const newSource = await addSource({
@@ -215,12 +247,18 @@ export function ImportParticipantsModal({
         } catch (err: any) {
             setStatus('error');
             setErrorMessage(err.message || 'Failed to upload spreadsheet');
+            await recordImportError(err.message || 'Failed to upload spreadsheet', err, {
+                sourceName,
+                sourceType: 'spreadsheet_upload',
+                fileName: file.name,
+            });
         }
     };
 
     const handleSyncAll = async () => {
         if (sources.length === 0) return;
         setStatus('loading');
+        setReportedSupportCode(null);
         setSyncGaps([]);
         const combinedStats = { new: 0, updated: 0, missing: 0 };
 
@@ -252,11 +290,16 @@ export function ImportParticipantsModal({
         } catch (err: any) {
             setStatus('error');
             setErrorMessage(err.message || 'Global sync failed');
+            await recordImportError(err.message || 'Global sync failed', err, {
+                sourceCount: sources.length,
+                syncMode: 'all_sources',
+            });
         }
     };
 
     const handleSyncSingleSource = async (source: EventSource) => {
         setStatus('loading');
+        setReportedSupportCode(null);
         setSyncGaps([]);
         try {
             if (source.type === 'google_sheet' && source.config.sheetId) {
@@ -278,6 +321,12 @@ export function ImportParticipantsModal({
         } catch (err: any) {
             setStatus('error');
             setErrorMessage(err.message || `Failed to sync ${source.name}`);
+            await recordImportError(err.message || `Failed to sync ${source.name}`, err, {
+                sourceId: source.id,
+                sourceName: source.name,
+                sourceType: source.type,
+                syncMode: 'single_source',
+            });
         }
     };
 
@@ -337,6 +386,11 @@ export function ImportParticipantsModal({
                                 <div className="min-w-0">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">Import Issue</p>
                                     <p className="mt-1 text-sm font-medium text-red-700">{errorMessage || 'The import did not complete. Review the source setup and try again.'}</p>
+                                    {reportedSupportCode ? (
+                                        <p className="mt-2 text-xs font-semibold text-red-700">
+                                            Reference code: <span className="font-black tracking-[0.08em]">{reportedSupportCode}</span>
+                                        </p>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
