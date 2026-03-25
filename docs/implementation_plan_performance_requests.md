@@ -78,6 +78,9 @@ This table stages intake data from spreadsheets, forms, or Google Sheets.
 3. **Audit Integration:** Use `intake_audit_events` for status transitions.
 4. **Frontend:** Build review / approve / reject / convert flows only after runtime types and read models are aligned.
 
+Next hardening plan:
+- `/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md`
+
 ## 4. Guardrails (Physical Truth Check)
 - Maintain `Tarangini` org's Google Sheet compatibility.
 - No direct writes to `acts` during intake.

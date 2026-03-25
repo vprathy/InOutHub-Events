@@ -278,6 +278,9 @@ The following items are still open and should remain on the roadmap:
 
 This is still the biggest product gap for generalizable intake.
 
+Detailed implementation plan:
+- `/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md`
+
 Needed behavior:
 - show what the system detected
 - show what fields were actually used
