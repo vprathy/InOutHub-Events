@@ -252,3 +252,119 @@ Priorities:
 3. Separate upstream request model design
 4. Participant-side requirement bridge
 5. Performance-side requirement-backed review consolidation
+
+## 2026-03-25 Reconciliation
+
+This section records what has now been implemented versus what remains open, so this plan can continue to function as product roadmap truth instead of a stale intent document.
+
+### Covered Now
+
+The following parts of this plan are now materially implemented:
+
+- `Request-to-Approval` exists as a distinct workspace for external performance intake and review.
+- `Approval-to-Operations` remains a separate downstream path through performance creation and the existing operator spine.
+- request status and conversion status are modeled separately instead of being collapsed into one generic status.
+- approved requests convert into real operational performance records rather than a parallel guest/request object universe.
+- the review workspace remains separate from the main operator dashboard, preserving the dashboard as an operations-first surface.
+- Google Sheet sync and spreadsheet upload now go through one backend-led intake path, reducing split-brain import logic.
+- request/contact PII and intake lineage access are now hardened for admin-scoped visibility.
+- request queue filtering, search, count stats, and large-list behavior are now substantially more scalable than the original client-heavy approach.
+
+### Still Open
+
+The following items are still open and should remain on the roadmap:
+
+#### 1. Mapping Review / Confirm / Lock
+
+This is still the biggest product gap for generalizable intake.
+
+Needed behavior:
+- show what the system detected
+- show what fields were actually used
+- show what columns were ignored or preserved only in raw payload
+- surface ambiguities, warnings, and duplicate-collapse behavior
+- require operator confirmation for new or materially changed source shapes
+- save the confirmed mapping to the source so future syncs are faster and more trustworthy
+
+Why it belongs next:
+- we proved the intake backbone against a real customer sheet
+- we have not yet proved it is broadly trustworthy across many tenant sheet shapes
+- this is the right bridge between a brittle template-only importer and an opaque “AI guessed it” importer
+
+Roadmap placement:
+- next product hardening batch before broad new-tenant onboarding
+
+#### 2. Participant-Side Requirement Bridge
+
+Post-approval intake still does not fully converge into participant-level readiness work.
+
+Needed behavior:
+- once approved requests are converted and roster data exists, participant-side operational obligations should connect into the requirements/readiness model
+- this should not happen pre-approval
+
+Roadmap placement:
+- after mapping review/lock
+- before calling performance-intake onboarding fully complete
+
+#### 3. Performance-Side Requirement-Backed Consolidation
+
+Conversion creates the operational shell, but it does not yet seed readiness and requirement work as intentionally as it should.
+
+Needed behavior:
+- approved and converted requests should bootstrap the right operational requirement posture
+- imported fields like music/roster/duration should influence the downstream readiness picture where appropriate
+
+Roadmap placement:
+- same phase as the participant-side requirement bridge
+
+#### 4. Manual Emergency Intake
+
+The plan calls this out correctly, but it is not yet a deliberate shipped workflow.
+
+Needed behavior:
+- fast operator/admin quick-add
+- minimal friction during live-event exception handling
+- guaranteed convergence into the same operational model after creation
+
+Roadmap placement:
+- after the external request path is trusted
+- before expanding live-event day-of-show workflows more broadly
+
+#### 5. Performance Deletion / Post-Conversion Rollback Rules
+
+We now have `Move Back to Pending` for approved, not-yet-converted requests in the roadmap and repo.
+What is still open is the post-conversion side:
+
+- what happens if a converted performance is deleted later
+- whether the originating request should reopen, relink, or remain historically converted
+- which roles can perform destructive deletion
+- what audit trail and safeguards are required
+
+Roadmap placement:
+- separate from approval reversal
+- treat as a distinct lifecycle-governance problem, not a simple undo button
+
+### New Recommended Build Order
+
+Based on what is already shipped, the roadmap should now read:
+
+1. Apply any still-pending live Supabase migrations for the shipped request workflow improvements.
+2. Build mapping review / confirm / lock for intake sources.
+3. Validate one additional tenant/source shape through that confirmation flow.
+4. Add participant-side requirement bridge for post-approval operational work.
+5. Add performance-side requirement-backed consolidation after conversion.
+6. Define and then build manual emergency intake.
+7. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
+
+### Pivot Rule For New-Tenant Onboarding
+
+We can treat performance intake as stable enough to shift primary effort toward broader new-tenant onboarding once all of the following are true:
+
+- Google Sheet source sync works through the shared backend path
+- spreadsheet upload works through the same backend path
+- request review, approval, rejection, and conversion work cleanly
+- request/contact PII and intake lineage are correctly admin-scoped
+- one additional real tenant/source shape succeeds without one-off alias surgery
+- mapping review / confirm / lock exists so operators can trust what the importer understood
+
+Until then, new-tenant onboarding should be treated as partially unblocked but still dependent on intake hardening.
