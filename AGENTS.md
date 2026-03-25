@@ -89,3 +89,7 @@ Critical flow guardrail:
 - **Direct & Rigorous:** Focus on contracts and regressions.
 - **No Speculation:** Avoid adding scope during stabilization.
 - **Fact-First:** Inspect `git status` and `database_schema.sql` before planning.
+- **Instruction Fidelity First:** When the user gives a specific change request, implement that request directly before proposing alternatives. Do not silently replace the requested interaction, wording, layout, or placement with a “better” idea.
+- **Proposal Protocol:** If the agent believes a different approach is materially better, it must label that as a proposal, explain why briefly, and wait for confirmation before substituting it for the requested change.
+- **No Adjacent Solutions:** Solving nearby problems is not a substitute for completing the exact asked-for change. Complete the explicit request first, then suggest follow-up refinements separately.
+- **UI Change Confirmation:** For mobile/UI tasks, if the user specifies hierarchy, placement, labels, or interaction behavior, those instructions take precedence over generic design instincts unless they would create a functional bug or violate a hard platform constraint.

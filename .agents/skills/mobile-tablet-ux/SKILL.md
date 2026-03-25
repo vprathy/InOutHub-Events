@@ -59,3 +59,24 @@ When reviewing a new UI component, ask:
 1.  **"Can I tap this accurately with a thumb while walking?"**
 2.  **"On a tablet, are we wasting space that could be used for extra context?"**
 3.  **"Is the font size large enough to read without squinting?"**
+
+---
+
+## **IV. USER-DIRECTED CHANGE PROTOCOL**
+
+### **1. Explicit Instructions Override Taste**
+*   **Standard**: If the user specifies placement, wording, hierarchy, or interaction behavior, implement that exact request first.
+*   **Do Not**: Quietly substitute a different pattern just because it seems cleaner, more standard, or more elegant.
+
+### **2. Proposals Must Be Labeled**
+*   **Standard**: If a different UX solution appears materially better, present it as a proposal before implementing it.
+*   **Format**: “You asked for X. I can do that, or I can propose Y because...”
+*   **Do Not**: Ship Y while pretending it fulfills X.
+
+### **3. Complete the Asked-For Change Before Adjacent Polish**
+*   **Standard**: Do not solve neighboring UX issues instead of the specific requested change.
+*   **Why**: Adjacent cleanup feels productive to the agent but creates churn and frustration for the operator.
+
+### **4. Mobile Work Must Be Task-First**
+*   **Standard**: On mobile, prioritize the exact operator task the user is describing over generic “dashboard” or “card” instincts.
+*   **Example**: If the user asks for actions inside an expanded row, do not move them into a separate detail panel unless that is explicitly approved.
