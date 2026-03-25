@@ -277,3 +277,47 @@ This can begin as an internal admin page or a Supabase-backed support workspace.
 - the tool proposes a likely cause and next action for common intake failures
 - the tool clearly marks low-confidence cases for engineering review
 - no customer-facing screen exposes raw backend jargon while still giving support a usable reference code
+
+## Follow-up Workflow Guardrails
+
+### Approval Reversal
+Add a controlled pre-conversion reversal path for performance requests.
+
+Required behavior:
+- available only when a request is `approved`
+- hidden once a request is `converted`
+- restricted to `EventAdmin`
+- explicit operator confirmation required
+- write a durable audit event with actor, timestamp, and optional note
+
+Expected result:
+- move the request back to `pending`
+- clear `approved_at` and `approved_by`
+- preserve imported source data, source identity, import lineage, and contact fields
+
+Do not:
+- treat this as a destructive undo system
+- allow it to delete or alter a converted performance
+- rewrite imported request payload fields
+
+Preferred operator label:
+- `Move Back to Pending`
+
+### Performance Deletion / Post-Conversion Rollback
+There is currently no visible delete-performance path in the app. Keep this explicitly tracked as a separate product decision from approval reversal.
+
+Why this matters:
+- if a converted performance ever needs to be removed, the system needs a defined rule for what happens to the originating request
+- post-conversion rollback is materially different from pre-conversion approval reversal
+
+Questions to resolve before implementation:
+- should `EventAdmin` be able to delete a performance at all in v1?
+- if a converted performance is deleted, should the originating request:
+  - stay `converted`
+  - move back to `approved`
+  - move back to `pending`
+- should deletion be blocked when the act already has lineup state, console state, or uploaded assets?
+
+Recommendation for now:
+- implement approval reversal first
+- defer performance deletion / rollback until the act lifecycle rules are defined clearly enough to avoid orphaned or misleading request state

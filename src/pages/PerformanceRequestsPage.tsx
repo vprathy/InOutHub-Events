@@ -96,6 +96,7 @@ function RequestDetailPanel({
     eventName,
     onApprove,
     onReject,
+    onMoveBackToPending,
     onConvert,
     onOpenPerformance,
     timeline,
@@ -105,6 +106,7 @@ function RequestDetailPanel({
     eventName: string | null;
     onApprove: () => void;
     onReject: () => void;
+    onMoveBackToPending: () => void;
     onConvert: () => void;
     onOpenPerformance: () => void;
     timeline: ReturnType<typeof usePerformanceRequestTimeline>;
@@ -173,7 +175,7 @@ function RequestDetailPanel({
                         {request.conversionStatus === 'converted'
                             ? 'This request is already live as a performance.'
                             : request.requestStatus === 'approved'
-                                ? 'Convert this approved request into a performance.'
+                                ? 'Convert this approved request into a performance, or move it back to pending if approval was premature.'
                                 : 'Review the request and decide whether to approve or reject it.'}
                     </p>
                 </div>
@@ -198,6 +200,16 @@ function RequestDetailPanel({
                         >
                             <XCircle className="mr-1.5 h-4 w-4" />
                             Reject
+                        </Button>
+                    ) : null}
+                    {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
+                        <Button
+                            variant="outline"
+                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            onClick={onMoveBackToPending}
+                            disabled={isWorking}
+                        >
+                            Move Back to Pending
                         </Button>
                     ) : null}
                     {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
@@ -542,7 +554,7 @@ export default function PerformanceRequestsPage() {
         );
     }
 
-    const handleStatusAction = async (action: 'review' | 'approve' | 'reject') => {
+    const handleStatusAction = async (action: 'review' | 'approve' | 'reject' | 'move_back_to_pending') => {
         await setStatus.mutateAsync({
             action,
             note:
@@ -550,8 +562,17 @@ export default function PerformanceRequestsPage() {
                     ? 'Marked reviewed in Performance Requests workspace.'
                     : action === 'approve'
                         ? 'Approved for conversion into an operational performance.'
-                        : 'Rejected in Performance Requests workspace.',
+                        : action === 'move_back_to_pending'
+                            ? 'Moved back to pending before conversion.'
+                            : 'Rejected in Performance Requests workspace.',
         });
+    };
+
+    const handleMoveBackToPending = async () => {
+        if (!selectedRequest) return;
+        const confirmed = window.confirm('Move this request back to Pending? This will clear the approval state but keep the imported request data.');
+        if (!confirmed) return;
+        await handleStatusAction('move_back_to_pending');
     };
 
     const handleConvert = async () => {
@@ -891,6 +912,16 @@ export default function PerformanceRequestsPage() {
                                                             Reject
                                                         </Button>
                                                     ) : null}
+                                                    {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
+                                                        <Button
+                                                            variant="outline"
+                                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                            onClick={() => void handleMoveBackToPending()}
+                                                            disabled={setStatus.isPending || convertRequest.isPending}
+                                                        >
+                                                            Move Back to Pending
+                                                        </Button>
+                                                    ) : null}
                                                     <Button
                                                         variant="ghost"
                                                         className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -931,9 +962,10 @@ export default function PerformanceRequestsPage() {
                         <div ref={detailRef}>
                             <RequestDetailPanel
                                         request={selectedRequest}
-                                        eventName={eventName || null}
+                                eventName={eventName || null}
                                 onApprove={() => void handleStatusAction('approve')}
                                 onReject={() => void handleStatusAction('reject')}
+                                onMoveBackToPending={() => void handleMoveBackToPending()}
                                 onConvert={() => void handleConvert()}
                                 onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
                                 timeline={timeline}
@@ -957,6 +989,7 @@ export default function PerformanceRequestsPage() {
                         eventName={eventName || null}
                         onApprove={() => void handleStatusAction('approve')}
                         onReject={() => void handleStatusAction('reject')}
+                        onMoveBackToPending={() => void handleMoveBackToPending()}
                         onConvert={() => void handleConvert()}
                         onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
                         timeline={timeline}

@@ -327,7 +327,7 @@ export function useSetPerformanceRequestStatus(eventId: string | null, requestId
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ action, note }: { action: 'review' | 'approve' | 'reject'; note?: string | null }) => {
+        mutationFn: async ({ action, note }: { action: 'review' | 'approve' | 'reject' | 'move_back_to_pending'; note?: string | null }) => {
             const { data, error } = await (supabase as any).rpc('set_performance_request_status', {
                 p_request_id: requestId,
                 p_action: action,

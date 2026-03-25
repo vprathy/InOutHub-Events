@@ -914,11 +914,22 @@ BEGIN
         WHEN p_action IN ('review', 'reviewed') THEN 'reviewed'
         WHEN p_action = 'approve' THEN 'approved'
         WHEN p_action = 'reject' THEN 'rejected'
+        WHEN p_action IN ('reopen', 'move_back_to_pending', 'pending') THEN 'pending'
         ELSE NULL
     END;
 
     IF v_next_status IS NULL THEN
         RAISE EXCEPTION 'Unsupported performance request action: %', p_action;
+    END IF;
+
+    IF p_action IN ('reopen', 'move_back_to_pending', 'pending') THEN
+        IF v_request.request_status <> 'approved' THEN
+            RAISE EXCEPTION 'Only approved requests can be moved back to pending';
+        END IF;
+
+        IF v_request.conversion_status = 'converted' OR v_request.converted_act_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Converted requests cannot be moved back to pending';
+        END IF;
     END IF;
 
     UPDATE performance_requests
@@ -935,11 +946,13 @@ BEGIN
         approved_at = CASE
             WHEN v_next_status = 'approved' THEN NOW()
             WHEN v_next_status = 'rejected' THEN NULL
+            WHEN v_next_status = 'pending' THEN NULL
             ELSE approved_at
         END,
         approved_by = CASE
             WHEN v_next_status = 'approved' THEN auth.uid()
             WHEN v_next_status = 'rejected' THEN NULL
+            WHEN v_next_status = 'pending' THEN NULL
             ELSE approved_by
         END
     WHERE id = p_request_id
