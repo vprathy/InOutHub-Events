@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, Database, FileSpreadsheet, Link2, Loader2, Plus, Sparkles } from 'lucide-react';
+import { ChevronDown, Database, FileSpreadsheet, Link2, Loader2, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
 import { useSelection } from '@/context/SelectionContext';
@@ -33,7 +33,6 @@ export default function ImportDataPage() {
         return { total, withMappingGaps };
     }, [sources]);
     const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';
-    const isImportFlowOpen = searchParams.get('action') === 'import';
 
     if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
         return (
@@ -141,22 +140,6 @@ export default function ImportDataPage() {
                     />
                 )}
             </div>
-
-            {!importsLocked && !isImportFlowOpen ? (
-                <button
-                    type="button"
-                    onClick={() => {
-                        const nextParams = new URLSearchParams(searchParams);
-                        nextParams.set('action', 'import');
-                        setSearchParams(nextParams, { replace: true });
-                    }}
-                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
-                    aria-label="Add import"
-                >
-                    <Plus className="h-5 w-5 stroke-[2.75]" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add Import</span>
-                </button>
-            ) : null}
         </div>
     );
 }

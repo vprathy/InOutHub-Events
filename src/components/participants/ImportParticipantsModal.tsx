@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useImportParticipants, useSyncGoogleSheet, useImportRuns } from '@/hooks/useParticipants';
 import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, ArrowLeft, SlidersHorizontal, Clock } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
@@ -37,6 +37,63 @@ const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper
     { key: 'notes', label: 'Notes', helper: 'Freeform notes to preserve during import' },
 ];
 
+const IMPORT_PROGRESS_STEPS = [
+    'Connecting to source',
+    'Reading source rows',
+    'Matching columns',
+    'Saving intake records',
+    'Finalizing sync',
+];
+
+const IMPORT_FIELD_LABELS: Record<string, string> = {
+    firstName: 'First Name',
+    lastName: 'Last Name',
+    fullName: 'Full Name',
+    parentFirstName: 'Parent First Name',
+    parentLastName: 'Parent Last Name',
+    guardianName: 'Guardian Name',
+    phone: 'Phone',
+    email: 'Email',
+    age: 'Age',
+    notes: 'Notes',
+    studentId: 'Student ID',
+    submissionId: 'Submission ID',
+    products: 'Products / Group',
+    specialRequest: 'Special Request',
+    title: 'Request Title',
+    leadName: 'Lead Name',
+    leadEmail: 'Lead Email',
+    leadPhone: 'Lead Phone',
+    durationMinutes: 'Duration',
+    musicSupplied: 'Music Supplied',
+    rosterSupplied: 'Roster Supplied',
+    sourceAnchor: 'Source Identity',
+};
+
+type SyncSummary = {
+    sourceName: string;
+    intakeTarget: 'participants' | 'performance_requests';
+    stats: { new: number; updated: number; missing: number; total?: number };
+    probableTarget?: 'participants' | 'performance_requests' | 'unknown';
+    confidence?: 'high' | 'medium' | 'low';
+    gaps: string[];
+    headers: string[];
+    mapping: Record<string, string | undefined>;
+};
+
+function formatIntakeTargetLabel(target: 'participants' | 'performance_requests') {
+    return target === 'performance_requests' ? 'Performance Requests' : 'Participants';
+}
+
+function summarizeMappedFields(mapping: Record<string, string | undefined>) {
+    return Object.entries(mapping)
+        .filter(([, header]) => !!header)
+        .map(([field, header]) => ({
+            label: IMPORT_FIELD_LABELS[field] || field,
+            header: header as string,
+        }));
+}
+
 export function ImportParticipantsModal({
     eventId,
     isOpen,
@@ -62,11 +119,14 @@ export function ImportParticipantsModal({
     const [reportedSupportCode, setReportedSupportCode] = useState<string | null>(null);
     const [syncStats, setSyncStats] = useState<{ new: number; updated: number; missing: number } | null>(null);
     const [syncGaps, setSyncGaps] = useState<string[]>([]);
+    const [lastSyncSummary, setLastSyncSummary] = useState<SyncSummary | null>(null);
     const [mappingSource, setMappingSource] = useState<EventSource | null>(null);
     const [draftMapping, setDraftMapping] = useState<ParticipantImportProfile>({});
     const [showTechnicalSetup, setShowTechnicalSetup] = useState(false);
     const [intakeTarget, setIntakeTarget] = useState<'participants' | 'performance_requests'>('participants');
     const [serviceAccountEmail] = useState('inouthub-importer@inouthub-events.iam.gserviceaccount.com');
+    const [currentSyncContext, setCurrentSyncContext] = useState<{ sourceName: string; intakeTarget: 'participants' | 'performance_requests' } | null>(null);
+    const [loadingStepIndex, setLoadingStepIndex] = useState(0);
 
     const { organizationId } = useSelection();
     const { data: currentEventRole } = useCurrentEventRole(eventId || null);
@@ -97,10 +157,13 @@ export function ImportParticipantsModal({
             setReportedSupportCode(null);
             setSyncStats(null);
             setSyncGaps([]);
+            setLastSyncSummary(null);
             setMappingSource(null);
             setDraftMapping({});
             setShowTechnicalSetup(false);
             setIntakeTarget('participants');
+            setCurrentSyncContext(null);
+            setLoadingStepIndex(0);
         }
     }, [isOpen]);
 
@@ -115,6 +178,16 @@ export function ImportParticipantsModal({
     const participantSources = sources.filter((source) => (source.config.intakeTarget || 'participants') === 'participants');
     const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
     const resolvedSpreadsheetId = extractSheetId(urlInput || spreadsheetId);
+    const latestRunBySource = useMemo(() => {
+        const map = new Map<string, any>();
+        for (const run of importRuns || []) {
+            if (!run.event_source_id) continue;
+            if (!map.has(run.event_source_id)) {
+                map.set(run.event_source_id, run);
+            }
+        }
+        return map;
+    }, [importRuns]);
 
     const buildSourceConfig = (source: EventSource | { config?: EventSource['config'] }, result: { mapping?: Record<string, string | undefined>; gaps?: string[]; headers?: string[] }) => ({
         ...(source.config || {}),
@@ -142,6 +215,44 @@ export function ImportParticipantsModal({
         });
         setReportedSupportCode(result.supportCode);
     };
+
+    const buildSyncSummary = (
+        sourceNameValue: string,
+        intakeTargetValue: 'participants' | 'performance_requests',
+        result: {
+            stats?: { new: number; updated: number; missing: number; total?: number };
+            mapping?: Record<string, string | undefined>;
+            gaps?: string[];
+            headers?: string[];
+            probableTarget?: 'participants' | 'performance_requests' | 'unknown';
+            confidence?: 'high' | 'medium' | 'low';
+        }
+    ): SyncSummary => ({
+        sourceName: sourceNameValue,
+        intakeTarget: intakeTargetValue,
+        stats: result.stats || { new: 0, updated: 0, missing: 0 },
+        probableTarget: result.probableTarget,
+        confidence: result.confidence,
+        gaps: result.gaps || [],
+        headers: result.headers || [],
+        mapping: result.mapping || {},
+    });
+
+    useEffect(() => {
+        if (status !== 'loading') {
+            setLoadingStepIndex(0);
+            if (status !== 'success') {
+                setCurrentSyncContext(null);
+            }
+            return;
+        }
+
+        const interval = window.setInterval(() => {
+            setLoadingStepIndex((current) => (current + 1) % IMPORT_PROGRESS_STEPS.length);
+        }, 1400);
+
+        return () => window.clearInterval(interval);
+    }, [status]);
 
     const openMappingReview = (source: EventSource) => {
         setMappingSource(source);
@@ -172,6 +283,7 @@ export function ImportParticipantsModal({
             return;
         }
         setStatus('loading');
+        setCurrentSyncContext({ sourceName, intakeTarget });
         setReportedSupportCode(null);
         setSyncGaps([]);
         try {
@@ -195,6 +307,7 @@ export function ImportParticipantsModal({
 
             setSyncStats(result.stats);
             setSyncGaps(result.gaps || []);
+            setLastSyncSummary(buildSyncSummary(sourceName, intakeTarget, result));
             setStatus('success');
             setTimeout(() => {
                 setUiMode('dashboard');
@@ -214,6 +327,7 @@ export function ImportParticipantsModal({
     const handleUploadSpreadsheet = async () => {
         if (!file || !sourceName) return;
         setStatus('loading');
+        setCurrentSyncContext({ sourceName, intakeTarget });
         setReportedSupportCode(null);
         setSyncGaps([]);
         try {
@@ -238,6 +352,7 @@ export function ImportParticipantsModal({
 
             setSyncStats(result.stats || null);
             setSyncGaps(result.gaps || []);
+            setLastSyncSummary(buildSyncSummary(sourceName, intakeTarget, result));
             setStatus('success');
             setTimeout(() => {
                 setUiMode('dashboard');
@@ -258,6 +373,7 @@ export function ImportParticipantsModal({
     const handleSyncAll = async () => {
         if (sources.length === 0) return;
         setStatus('loading');
+        setCurrentSyncContext({ sourceName: 'All Imports', intakeTarget: 'participants' });
         setReportedSupportCode(null);
         setSyncGaps([]);
         const combinedStats = { new: 0, updated: 0, missing: 0 };
@@ -285,6 +401,14 @@ export function ImportParticipantsModal({
             }
 
             setSyncStats(combinedStats);
+            setLastSyncSummary({
+                sourceName: 'All Imports',
+                intakeTarget: 'participants',
+                stats: combinedStats,
+                gaps: syncGaps,
+                headers: [],
+                mapping: {},
+            });
             setStatus('success');
             setTimeout(() => setStatus('idle'), 2000);
         } catch (err: any) {
@@ -299,6 +423,8 @@ export function ImportParticipantsModal({
 
     const handleSyncSingleSource = async (source: EventSource) => {
         setStatus('loading');
+        const sourceTarget = source.config.intakeTarget || 'participants';
+        setCurrentSyncContext({ sourceName: source.name, intakeTarget: sourceTarget });
         setReportedSupportCode(null);
         setSyncGaps([]);
         try {
@@ -306,7 +432,7 @@ export function ImportParticipantsModal({
                 const result = await syncSheet({
                     sheetId: source.config.sheetId,
                     savedMapping: source.config.inferredMapping,
-                    intakeTarget: source.config.intakeTarget || 'participants',
+                    intakeTarget: sourceTarget,
                 });
                 await updateSourceSyncStatus({
                     sourceId: source.id,
@@ -315,6 +441,7 @@ export function ImportParticipantsModal({
                 });
                 setSyncStats(result.stats);
                 setSyncGaps(result.gaps || []);
+                setLastSyncSummary(buildSyncSummary(source.name, sourceTarget, result));
             }
             setStatus('success');
             setTimeout(() => setStatus('idle'), 1500);
@@ -417,6 +544,45 @@ export function ImportParticipantsModal({
                                     </div>
                                 </div>
                             )}
+                            {lastSyncSummary ? (
+                                <div className="w-full rounded-2xl border border-border/60 bg-background/80 p-4 text-left">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Import Understanding</p>
+                                    <p className="mt-1 text-sm font-bold text-foreground">
+                                        {lastSyncSummary.sourceName} was imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)}.
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Detected target: {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence: {lastSyncSummary.confidence || 'n/a'}
+                                    </p>
+                                    {(() => {
+                                        const mappedFields = summarizeMappedFields(lastSyncSummary.mapping);
+                                        const usedHeaderCount = new Set(mappedFields.map((item) => item.header)).size;
+                                        const ignoredHeaderCount = Math.max(lastSyncSummary.headers.length - usedHeaderCount, 0);
+                                        return (
+                                            <>
+                                                {mappedFields.length > 0 ? (
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {mappedFields.slice(0, 5).map((item) => (
+                                                            <span key={`${item.label}-${item.header}`} className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-foreground/80">
+                                                                {item.label}: {item.header}
+                                                            </span>
+                                                        ))}
+                                                        {mappedFields.length > 5 ? (
+                                                            <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-muted-foreground">
+                                                                +{mappedFields.length - 5} more
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
+                                                {lastSyncSummary.headers.length > 0 ? (
+                                                    <p className="mt-3 text-xs text-muted-foreground">
+                                                        Used {usedHeaderCount} of {lastSyncSummary.headers.length} columns. {ignoredHeaderCount} extra columns were preserved in the raw source payload but not used for import decisions.
+                                                    </p>
+                                                ) : null}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            ) : null}
                             {syncGaps.length > 0 && (
                                 <div className="w-full rounded-2xl border border-amber-400/30 bg-amber-50 px-4 py-3 text-left dark:bg-amber-950/20">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Mapping Review</p>
@@ -434,10 +600,32 @@ export function ImportParticipantsModal({
                                 <Loader2 className="w-16 h-16 text-teal-500 animate-spin" />
                                 <RefreshCw className="w-8 h-8 text-teal-500/50 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                             </div>
-                            <p className="text-lg font-bold text-foreground animate-pulse">Synchronizing...</p>
+                            <div className="space-y-2 text-center">
+                                <p className="text-lg font-bold text-foreground animate-pulse">Synchronizing...</p>
+                                <p className="text-sm font-semibold text-foreground/80">
+                                    {currentSyncContext?.sourceName || 'Import source'} • {formatIntakeTargetLabel(currentSyncContext?.intakeTarget || intakeTarget)}
+                                </p>
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                                    Step {loadingStepIndex + 1} of {IMPORT_PROGRESS_STEPS.length} • {IMPORT_PROGRESS_STEPS[loadingStepIndex]}
+                                </p>
+                                <p className="mx-auto max-w-[18rem] text-xs text-muted-foreground">
+                                    Wide Google Sheets are supported. Column count alone does not make the sync heavy; we are reading, validating, and saving the rows now.
+                                </p>
+                            </div>
                         </div>
                     ) : uiMode === 'dashboard' ? (
                         <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-1">
+                            {lastSyncSummary ? (
+                                <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 p-4 text-left">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Latest Sync Summary</p>
+                                    <p className="mt-1 text-sm font-bold text-foreground">
+                                        {lastSyncSummary.sourceName}: {lastSyncSummary.stats.new} new, {lastSyncSummary.stats.updated} updated, {lastSyncSummary.stats.missing} missing.
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)} • Detected target {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence {lastSyncSummary.confidence || 'n/a'}
+                                    </p>
+                                </div>
+                            ) : null}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Participant Imports</h3>
@@ -466,6 +654,15 @@ export function ImportParticipantsModal({
                                                     <span>•</span>
                                                     <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
                                                 </div>
+                                                {latestRunBySource.get(source.id) ? (
+                                                    <p className="mt-1 text-[10px] text-muted-foreground">
+                                                        {latestRunBySource.get(source.id).status === 'succeeded'
+                                                            ? `${latestRunBySource.get(source.id).stats?.new || 0} new, ${latestRunBySource.get(source.id).stats?.updated || 0} updated on latest sync`
+                                                            : latestRunBySource.get(source.id).status === 'running'
+                                                                ? 'Sync in progress'
+                                                                : latestRunBySource.get(source.id).error_message || 'Latest sync needs attention'}
+                                                    </p>
+                                                ) : null}
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {source.type === 'google_sheet' ? (
@@ -514,6 +711,15 @@ export function ImportParticipantsModal({
                                                     <span>•</span>
                                                     <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
                                                 </div>
+                                                {latestRunBySource.get(source.id) ? (
+                                                    <p className="mt-1 text-[10px] text-muted-foreground">
+                                                        {latestRunBySource.get(source.id).status === 'succeeded'
+                                                            ? `${latestRunBySource.get(source.id).stats?.new || 0} new, ${latestRunBySource.get(source.id).stats?.updated || 0} updated on latest sync`
+                                                            : latestRunBySource.get(source.id).status === 'running'
+                                                                ? 'Sync in progress'
+                                                                : latestRunBySource.get(source.id).error_message || 'Latest sync needs attention'}
+                                                    </p>
+                                                ) : null}
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {source.type === 'google_sheet' ? (

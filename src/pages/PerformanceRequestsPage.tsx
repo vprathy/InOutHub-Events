@@ -80,6 +80,8 @@ export default function PerformanceRequestsPage() {
     const [actionSupportCode, setActionSupportCode] = useState<string | null>(null);
     const lastLoadErrorRef = useRef<string | null>(null);
     const lastActionErrorRef = useRef<string | null>(null);
+    const detailRef = useRef<HTMLDivElement | null>(null);
+    const pendingScrollRequestRef = useRef<string | null>(null);
 
     const canOpenAdmin =
         isSuperAdmin
@@ -102,6 +104,20 @@ export default function PerformanceRequestsPage() {
             setSelectedRequestId(requests[0]?.id || null);
         }
     }, [requests, selectedRequestId]);
+
+    useEffect(() => {
+        if (!selectedRequest?.id || pendingScrollRequestRef.current !== selectedRequest.id) return;
+        if (!detailRef.current) return;
+        if (window.innerWidth >= 1280) {
+            pendingScrollRequestRef.current = null;
+            return;
+        }
+
+        window.setTimeout(() => {
+            detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            pendingScrollRequestRef.current = null;
+        }, 120);
+    }, [selectedRequest?.id]);
 
     const timeline = usePerformanceRequestTimeline(selectedRequest?.id || null);
     const setStatus = useSetPerformanceRequestStatus(eventId || null, selectedRequest?.id || null);
@@ -386,6 +402,7 @@ export default function PerformanceRequestsPage() {
                                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</p>
                                 <p className="mt-1 text-sm font-black text-foreground">Request Queue</p>
                                 <p className="mt-1 text-sm text-muted-foreground">{requests.length} imported request{requests.length === 1 ? '' : 's'}</p>
+                                <p className="mt-1 text-xs text-muted-foreground xl:hidden">Tap a request to open its detail panel below.</p>
                             </div>
                             <Button
                                 variant="ghost"
@@ -417,7 +434,10 @@ export default function PerformanceRequestsPage() {
                                                             : 'warning'
                                             }
                                             detail={request.title}
-                                            onClick={() => setSelectedRequestId(request.id)}
+                                            onClick={() => {
+                                                pendingScrollRequestRef.current = request.id;
+                                                setSelectedRequestId(request.id);
+                                            }}
                                             className={isSelected ? 'border-primary/30 bg-primary/5' : ''}
                                         />
                                         <div className="flex flex-wrap items-center gap-2 px-1">
@@ -441,11 +461,12 @@ export default function PerformanceRequestsPage() {
                     </div>
 
                     {selectedRequest ? (
-                        <div className="space-y-4">
+                        <div ref={detailRef} className="space-y-4">
                             <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</p>
+                                        <p className="mt-1 text-sm font-black text-foreground xl:hidden">Selected Request</p>
                                         <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">{selectedRequest.title}</h2>
                                         <p className="mt-1 text-sm text-muted-foreground">
                                             Imported {formatDateTime(selectedRequest.createdAt)}{selectedRequest.sourceAnchor ? ` • Anchor ${selectedRequest.sourceAnchor}` : ''}
