@@ -169,6 +169,19 @@ function matchSection(pathname: string) {
     return null;
 }
 
+function formatSyncTimestamp(value: string | null | undefined) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
 export function getSectionIdentity(pathname: string): SectionIdentity | null {
     const sectionKey = matchSection(pathname);
     if (!sectionKey) return null;
@@ -339,15 +352,24 @@ export function SectionIdentityStrip() {
                 ) : isPerformanceRequests ? (
                     <div className="flex shrink-0 items-center gap-2 self-center">
                         {primaryPerformanceRequestSource ? (
-                            <button
-                                type="button"
-                                onClick={() => void syncPerformanceRequestSource()}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
-                                aria-label="Sync source"
-                            >
-                                <RefreshCw className={`h-4 w-4 text-primary ${syncSheet.isPending ? 'animate-spin' : ''}`} />
-                                <span>Sync Source</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => void syncPerformanceRequestSource()}
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                    aria-label="Sync source"
+                                >
+                                    <RefreshCw className={`h-4 w-4 text-primary ${syncSheet.isPending ? 'animate-spin' : ''}`} />
+                                    <span>Sync Source</span>
+                                </button>
+                                <span className="hidden text-xs text-muted-foreground sm:inline">
+                                    {syncSheet.isPending
+                                        ? 'Syncing now...'
+                                        : formatSyncTimestamp(primaryPerformanceRequestSource.lastSyncedAt)
+                                            ? `Last synced ${formatSyncTimestamp(primaryPerformanceRequestSource.lastSyncedAt)}`
+                                            : 'Never synced'}
+                                </span>
+                            </div>
                         ) : canManageSources ? (
                             <button
                                 type="button"
