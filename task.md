@@ -49,6 +49,7 @@ Working rule:
 Phase 2 roadmap links:
 - intake mapping review / confirm / lock: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md)
 - post-approval readiness convergence: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md)
+- readiness insights layer: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/readiness-insights-layer.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/readiness-insights-layer.md)
 - intake and review roadmap status: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md)
 - onboarding go / no-go rubric: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md)
 - operator screen organization: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md)

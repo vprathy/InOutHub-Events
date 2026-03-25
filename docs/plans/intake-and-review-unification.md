@@ -364,6 +364,8 @@ Based on what is already shipped, the roadmap should now read:
 6. Define and then build manual emergency intake.
 7. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
 8. Add the first readiness insight layer so the product explains participant/performance prep risk and blocked readiness, not just operator tasks.
+   Detailed plan:
+   - `/Users/vinay/dev/InOutHub-Events-main/docs/plans/readiness-insights-layer.md`
 
 ### Pivot Rule For New-Tenant Onboarding
 

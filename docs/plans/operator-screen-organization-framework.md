@@ -257,6 +257,9 @@ Execution pace variance can exist, but it should be a later or secondary signal 
 
 These should be explainable and tied to actions, not just rendered as generic analytics.
 
+Detailed plan:
+- [/Users/vinay/dev/InOutHub-Events-main/docs/plans/readiness-insights-layer.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/readiness-insights-layer.md)
+
 ### Resilience Must Be Visible
 
 The product should make resilience legible, not just implemented:
