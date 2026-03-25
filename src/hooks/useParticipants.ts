@@ -1,18 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Participant, ParticipantDetail, OperationalContact } from '@/types/domain';
-import {
-    assessParticipantImport,
-    assessPerformanceRequestImport,
-    mapImportedParticipantRow,
-    mapImportedPerformanceRequestRow,
-} from '@/lib/participantImportMapping';
 import { fetchResolvedRequirementPolicies, normalizeRequirementPolicyCode } from '@/lib/requirementPolicies';
-
-type ImportRunContext = {
-    runId: string;
-    eventId: string;
-};
 
 function extractTaggedValue(notes: string | null | undefined, tag: string) {
     if (!notes) return null;
@@ -59,53 +48,6 @@ function getPolicyBackedAssetType(policy: { code?: string | null; category?: str
     return null;
 }
 
-async function resolveEventOrganizationId(eventId: string) {
-    const { data, error } = await supabase
-        .from('events')
-        .select('organization_id')
-        .eq('id', eventId)
-        .single();
-
-    if (error) throw error;
-    return data.organization_id as string;
-}
-
-async function createImportRun(params: {
-    eventId: string;
-    eventSourceId?: string;
-    importTarget: 'participants' | 'performance_requests';
-    importMethod: 'spreadsheet_upload' | 'google_sheet';
-    sourceName: string;
-    sourceInstance: string;
-    probableTarget: 'participants' | 'performance_requests' | 'unknown';
-    confidence: 'high' | 'medium' | 'low';
-    blockingIssues: string[];
-    sourceSnapshot: Record<string, unknown>;
-}) {
-    const organizationId = await resolveEventOrganizationId(params.eventId);
-    const { data, error } = await (supabase as any)
-        .from('import_runs')
-        .insert({
-            organization_id: organizationId,
-            event_id: params.eventId,
-            event_source_id: params.eventSourceId || null,
-            import_target: params.importTarget,
-            import_method: params.importMethod,
-            source_name: params.sourceName,
-            source_instance: params.sourceInstance,
-            status: params.blockingIssues.length > 0 ? 'blocked' : 'running',
-            probable_target: params.probableTarget,
-            confidence: params.confidence,
-            blocking_issues: params.blockingIssues,
-            source_snapshot: params.sourceSnapshot,
-        })
-        .select('id')
-        .single();
-
-    if (error) throw error;
-    return { runId: data.id as string, eventId: params.eventId, organizationId };
-}
-
 export function useImportRuns(eventId: string) {
     return useQuery({
         queryKey: ['import-runs', eventId],
@@ -141,53 +83,6 @@ export function useImportRuns(eventId: string) {
             return hasRunning ? 5000 : 30000;
         },
     });
-}
-
-async function finalizeImportRun(
-    context: ImportRunContext,
-    params: {
-        status: 'succeeded' | 'failed' | 'blocked';
-        stats?: Record<string, unknown>;
-        errorMessage?: string;
-        blockingIssues?: string[];
-    }
-) {
-    const { error } = await (supabase as any)
-        .from('import_runs')
-        .update({
-            status: params.status,
-            stats: params.stats || {},
-            blocking_issues: params.blockingIssues || [],
-            error_message: params.errorMessage || null,
-            completed_at: new Date().toISOString(),
-        })
-        .eq('id', context.runId);
-
-    if (error) throw error;
-}
-
-async function recordIntakeAuditEvent(params: {
-    organizationId: string;
-    eventId: string;
-    importRunId: string;
-    action: string;
-    note?: string;
-    metadata?: Record<string, unknown>;
-}) {
-    const { error } = await (supabase as any)
-        .from('intake_audit_events')
-        .insert({
-            organization_id: params.organizationId,
-            event_id: params.eventId,
-            import_run_id: params.importRunId,
-            entity_type: 'import_run',
-            entity_id: params.importRunId,
-            action: params.action,
-            note: params.note || null,
-            metadata: params.metadata || {},
-        });
-
-    if (error) throw error;
 }
 
 export function useParticipantsQuery(eventId: string) {
@@ -322,278 +217,27 @@ export function useImportParticipants(eventId: string) {
             const workbook = XLSX.read(data);
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
+            const rows = XLSX.utils.sheet_to_json(worksheet) as Array<Record<string, unknown>>;
             const headers = rows.length > 0 ? Object.keys(rows[0] || {}) : [];
-            const assessment = intakeTarget === 'performance_requests'
-                ? assessPerformanceRequestImport(headers, rows, savedMapping as any)
-                : assessParticipantImport(headers, rows, savedMapping);
-            const { profile, gaps, probableTarget, confidence, blockingIssues } = assessment;
             const sourceInstance = sourceId || file.name;
-            const runContext = await createImportRun({
-                eventId,
-                eventSourceId: sourceId,
-                importTarget: intakeTarget,
-                importMethod: 'spreadsheet_upload',
-                sourceName: file.name,
-                sourceInstance,
-                probableTarget,
-                confidence,
-                blockingIssues,
-                sourceSnapshot: {
-                    fileName: file.name,
+
+            const { data: result, error } = await supabase.functions.invoke('import-participants', {
+                body: {
+                    eventId,
+                    dryRun: false,
+                    intakeTarget,
+                    importMethod: 'spreadsheet_upload',
+                    sourceName: file.name,
+                    sourceId: sourceId || null,
+                    sourceInstance,
                     headers,
-                    mapping: profile,
-                    gaps,
-                },
+                    rows,
+                    savedMapping,
+                }
             });
 
-            if (blockingIssues.length > 0) {
-                await finalizeImportRun(runContext, {
-                    status: 'blocked',
-                    blockingIssues,
-                    errorMessage: blockingIssues[0],
-                });
-                await recordIntakeAuditEvent({
-                    organizationId: runContext.organizationId,
-                    eventId,
-                    importRunId: runContext.runId,
-                    action: 'blocked',
-                    note: blockingIssues[0],
-                    metadata: { probableTarget, confidence },
-                });
-                throw new Error(blockingIssues[0]);
-            }
-
-            try {
-                if (intakeTarget === 'performance_requests') {
-                    const organizationId = await resolveEventOrganizationId(eventId);
-                    const requests = rows
-                        .map((rowObj) =>
-                            mapImportedPerformanceRequestRow({
-                                eventId,
-                                organizationId,
-                                sourceSystem: 'spreadsheet-upload',
-                                eventSourceId: sourceId || null,
-                                importRunId: runContext.runId,
-                                row: rowObj,
-                                profile: profile as any,
-                            })
-                        )
-                        .filter((request) => request.title !== 'Untitled Request' || request.lead_name || request.source_anchor);
-
-                    const anchors = requests.map((request) => request.source_anchor).filter(Boolean);
-                    const { data: existingRecords, error: existingError } = await (supabase as any)
-                        .from('performance_requests')
-                        .select('id, source_anchor, request_status, conversion_status, converted_act_id')
-                        .eq('event_id', eventId)
-                        .eq('event_source_id', sourceId || null)
-                        .in('source_anchor', anchors);
-
-                    if (existingError) throw existingError;
-
-                    const existingByAnchor = new Map(((existingRecords as any[]) || []).map((row) => [row.source_anchor, row]));
-
-                    const { error } = await (supabase as any)
-                        .from('performance_requests')
-                        .upsert(requests, {
-                            onConflict: 'event_id,event_source_id,source_anchor',
-                        });
-
-                    if (error) throw error;
-
-                    const { data: importedRows, error: importedRowsError } = await (supabase as any)
-                        .from('performance_requests')
-                        .select('id, source_anchor, request_status, conversion_status, converted_act_id')
-                        .eq('event_id', eventId)
-                        .eq('event_source_id', sourceId || null)
-                        .in('source_anchor', anchors);
-
-                    if (importedRowsError) throw importedRowsError;
-
-                    const importedByAnchor = new Map(((importedRows as any[]) || []).map((row) => [row.source_anchor, row]));
-                    const newAnchors = anchors.filter((anchor) => !existingByAnchor.has(anchor));
-
-                    const importRunRecords = requests.map((request) => {
-                        const previous = existingByAnchor.get(request.source_anchor);
-                        const current = importedByAnchor.get(request.source_anchor);
-                        return {
-                            import_run_id: runContext.runId,
-                            entity_type: 'performance_request',
-                            entity_id: current?.id || null,
-                            entity_key: request.source_anchor,
-                            action: previous ? 'updated' : 'created',
-                            before_data: previous || null,
-                            after_data: current || null,
-                        };
-                    });
-
-                    if (importRunRecords.length > 0) {
-                        const { error: recordsError } = await (supabase as any)
-                            .from('import_run_records')
-                            .insert(importRunRecords);
-
-                        if (recordsError) throw recordsError;
-                    }
-
-                    const stats = {
-                        total: requests.length,
-                        new: newAnchors.length,
-                        updated: requests.length - newAnchors.length,
-                        missing: 0,
-                    };
-
-                    await finalizeImportRun(runContext, {
-                        status: 'succeeded',
-                        stats,
-                    });
-
-                    await recordIntakeAuditEvent({
-                        organizationId: runContext.organizationId,
-                        eventId,
-                        importRunId: runContext.runId,
-                        action: 'completed',
-                        note: 'Performance request spreadsheet import completed.',
-                        metadata: { stats, probableTarget, confidence },
-                    });
-
-                    return {
-                        stats,
-                        mapping: profile,
-                        gaps,
-                        headers,
-                        probableTarget,
-                        confidence,
-                        importRunId: runContext.runId,
-                    };
-                }
-
-                const participants = rows
-                .map((rowObj) =>
-                    mapImportedParticipantRow({
-                        eventId,
-                        sourceSystem: 'spreadsheet-upload',
-                        sourceInstance,
-                        row: rowObj,
-                        profile,
-                    })
-                    )
-                .filter((participant) => participant.first_name !== 'Unknown' || participant.last_name !== 'Participant');
-
-                const anchors = participants.map((participant) => participant.source_anchor_value).filter(Boolean);
-                const { data: existingRecords, error: existingError } = await supabase
-                    .from('participants')
-                    .select('id, source_anchor_value, status')
-                    .eq('event_id', eventId)
-                    .eq('source_system', 'spreadsheet-upload')
-                    .eq('source_instance', sourceInstance)
-                    .in('source_anchor_value', anchors);
-
-                if (existingError) throw existingError;
-
-                const existingByAnchor = new Map(((existingRecords as any[]) || []).map((row) => [row.source_anchor_value, row]));
-
-                const { error } = await supabase
-                    .from('participants')
-                    .upsert(participants, {
-                        onConflict: 'event_id, source_system, source_instance, source_anchor_type, source_anchor_value'
-                    });
-
-                if (error) throw error;
-
-                const { data: importedRows, error: importedRowsError } = await supabase
-                    .from('participants')
-                    .select('id, source_anchor_value, status')
-                    .eq('event_id', eventId)
-                    .eq('source_system', 'spreadsheet-upload')
-                    .eq('source_instance', sourceInstance)
-                    .in('source_anchor_value', anchors);
-
-                if (importedRowsError) throw importedRowsError;
-
-                const newAnchors = anchors.filter((anchor) => !existingByAnchor.has(anchor));
-                const importedByAnchor = new Map(((importedRows as any[]) || []).map((row) => [row.source_anchor_value, row]));
-                const participantIds = (importedRows as any[]).map((row) => row.id);
-                const newParticipantIds = newAnchors
-                    .map((anchor) => importedByAnchor.get(anchor)?.id)
-                    .filter(Boolean);
-
-                if (participantIds.length > 0) {
-                    const { error: lineageError } = await (supabase as any)
-                        .from('participants')
-                        .update({ last_import_run_id: runContext.runId })
-                        .in('id', participantIds);
-
-                    if (lineageError) throw lineageError;
-                }
-
-                if (newParticipantIds.length > 0) {
-                    const { error: createLineageError } = await (supabase as any)
-                        .from('participants')
-                        .update({ created_by_import_run_id: runContext.runId })
-                        .in('id', newParticipantIds);
-
-                    if (createLineageError) throw createLineageError;
-                }
-
-                const importRunRecords = participants.map((participant) => {
-                    const current = importedByAnchor.get(participant.source_anchor_value);
-                    const previous = existingByAnchor.get(participant.source_anchor_value);
-                    return {
-                        import_run_id: runContext.runId,
-                        entity_type: 'participant',
-                        entity_id: current?.id || null,
-                        entity_key: participant.source_anchor_value,
-                        action: previous ? 'updated' : 'created',
-                        before_data: previous ? { id: previous.id, status: previous.status } : null,
-                        after_data: current ? { id: current.id, status: current.status } : null,
-                    };
-                });
-
-                if (importRunRecords.length > 0) {
-                    const { error: recordsError } = await (supabase as any)
-                        .from('import_run_records')
-                        .insert(importRunRecords);
-
-                    if (recordsError) throw recordsError;
-                }
-
-                const stats = {
-                    total: participants.length,
-                    new: newAnchors.length,
-                    updated: participants.length - newAnchors.length,
-                    missing: 0,
-                };
-
-                await finalizeImportRun(runContext, {
-                    status: 'succeeded',
-                    stats,
-                });
-
-                await recordIntakeAuditEvent({
-                    organizationId: runContext.organizationId,
-                    eventId,
-                    importRunId: runContext.runId,
-                    action: 'completed',
-                    note: 'Participant spreadsheet import completed.',
-                    metadata: { stats, probableTarget, confidence },
-                });
-
-                return {
-                    stats,
-                    mapping: profile,
-                    gaps,
-                    headers,
-                    probableTarget,
-                    confidence,
-                    importRunId: runContext.runId,
-                };
-            } catch (error: any) {
-                await finalizeImportRun(runContext, {
-                    status: 'failed',
-                    errorMessage: error.message || 'Spreadsheet import failed',
-                });
-                throw error;
-            }
+            if (error) throw error;
+            return result;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['participants', eventId] });

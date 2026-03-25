@@ -471,11 +471,24 @@ Deno.serve(async (req) => {
         trackedUserId = user.id
 
         const body = await req.json()
-        const { sheetId, eventId, dryRun = true, savedMapping, intakeTarget = 'participants' } = body
+        const {
+            sheetId,
+            eventId,
+            dryRun = true,
+            savedMapping,
+            intakeTarget = 'participants',
+            headers: providedHeaders,
+            rows: providedRows,
+            importMethod: requestedImportMethod,
+            sourceName: providedSourceName,
+            sourceId: providedSourceId,
+            sourceInstance: providedSourceInstance,
+        } = body
         trackedEventId = eventId ?? null
-        if (!eventId || !sheetId) {
-            console.log('Missing body params:', { eventId: !!eventId, sheetId: !!sheetId })
-            throw new Error('Missing eventId or sheetId')
+        const importMethod = requestedImportMethod || (sheetId ? 'google_sheet' : 'spreadsheet_upload')
+        if (!eventId || (!sheetId && !Array.isArray(providedRows))) {
+            console.log('Missing body params:', { eventId: !!eventId, sheetId: !!sheetId, rows: Array.isArray(providedRows) })
+            throw new Error('Missing eventId and import source payload')
         }
 
         // Verify EventAdmin role OR Super Admin
@@ -487,57 +500,82 @@ Deno.serve(async (req) => {
             throw new Error(`Unauthorized: Administrative access required (Currently: ${role || 'None'})`)
         }
 
-        // 2. Auth with Google Sheets API using Service Account
-        let serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
-        if (!serviceAccountJson) {
-            const serviceRoleClient = createClient(
-                Deno.env.get('SUPABASE_URL') ?? '',
-                Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-            )
-            const { data: config } = await serviceRoleClient
-                .from('internal_config')
-                .select('value')
-                .eq('key', 'google_service_account_json')
-                .single()
+        let headers: string[] = []
+        let parsedRows: Record<string, string>[] = []
+        let sourceInstance = providedSourceInstance || sheetId || providedSourceName || 'spreadsheet-upload'
 
-            if (config?.value) {
-                serviceAccountJson = typeof config.value === 'string' ? config.value : JSON.stringify(config.value)
+        if (sheetId) {
+            // 2. Auth with Google Sheets API using Service Account
+            let serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+            if (!serviceAccountJson) {
+                const serviceRoleClient = createClient(
+                    Deno.env.get('SUPABASE_URL') ?? '',
+                    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+                )
+                const { data: config } = await serviceRoleClient
+                    .from('internal_config')
+                    .select('value')
+                    .eq('key', 'google_service_account_json')
+                    .single()
+
+                if (config?.value) {
+                    serviceAccountJson = typeof config.value === 'string' ? config.value : JSON.stringify(config.value)
+                }
+            }
+
+            if (!serviceAccountJson) throw new Error('Google Service Account JSON not found')
+
+            const serviceAccount = JSON.parse(serviceAccountJson)
+            const accessToken = await getGoogleAccessToken(serviceAccount)
+
+            const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A:Z`
+            const response = await fetch(sheetsUrl, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            })
+
+            if (!response.ok) {
+                const errBody = await response.text()
+                throw new Error(`Failed to fetch sheet: ${errBody}`)
+            }
+
+            const data = await response.json()
+            const rows = data.values || []
+
+            if (rows.length < 2) {
+                return new Response(JSON.stringify({ success: true, stats: { total: 0, new: 0, updated: 0, missing: 0 }, message: 'No data found' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                })
+            }
+
+            headers = rows[0]
+            const bodyRows = rows.slice(1)
+            parsedRows = bodyRows.map((row: string[]) => {
+                const rowData: Record<string, string> = {}
+                headers.forEach((h: string, i: number) => {
+                    rowData[h] = row[i] || ''
+                })
+                return rowData
+            })
+        } else {
+            const inputRows = Array.isArray(providedRows) ? providedRows : []
+            headers = Array.isArray(providedHeaders) && providedHeaders.length > 0
+                ? providedHeaders.map((header) => String(header))
+                : Object.keys((inputRows[0] as Record<string, unknown>) || {})
+
+            parsedRows = inputRows.map((row) => {
+                const rowData: Record<string, string> = {}
+                headers.forEach((header) => {
+                    rowData[header] = toText((row as Record<string, unknown>)[header])
+                })
+                return rowData
+            })
+
+            if (parsedRows.length === 0 || headers.length === 0) {
+                return new Response(JSON.stringify({ success: true, stats: { total: 0, new: 0, updated: 0, missing: 0 }, message: 'No data found' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                })
             }
         }
-
-        if (!serviceAccountJson) throw new Error('Google Service Account JSON not found')
-
-        const serviceAccount = JSON.parse(serviceAccountJson)
-        const accessToken = await getGoogleAccessToken(serviceAccount)
-
-        const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A:Z`
-        const response = await fetch(sheetsUrl, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        })
-
-        if (!response.ok) {
-            const errBody = await response.text()
-            throw new Error(`Failed to fetch sheet: ${errBody}`)
-        }
-
-        const data = await response.json()
-        const rows = data.values || []
-
-        if (rows.length < 2) {
-            return new Response(JSON.stringify({ success: true, stats: { total: 0, new: 0, updated: 0, missing: 0 }, message: 'No data found' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            })
-        }
-
-        const headers = rows[0]
-        const bodyRows = rows.slice(1)
-        const parsedRows = bodyRows.map((row: string[]) => {
-            const rowData: Record<string, string> = {}
-            headers.forEach((h: string, i: number) => {
-                rowData[h] = row[i] || ''
-            })
-            return rowData
-        })
         const assessment = intakeTarget === 'performance_requests'
             ? assessPerformanceRequestImport(headers, parsedRows, savedMapping)
             : assessParticipantImport(headers, parsedRows, savedMapping)
@@ -559,8 +597,13 @@ Deno.serve(async (req) => {
             .select('id, name, config')
             .eq('event_id', eventId)
 
-        const matchedSource = ((sourceRows as any[]) || []).find((source) => source.config?.sheetId === sheetId)
+        const matchedSource = ((sourceRows as any[]) || []).find((source) =>
+            (sheetId && source.config?.sheetId === sheetId) || (providedSourceId && source.id === providedSourceId)
+        )
         let importRunId: string | null = null
+        const eventSourceId = matchedSource?.id || providedSourceId || null
+        const resolvedSourceName = matchedSource?.name || providedSourceName || (sheetId ? 'Google Sheet Import' : 'Spreadsheet Upload')
+        const sourceReference = sheetId || sourceInstance
 
         if (!dryRun) {
             const { data: importRun, error: importRunError } = await (supabaseClient as any)
@@ -568,11 +611,11 @@ Deno.serve(async (req) => {
                 .insert({
                     organization_id: eventRecord.organization_id,
                     event_id: eventId,
-                    event_source_id: matchedSource?.id || null,
+                    event_source_id: eventSourceId,
                     import_target: intakeTarget,
-                    import_method: 'google_sheet',
-                    source_name: matchedSource?.name || 'Google Sheet Import',
-                    source_instance: sheetId,
+                    import_method: importMethod,
+                    source_name: resolvedSourceName,
+                    source_instance: sourceReference,
                     status: blockingIssues.length > 0 ? 'blocked' : 'running',
                     probable_target: probableTarget,
                     confidence,
@@ -581,7 +624,9 @@ Deno.serve(async (req) => {
                         headers,
                         mapping: profile,
                         gaps,
-                        sheetId,
+                        sheetId: sheetId || null,
+                        sourceName: resolvedSourceName,
+                        sourceInstance: sourceReference,
                     },
                     initiated_by: user.id,
                 })
@@ -614,7 +659,7 @@ Deno.serve(async (req) => {
                         entity_id: importRunId,
                         action: 'blocked',
                         note: blockingIssues[0],
-                        metadata: { probableTarget, confidence, sheetId },
+                        metadata: { probableTarget, confidence, sourceReference },
                         performed_by: user.id,
                     })
             }
@@ -642,7 +687,7 @@ Deno.serve(async (req) => {
                     organization_id: eventRecord.organization_id,
                     event_id: eventId,
                     import_run_id: importRunId,
-                    event_source_id: matchedSource?.id || null,
+                    event_source_id: eventSourceId,
                     source_anchor: sourceAnchor || fallbackAnchor || null,
                     title: title || 'Untitled Request',
                     lead_name: leadName || null,
@@ -675,7 +720,7 @@ Deno.serve(async (req) => {
                 .from('performance_requests')
                 .select('id, source_anchor, request_status, conversion_status, converted_act_id')
                 .eq('event_id', eventId)
-                .eq('event_source_id', matchedSource?.id || null)
+                .eq('event_source_id', eventSourceId)
                 .in('source_anchor', anchors)
 
             if (fetchError) throw fetchError
@@ -715,7 +760,7 @@ Deno.serve(async (req) => {
                 .from('performance_requests')
                 .select('id, source_anchor, request_status, conversion_status, converted_act_id')
                 .eq('event_id', eventId)
-                .eq('event_source_id', matchedSource?.id || null)
+                .eq('event_source_id', eventSourceId)
                 .in('source_anchor', anchors)
 
             if (currentRowsError) throw currentRowsError
@@ -770,8 +815,8 @@ Deno.serve(async (req) => {
                         entity_type: 'import_run',
                         entity_id: importRunId,
                         action: 'completed',
-                        note: 'Google Sheet performance request refresh completed.',
-                        metadata: { stats, probableTarget, confidence, sheetId },
+                        note: sheetId ? 'Google Sheet performance request refresh completed.' : 'Spreadsheet performance request import completed.',
+                        metadata: { stats, probableTarget, confidence, sourceReference },
                         performed_by: user.id,
                     })
 
@@ -855,8 +900,8 @@ Deno.serve(async (req) => {
                 guardian_name: guardianName || null,
                 guardian_phone: phone || null,
                 notes: notesParts.join(' ') || null,
-                source_system: 'google-sheets',
-                source_instance: sheetId,
+                source_system: sheetId ? 'google-sheets' : 'spreadsheet-upload',
+                source_instance: sourceReference,
                 source_anchor_type: anchorType,
                 source_anchor_value: anchorValue,
                 source_imported_at: new Date().toISOString(),
@@ -885,8 +930,8 @@ Deno.serve(async (req) => {
             .from('participants')
             .select('source_anchor_value, status, id')
             .eq('event_id', eventId)
-            .eq('source_instance', sheetId)
-            .eq('source_system', 'google-sheets')
+            .eq('source_instance', sourceReference)
+            .eq('source_system', sheetId ? 'google-sheets' : 'spreadsheet-upload')
 
         if (fetchError) throw fetchError
 
@@ -943,8 +988,8 @@ Deno.serve(async (req) => {
             .from('participants')
             .select('id, source_anchor_value, status')
             .eq('event_id', eventId)
-            .eq('source_instance', sheetId)
-            .eq('source_system', 'google-sheets')
+            .eq('source_instance', sourceReference)
+            .eq('source_system', sheetId ? 'google-sheets' : 'spreadsheet-upload')
             .in('source_anchor_value', [...incomingAnchors])
 
         if (currentRowsError) throw currentRowsError
@@ -984,7 +1029,7 @@ Deno.serve(async (req) => {
                     ...(importRunId ? { last_import_run_id: importRunId } : {})
                 })
                 .eq('event_id', eventId)
-                .eq('source_instance', sheetId)
+                .eq('source_instance', sourceReference)
                 .in('source_anchor_value', missingAnchors)
                 .neq('status', 'missing_from_source')
         }
@@ -1050,8 +1095,8 @@ Deno.serve(async (req) => {
                     entity_type: 'import_run',
                     entity_id: importRunId,
                     action: 'completed',
-                    note: 'Google Sheet participant refresh completed.',
-                    metadata: { stats, probableTarget, confidence, sheetId },
+                    note: sheetId ? 'Google Sheet participant refresh completed.' : 'Spreadsheet participant import completed.',
+                    metadata: { stats, probableTarget, confidence, sourceReference },
                     performed_by: user.id,
                 })
 
