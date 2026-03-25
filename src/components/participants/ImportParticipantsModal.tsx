@@ -298,7 +298,14 @@ export function ImportParticipantsModal({
                 <div className="flex flex-col">
                     <div className="flex items-center space-x-2">
                         {uiMode !== 'dashboard' ? (
-                            <button onClick={() => setUiMode('dashboard')} className="p-1 -ml-1 hover:bg-accent rounded-full text-muted-foreground mr-1">
+                            <button
+                                onClick={() => {
+                                    if (status === 'loading') return;
+                                    setUiMode('dashboard');
+                                }}
+                                disabled={status === 'loading'}
+                                className="p-1 -ml-1 hover:bg-accent rounded-full text-muted-foreground mr-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
                                 <ArrowLeft className="w-4 h-4" />
                             </button>
                         ) : null}
@@ -309,13 +316,31 @@ export function ImportParticipantsModal({
                     </span>
                 </div>
                 {!embedded ? (
-                    <button onClick={onClose} className="p-2.5 bg-accent/50 hover:bg-accent rounded-full transition-colors">
+                    <button
+                        onClick={() => {
+                            if (status === 'loading') return;
+                            onClose();
+                        }}
+                        disabled={status === 'loading'}
+                        className="p-2.5 bg-accent/50 hover:bg-accent rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
                         <X className="w-5 h-5 text-muted-foreground" />
                     </button>
                 ) : null}
             </div>
 
             <div className={embedded ? 'p-5' : 'p-6'}>
+                    {status === 'error' ? (
+                        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-left">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">Import Issue</p>
+                                    <p className="mt-1 text-sm font-medium text-red-700">{errorMessage || 'The import did not complete. Review the source setup and try again.'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
                     {status === 'success' ? (
                         <div className="flex flex-col items-center justify-center py-10 space-y-4 animate-in zoom-in-95">
                             <div className="bg-emerald-500/10 p-5 rounded-full ring-8 ring-emerald-500/5">
@@ -368,7 +393,7 @@ export function ImportParticipantsModal({
                                         </button>
                                     ) : null}
                                 </div>
-                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70">
+                                <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
                                     {participantSources.length > 0 ? participantSources.map((source, index) => (
                                         <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < participantSources.length - 1 ? 'border-b border-border/70' : ''}`}>
                                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
@@ -416,7 +441,7 @@ export function ImportParticipantsModal({
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Performance Request Imports</h3>
                                 </div>
-                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70">
+                                <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
                                     {performanceRequestSources.length > 0 ? performanceRequestSources.map((source, index) => (
                                         <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < performanceRequestSources.length - 1 ? 'border-b border-border/70' : ''}`}>
                                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
@@ -513,12 +538,6 @@ export function ImportParticipantsModal({
                                 </div>
                             </div>
 
-                            {status === 'error' ? (
-                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-bold flex items-center space-x-2">
-                                    <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <span>{errorMessage}</span>
-                                </div>
-                            ) : null}
                         </div>
                     ) : uiMode === 'mapping_review' ? (
                         <div className="space-y-5 animate-in slide-in-from-right-4 duration-300 text-left">
