@@ -46,6 +46,7 @@ Phase 2 roadmap links:
 - intake mapping review / confirm / lock: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md)
 - post-approval readiness convergence: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md)
 - intake and review roadmap status: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md)
+- onboarding go / no-go rubric: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md)
 
 ### Intro System Final Checks
 - [ ] Verify approved intro playback timing and cinematic polish.

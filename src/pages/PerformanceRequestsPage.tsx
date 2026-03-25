@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowRight,
-    CheckCircle2,
     ClipboardList,
     Clock3,
     Loader2,
@@ -94,20 +93,18 @@ function formatListDate(value: string | null | undefined) {
 function RequestDetailPanel({
     request,
     eventName,
-    onApprove,
+    onCreatePerformance,
     onReject,
     onMoveBackToPending,
-    onConvert,
     onOpenPerformance,
     timeline,
     isWorking,
 }: {
     request: any;
     eventName: string | null;
-    onApprove: () => void;
+    onCreatePerformance: () => void;
     onReject: () => void;
     onMoveBackToPending: () => void;
-    onConvert: () => void;
     onOpenPerformance: () => void;
     timeline: ReturnType<typeof usePerformanceRequestTimeline>;
     isWorking: boolean;
@@ -175,20 +172,20 @@ function RequestDetailPanel({
                         {request.conversionStatus === 'converted'
                             ? 'This request is already live as a performance.'
                             : request.requestStatus === 'approved'
-                                ? 'Convert this approved request into a performance, or move it back to pending if approval was premature.'
-                                : 'Review the request and decide whether to approve or reject it.'}
+                                ? 'Create the performance now, or move it back to pending if approval was premature.'
+                                : 'Create the performance now. Approval will be handled automatically as part of that step.'}
                     </p>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                    {request.requestStatus !== 'approved' ? (
+                    {request.conversionStatus !== 'converted' ? (
                         <Button
                             className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                            onClick={onApprove}
+                            onClick={onCreatePerformance}
                             disabled={isWorking}
                         >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            Approve
+                            <ArrowRight className="mr-1.5 h-4 w-4" />
+                            Create Performance
                         </Button>
                     ) : null}
                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
@@ -210,16 +207,6 @@ function RequestDetailPanel({
                             disabled={isWorking}
                         >
                             Move Back to Pending
-                        </Button>
-                    ) : null}
-                    {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
-                        <Button
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                            onClick={onConvert}
-                            disabled={isWorking}
-                        >
-                            <ArrowRight className="mr-1.5 h-4 w-4" />
-                            Convert to Performance
                         </Button>
                     ) : null}
                     {request.convertedActId ? (
@@ -573,11 +560,19 @@ export default function PerformanceRequestsPage() {
         await handleStatusAction('move_back_to_pending');
     };
 
-    const handleConvert = async () => {
+    const handleCreatePerformance = async () => {
         const actId = await convertRequest.mutateAsync();
         if (actId) {
             navigate(`/performances/${actId}`);
         }
+    };
+
+    const handleApproveAndCreatePerformance = async () => {
+        if (!selectedRequest) return;
+        if (selectedRequest.requestStatus !== 'approved') {
+            await handleStatusAction('approve');
+        }
+        await handleCreatePerformance();
     };
 
     const openRequest = (requestId: string) => {
@@ -889,14 +884,19 @@ export default function PerformanceRequestsPage() {
                                         {isExpanded ? (
                                             <div className="mt-3 border-t border-border/70 pt-3" onClick={(event) => event.stopPropagation()}>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {request.requestStatus !== 'approved' ? (
+                                                    {request.conversionStatus !== 'converted' ? (
                                                         <Button
                                                             className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                            onClick={() => void handleStatusAction('approve')}
+                                                            onClick={() => {
+                                                                setSelectedRequestId(request.id);
+                                                                void (request.requestStatus === 'approved'
+                                                                    ? handleCreatePerformance()
+                                                                    : handleApproveAndCreatePerformance());
+                                                            }}
                                                             disabled={setStatus.isPending || convertRequest.isPending}
                                                         >
-                                                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                                            Approve
+                                                            <ArrowRight className="mr-1.5 h-4 w-4" />
+                                                            Create Performance
                                                         </Button>
                                                     ) : null}
                                                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
@@ -967,12 +967,11 @@ export default function PerformanceRequestsPage() {
                     {isDesktop && selectedRequest ? (
                         <div ref={detailRef}>
                             <RequestDetailPanel
-                                        request={selectedRequest}
+                                request={selectedRequest}
                                 eventName={eventName || null}
-                                onApprove={() => void handleStatusAction('approve')}
+                                onCreatePerformance={() => void (selectedRequest.requestStatus === 'approved' ? handleCreatePerformance() : handleApproveAndCreatePerformance())}
                                 onReject={() => void handleStatusAction('reject')}
                                 onMoveBackToPending={() => void handleMoveBackToPending()}
-                                onConvert={() => void handleConvert()}
                                 onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
                                 timeline={timeline}
                                 isWorking={setStatus.isPending || convertRequest.isPending}
@@ -993,10 +992,9 @@ export default function PerformanceRequestsPage() {
                     <RequestDetailPanel
                         request={selectedRequest}
                         eventName={eventName || null}
-                        onApprove={() => void handleStatusAction('approve')}
+                        onCreatePerformance={() => void (selectedRequest.requestStatus === 'approved' ? handleCreatePerformance() : handleApproveAndCreatePerformance())}
                         onReject={() => void handleStatusAction('reject')}
                         onMoveBackToPending={() => void handleMoveBackToPending()}
-                        onConvert={() => void handleConvert()}
                         onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
                         timeline={timeline}
                         isWorking={setStatus.isPending || convertRequest.isPending}

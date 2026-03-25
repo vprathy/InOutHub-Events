@@ -155,6 +155,23 @@ When converting an approved request:
 - lead/requestor contact should remain attached as intake lineage
 - operational team/contact management should remain a separate downstream concept
 - do not overwrite team manager semantics with requestor semantics
+- when a request is converted, the requestor should become the default external contact shown on the resulting performance until a real internal team manager/contact is assigned
+- this is a contact-default rule, not an automatic RBAC/user invitation rule
+- do not silently grant the requestor platform access, event membership, or operator permissions
+
+### Approval vs Creation Rules
+
+- keep approval and operational creation distinct in the model
+- shorten the common operator path in the UI
+
+Recommended operator actions:
+- primary: `Approve & Create Performance`
+- secondary: `Approve Only`
+
+Why:
+- most operators approve because they want the performance shell created immediately
+- preserving a separate `approved` state is still useful for exceptions
+- the common path should not require two taps when one is the normal outcome
 
 ## UX Requirements
 
@@ -177,6 +194,10 @@ After conversion:
 - show clear success state
 - allow opening the created performance directly
 - make it obvious that operational follow-up now lives in the performance workspace
+
+Before conversion:
+- make `Approve & Create Performance` the primary action for pending requests
+- keep `Approve Only` available as a secondary path for cases where approval should not immediately create the operational shell
 
 ## Suggested Technical Approach
 
