@@ -448,6 +448,11 @@ export interface PerformanceRequest {
     convertedBy: string | null;
     createdAt: string | null;
     updatedAt: string | null;
+    importInsights?: Array<{
+        label: string;
+        value: string;
+        sourceKey?: string | null;
+    }>;
 }
 
 export interface IntakeAuditEvent {

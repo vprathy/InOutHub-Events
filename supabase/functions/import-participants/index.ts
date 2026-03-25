@@ -32,10 +32,10 @@ const VALUE_HINTS = {
 
 const VALUE_INFERENCE_FIELDS = ['phone', 'email', 'age', 'specialRequest', 'fullName', 'guardianName', 'studentId', 'submissionId', 'products', 'notes'] as const
 const REQUEST_HEADER_ALIASES = {
-    title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item'],
-    leadName: ['lead name', 'contact name', 'teacher name', 'coach name', 'manager name', 'submitted by', 'requester name', 'name'],
-    leadEmail: ['lead email', 'contact email', 'teacher email', 'email address', 'email'],
-    leadPhone: ['lead phone', 'contact phone', 'teacher phone', 'manager phone', 'phone number', 'phone'],
+    title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item', 'program name', 'program title'],
+    leadName: ['requester name', 'requestor name', 'submitted by', 'primary contact name', 'primary contact', 'contact name', 'lead name', 'lead contact', 'teacher name', 'coach name', 'director name', 'manager name', 'team manager', 'name'],
+    leadEmail: ['requester email', 'requestor email', 'primary contact email', 'contact email', 'lead email', 'manager email', 'teacher email', 'email address', 'email'],
+    leadPhone: ['requester phone', 'requestor phone', 'primary contact phone', 'contact phone', 'lead phone', 'manager phone', 'teacher phone', 'phone number', 'phone', 'mobile'],
     durationMinutes: ['duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
     musicSupplied: ['music supplied', 'music submitted', 'music included', 'music?'],
     rosterSupplied: ['roster supplied', 'cast supplied', 'roster included', 'participants supplied'],
@@ -234,7 +234,7 @@ function assessParticipantImport(headers: string[], rows: Record<string, string>
         profile.specialRequest ? 1 : 0,
     ].reduce((sum, value) => sum + value, 0)
 
-    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team']
+    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team', 'program']
     const performanceSignalCount = normalizedHeaders.filter((header) => performanceKeywords.some((keyword) => header.includes(keyword))).length
 
     let probableTarget: 'participants' | 'performance_requests' | 'unknown' = 'participants'
@@ -293,8 +293,8 @@ function inferPerformanceRequestProfile(headers: string[], rows: Record<string, 
     }
 
     const headerMatches: Array<[string, string[], RegExp | undefined]> = [
-        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title)\b/],
-        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(lead|contact|teacher|coach|manager|requester)\b.*\bname\b/],
+        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title|program)\b/],
+        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(requester|requestor|submitted|primary|contact|lead|teacher|coach|director|manager)\b.*\bname\b/],
         ['leadEmail', REQUEST_HEADER_ALIASES.leadEmail, /\bemail\b/],
         ['leadPhone', REQUEST_HEADER_ALIASES.leadPhone, /\b(phone|mobile|cell)\b/],
         ['durationMinutes', REQUEST_HEADER_ALIASES.durationMinutes, /\b(duration|runtime|length)\b/],
@@ -656,7 +656,16 @@ Deno.serve(async (req) => {
                 }
             }).filter((request) => request.title !== 'Untitled Request' || request.lead_name || request.source_anchor)
 
-            const anchors = requests.map((request) => request.source_anchor).filter(Boolean)
+            // Deduplicate requests by source_anchor to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            const deduplicatedRequestsMap = new Map()
+            for (const request of requests) {
+                if (request.source_anchor) {
+                    deduplicatedRequestsMap.set(request.source_anchor, request)
+                }
+            }
+            const deduplicatedRequests = Array.from(deduplicatedRequestsMap.values())
+
+            const anchors = deduplicatedRequests.map((request) => request.source_anchor).filter(Boolean)
             const { data: existingRecords, error: fetchError } = await (supabaseClient as any)
                 .from('performance_requests')
                 .select('id, source_anchor, request_status, conversion_status, converted_act_id')
@@ -673,9 +682,9 @@ Deno.serve(async (req) => {
                 return new Response(JSON.stringify({
                     success: true,
                     stats: {
-                        total: requests.length,
+                        total: deduplicatedRequests.length,
                         new: newAnchors.length,
-                        updated: requests.length - newAnchors.length,
+                        updated: deduplicatedRequests.length - newAnchors.length,
                         missing: 0
                     },
                     mapping: profile,
@@ -683,7 +692,7 @@ Deno.serve(async (req) => {
                     probableTarget,
                     confidence,
                     headers,
-                    preview: requests.slice(0, 5),
+                    preview: deduplicatedRequests.slice(0, 5),
                 }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 })
@@ -691,7 +700,7 @@ Deno.serve(async (req) => {
 
             const { error: upsertError } = await (supabaseClient as any)
                 .from('performance_requests')
-                .upsert(requests, {
+                .upsert(deduplicatedRequests, {
                     onConflict: 'event_id,event_source_id,source_anchor'
                 })
 
@@ -709,7 +718,7 @@ Deno.serve(async (req) => {
             const currentByAnchor = new Map((currentRows || []).map((row: any) => [row.source_anchor, row]))
 
             if (importRunId) {
-                const importRunRecords = requests.map((request) => {
+                const importRunRecords = deduplicatedRequests.map((request) => {
                     const previous = existingByAnchor.get(request.source_anchor)
                     const current = currentByAnchor.get(request.source_anchor)
                     return {
@@ -730,9 +739,9 @@ Deno.serve(async (req) => {
                 if (runRecordError) throw runRecordError
 
                 const stats = {
-                    total: requests.length,
+                    total: deduplicatedRequests.length,
                     new: newAnchors.length,
-                    updated: requests.length - newAnchors.length,
+                    updated: deduplicatedRequests.length - newAnchors.length,
                     missing: 0
                 }
 
@@ -767,9 +776,9 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({
                 success: true,
                 stats: {
-                    total: requests.length,
+                    total: deduplicatedRequests.length,
                     new: newAnchors.length,
-                    updated: requests.length - newAnchors.length,
+                    updated: deduplicatedRequests.length - newAnchors.length,
                     missing: 0
                 },
                 mapping: profile,
@@ -858,7 +867,14 @@ Deno.serve(async (req) => {
             }
         }).filter(p => p.first_name !== 'Unknown' || p.last_name !== 'Participant')
 
-        const incomingAnchors = new Set(participants.map(p => p.source_anchor_value))
+        // Deduplicate participants to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+        const deduplicatedParticipantsMap = new Map()
+        for (const p of participants) {
+            deduplicatedParticipantsMap.set(p.source_anchor_value, p)
+        }
+        const deduplicatedParticipants = Array.from(deduplicatedParticipantsMap.values())
+
+        const incomingAnchors = new Set(deduplicatedParticipants.map(p => p.source_anchor_value))
 
         const { data: existingRecords, error: fetchError } = await supabaseClient
             .from('participants')
@@ -878,7 +894,7 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({
                 success: true,
                 stats: {
-                    total: participants.length,
+                    total: deduplicatedParticipants.length,
                     new: newAnchors.length,
                     updated: updatedAnchors.length,
                     missing: missingAnchors.length
@@ -888,7 +904,7 @@ Deno.serve(async (req) => {
                 probableTarget,
                 confidence,
                 headers,
-                preview: participants.slice(0, 5),
+                preview: deduplicatedParticipants.slice(0, 5),
                 missingPreview: missingAnchors.slice(0, 5)
             }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -896,7 +912,7 @@ Deno.serve(async (req) => {
         }
 
         const now = new Date().toISOString()
-        const participantsToUpsert = participants.map(p => {
+        const participantsToUpsert = deduplicatedParticipants.map(p => {
             let status = 'active'
             const raw = p.src_raw as any
             const statusSignal = (raw['Status'] || raw['Payment Status'] || raw['Canceled'] || '').toLowerCase()
@@ -969,7 +985,7 @@ Deno.serve(async (req) => {
         }
 
         if (importRunId) {
-            const importRunRecords = participants.map((participant) => {
+            const importRunRecords = deduplicatedParticipants.map((participant) => {
                 const previous = existingRecords?.find((row) => row.source_anchor_value === participant.source_anchor_value)
                 const current = currentByAnchor.get(participant.source_anchor_value)
                 return {
@@ -1003,7 +1019,7 @@ Deno.serve(async (req) => {
             if (runRecordError) throw runRecordError
 
             const stats = {
-                total: participants.length,
+                total: deduplicatedParticipants.length,
                 new: newAnchors.length,
                 updated: updatedAnchors.length,
                 missing: missingAnchors.length
@@ -1040,7 +1056,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({
             success: true,
             stats: {
-                total: participants.length,
+                total: deduplicatedParticipants.length,
                 new: newAnchors.length,
                 updated: updatedAnchors.length,
                 missing: missingAnchors.length

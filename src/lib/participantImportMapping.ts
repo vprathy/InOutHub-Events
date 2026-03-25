@@ -82,10 +82,10 @@ const VALUE_INFERENCE_FIELDS: ParticipantImportField[] = [
 ];
 
 const REQUEST_HEADER_ALIASES: Record<PerformanceRequestImportField, string[]> = {
-    title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item'],
-    leadName: ['lead name', 'contact name', 'teacher name', 'coach name', 'manager name', 'submitted by', 'requester name', 'name'],
-    leadEmail: ['lead email', 'contact email', 'teacher email', 'email address', 'email'],
-    leadPhone: ['lead phone', 'contact phone', 'teacher phone', 'manager phone', 'phone number', 'phone'],
+    title: ['program name', 'program title', 'performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item'],
+    leadName: ['requester name', 'requestor name', 'submitted by', 'primary contact name', 'primary contact', 'contact name', 'lead name', 'lead contact', 'teacher name', 'coach name', 'director name', 'manager name', 'team manager', 'name'],
+    leadEmail: ['requester email', 'requestor email', 'primary contact email', 'contact email', 'lead email', 'manager email', 'teacher email', 'email address', 'email'],
+    leadPhone: ['requester phone', 'requestor phone', 'primary contact phone', 'contact phone', 'lead phone', 'manager phone', 'teacher phone', 'phone number', 'phone', 'mobile'],
     durationMinutes: ['duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
     musicSupplied: ['music supplied', 'music submitted', 'music included', 'music?'],
     rosterSupplied: ['roster supplied', 'cast supplied', 'roster included', 'participants supplied'],
@@ -308,7 +308,7 @@ export function assessParticipantImport(
         profile.specialRequest ? 1 : 0,
     ].reduce((sum, value) => sum + value, 0);
 
-    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team'];
+    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team', 'program'];
     const performanceSignalCount = normalizedHeaders.filter((header) => performanceKeywords.some((keyword) => header.includes(keyword))).length;
 
     let probableTarget: ParticipantImportAssessment['probableTarget'] = 'participants';
@@ -378,8 +378,8 @@ export function inferPerformanceRequestImportProfile(
     }
 
     const headerCandidates: Array<[PerformanceRequestImportField, string[] | undefined, RegExp | undefined]> = [
-        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title)\b/],
-        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(lead|contact|teacher|coach|manager|requester)\b.*\bname\b/],
+        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title|program)\b/],
+        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(requester|requestor|submitted|primary|contact|lead|teacher|coach|director|manager)\b.*\bname\b/],
         ['leadEmail', REQUEST_HEADER_ALIASES.leadEmail, /\b(email)\b/],
         ['leadPhone', REQUEST_HEADER_ALIASES.leadPhone, /\b(phone|mobile|cell)\b/],
         ['durationMinutes', REQUEST_HEADER_ALIASES.durationMinutes, /\b(duration|runtime|length)\b/],

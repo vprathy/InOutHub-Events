@@ -2,7 +2,111 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { IntakeAuditEvent, PerformanceRequest } from '@/types/domain';
 
+type RawPayload = Record<string, unknown>;
+
+const REQUEST_SOURCE_ALIASES = {
+    title: ['program name', 'program title', 'performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title'],
+    leadName: ['requester name', 'requestor name', 'submitted by', 'primary contact name', 'primary contact', 'contact name', 'lead name', 'lead contact', 'teacher name', 'coach name', 'director name', 'manager name', 'team manager', 'name'],
+    leadEmail: ['requester email', 'requestor email', 'primary contact email', 'contact email', 'lead email', 'manager email', 'teacher email', 'email address', 'email'],
+    leadPhone: ['requester phone', 'requestor phone', 'primary contact phone', 'contact phone', 'lead phone', 'manager phone', 'teacher phone', 'phone number', 'phone', 'mobile'],
+    durationMinutes: ['program duration', 'duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
+    notes: ['special request', 'special requests', 'request notes', 'notes', 'comments', 'description', 'message'],
+} as const;
+
+function normalizeKey(value: string) {
+    return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function toText(value: unknown) {
+    return value == null ? '' : String(value).trim();
+}
+
+function getRawPayload(row: any): RawPayload {
+    return row?.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {};
+}
+
+function findRawValue(
+    rawPayload: RawPayload,
+    aliases: readonly string[],
+    validator?: (value: string) => boolean
+): { value: string; sourceKey: string } | null {
+    const entries = Object.entries(rawPayload)
+        .map(([key, value]) => ({ key, normalizedKey: normalizeKey(key), value: toText(value) }))
+        .filter((entry) => entry.value.length > 0);
+
+    for (const alias of aliases) {
+        const exact = entries.find((entry) => entry.normalizedKey === alias);
+        if (exact && (!validator || validator(exact.value))) {
+            return { value: exact.value, sourceKey: exact.key };
+        }
+    }
+
+    for (const alias of aliases) {
+        const partial = entries.find((entry) => entry.normalizedKey.includes(alias));
+        if (partial && (!validator || validator(partial.value))) {
+            return { value: partial.value, sourceKey: partial.key };
+        }
+    }
+
+    return null;
+}
+
+function isEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isPhone(value: string) {
+    const digits = value.replace(/\D/g, '');
+    return digits.length >= 10;
+}
+
+function buildImportInsights(row: any) {
+    const rawPayload = getRawPayload(row);
+
+    const title = toText(row.title) || findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.value || 'Untitled Request';
+    const leadNameMatch = toText(row.lead_name)
+        ? { value: toText(row.lead_name), sourceKey: null as string | null }
+        : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadName);
+    const leadEmailMatch = toText(row.lead_email)
+        ? { value: toText(row.lead_email), sourceKey: null as string | null }
+        : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadEmail, isEmail);
+    const leadPhoneMatch = toText(row.lead_phone)
+        ? { value: toText(row.lead_phone), sourceKey: null as string | null }
+        : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.leadPhone, isPhone);
+    const durationSource = findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.durationMinutes);
+    const notesMatch = toText(row.notes)
+        ? { value: toText(row.notes), sourceKey: null as string | null }
+        : findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.notes);
+
+    const importInsights = [
+        { label: 'Request Title', value: title, sourceKey: findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.sourceKey || null },
+        leadNameMatch ? { label: 'Requestor', value: leadNameMatch.value, sourceKey: leadNameMatch.sourceKey } : null,
+        leadEmailMatch ? { label: 'Email', value: leadEmailMatch.value, sourceKey: leadEmailMatch.sourceKey } : null,
+        leadPhoneMatch ? { label: 'Phone', value: leadPhoneMatch.value, sourceKey: leadPhoneMatch.sourceKey } : null,
+        {
+            label: 'Duration',
+            value: `${Number.isFinite(Number(row.duration_estimate_minutes)) ? Number(row.duration_estimate_minutes) : 5} minutes`,
+            sourceKey: durationSource?.sourceKey || null,
+        },
+        { label: 'Music', value: row.music_supplied ? 'Supplied' : 'Not supplied', sourceKey: null },
+        { label: 'Roster', value: row.roster_supplied ? 'Supplied' : 'Not supplied', sourceKey: null },
+        row.source_anchor ? { label: 'Source Identity', value: row.source_anchor, sourceKey: null } : null,
+        notesMatch ? { label: 'Imported Notes', value: notesMatch.value, sourceKey: notesMatch.sourceKey } : null,
+    ].filter(Boolean) as Array<{ label: string; value: string; sourceKey?: string | null }>;
+
+    return {
+        title,
+        leadName: leadNameMatch?.value || null,
+        leadEmail: leadEmailMatch?.value || null,
+        leadPhone: leadPhoneMatch?.value || null,
+        notes: notesMatch?.value || null,
+        importInsights,
+    };
+}
+
 function mapPerformanceRequest(row: any): PerformanceRequest {
+    const resolved = buildImportInsights(row);
+
     return {
         id: row.id,
         organizationId: row.organization_id,
@@ -10,14 +114,14 @@ function mapPerformanceRequest(row: any): PerformanceRequest {
         importRunId: row.import_run_id,
         eventSourceId: row.event_source_id,
         sourceAnchor: row.source_anchor,
-        title: row.title,
-        leadName: row.lead_name,
-        leadEmail: row.lead_email,
-        leadPhone: row.lead_phone,
+        title: resolved.title,
+        leadName: resolved.leadName,
+        leadEmail: resolved.leadEmail,
+        leadPhone: resolved.leadPhone,
         durationEstimateMinutes: row.duration_estimate_minutes,
         musicSupplied: !!row.music_supplied,
         rosterSupplied: !!row.roster_supplied,
-        notes: row.notes,
+        notes: resolved.notes,
         rawPayload: row.raw_payload,
         requestStatus: row.request_status,
         conversionStatus: row.conversion_status,
@@ -31,6 +135,7 @@ function mapPerformanceRequest(row: any): PerformanceRequest {
         convertedBy: row.converted_by,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        importInsights: resolved.importInsights,
     };
 }
 
@@ -142,6 +247,26 @@ export function useConvertPerformanceRequest(eventId: string | null, requestId: 
             queryClient.invalidateQueries({ queryKey: ['performance-requests', eventId] });
             queryClient.invalidateQueries({ queryKey: ['performance-request-timeline', requestId] });
             queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
+        },
+    });
+}
+
+export function usePerformanceRequestForAct(actId: string | null) {
+    return useQuery({
+        queryKey: ['performance-request-for-act', actId],
+        enabled: !!actId,
+        queryFn: async () => {
+            const { data, error } = await (supabase as any)
+                .from('performance_requests')
+                .select(`
+                    *,
+                    converted_act:acts(id, name)
+                `)
+                .eq('converted_act_id', actId)
+                .maybeSingle();
+
+            if (error) throw error;
+            return data ? mapPerformanceRequest(data) : null;
         },
     });
 }

@@ -595,23 +595,31 @@ export function ImportParticipantsModal({
                             )}
                         </div>
                     ) : status === 'loading' ? (
-                        <div className="flex flex-col items-center justify-center py-16 space-y-6">
-                            <div className="relative">
-                                <Loader2 className="w-16 h-16 text-teal-500 animate-spin" />
-                                <RefreshCw className="w-8 h-8 text-teal-500/50 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                        <div className="mx-auto max-w-md rounded-[1.4rem] border border-border/70 bg-background/75 p-5">
+                            <div className="flex items-center gap-4">
+                                <div className="relative shrink-0">
+                                    <Loader2 className="h-10 w-10 animate-spin text-teal-500" />
+                                    <RefreshCw className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-teal-500/45" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-black text-foreground">Sync in progress</p>
+                                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                                        {currentSyncContext?.sourceName || 'Import source'} • {formatIntakeTargetLabel(currentSyncContext?.intakeTarget || intakeTarget)}
+                                    </p>
+                                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                                        Step {loadingStepIndex + 1} of {IMPORT_PROGRESS_STEPS.length} • {IMPORT_PROGRESS_STEPS[loadingStepIndex]}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="space-y-2 text-center">
-                                <p className="text-lg font-bold text-foreground animate-pulse">Synchronizing...</p>
-                                <p className="text-sm font-semibold text-foreground/80">
-                                    {currentSyncContext?.sourceName || 'Import source'} • {formatIntakeTargetLabel(currentSyncContext?.intakeTarget || intakeTarget)}
-                                </p>
-                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-                                    Step {loadingStepIndex + 1} of {IMPORT_PROGRESS_STEPS.length} • {IMPORT_PROGRESS_STEPS[loadingStepIndex]}
-                                </p>
-                                <p className="mx-auto max-w-[18rem] text-xs text-muted-foreground">
-                                    Wide Google Sheets are supported. Column count alone does not make the sync heavy; we are reading, validating, and saving the rows now.
-                                </p>
+                            <div className="mt-4 h-2 overflow-hidden rounded-full bg-accent/50">
+                                <div
+                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    style={{ width: `${((loadingStepIndex + 1) / IMPORT_PROGRESS_STEPS.length) * 100}%` }}
+                                />
                             </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                Wide Google Sheets are normal. We are reading the rows, checking the columns, and saving what matches this intake target.
+                            </p>
                         </div>
                     ) : uiMode === 'dashboard' ? (
                         <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-1">
@@ -624,6 +632,32 @@ export function ImportParticipantsModal({
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         Imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)} • Detected target {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence {lastSyncSummary.confidence || 'n/a'}
                                     </p>
+                                    <details className="mt-3">
+                                        <summary className="cursor-pointer text-xs font-bold text-emerald-700">View what was used</summary>
+                                        {(() => {
+                                            const mappedFields = summarizeMappedFields(lastSyncSummary.mapping);
+                                            const usedHeaderCount = new Set(mappedFields.map((item) => item.header)).size;
+                                            const ignoredHeaderCount = Math.max(lastSyncSummary.headers.length - usedHeaderCount, 0);
+                                            return (
+                                                <div className="mt-3 space-y-3">
+                                                    {mappedFields.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {mappedFields.slice(0, 6).map((item) => (
+                                                                <span key={`${item.label}-${item.header}`} className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-foreground/80">
+                                                                    {item.label}: {item.header}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                    {lastSyncSummary.headers.length > 0 ? (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Used {usedHeaderCount} of {lastSyncSummary.headers.length} columns. {ignoredHeaderCount} extra columns were preserved in raw payload for later review.
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            );
+                                        })()}
+                                    </details>
                                 </div>
                             ) : null}
                             <div className="space-y-4">
