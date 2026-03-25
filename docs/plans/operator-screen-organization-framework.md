@@ -218,6 +218,46 @@ This framework should govern:
 
 It is especially important for detail screens, because that is where drift and clutter accumulate fastest.
 
+## Dashboard Evolution Rule
+
+The dashboard should evolve from a generic tool launcher into an insight-led command surface.
+
+That means:
+- the first question should be `what is going wrong or drifting?`
+- the second question should be `what should I open next?`
+
+Do not interpret this as license to remove operator tools or bury workflows.
+
+Correct product order:
+1. insight
+2. next action
+3. workspace entry
+
+Wrong product order:
+1. giant tool menu
+2. decorative counts
+3. no explanation of risk or drift
+
+### First Org-Owner Insight Set
+
+The first org-owner layer should focus on explainable operational signals:
+- execution pace variance by event or stage
+- blocked acts count
+- at-risk readiness count
+- unresolved drift or conflict signals
+
+These should be explainable and tied to actions, not just rendered as generic analytics.
+
+### Resilience Must Be Visible
+
+The product should make resilience legible, not just implemented:
+- live refresh recovery
+- live pointer recovery
+- protected live window
+- role-safe execution controls
+
+These are not just engineering details. They are part of the product contract and should shape how Dashboard, Show Flow, and Live Console describe their trustworthiness.
+
 ## Show Flow vs Live Console Contract
 
 These two screens must both exist, but they must not do the same job.

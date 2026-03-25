@@ -23,6 +23,9 @@ Working rule:
 - [ ] Run the Phase 1 operator rehearsal across Access, Requirements, participant/performance profiles, Show Flow, and Live Console.
 - [ ] Finalize the Phase 1 people model for manual entry so crew/support and participants do not drift.
 - [ ] Keep signed-in account profile work disabled unless explicitly prioritized.
+- [ ] Define the first org-owner insight set so Dashboard can explain operational drift, blocked work, and readiness risk instead of only linking to tools.
+- [ ] Define the tenant onboarding automation flow from source connection to first trusted sync, including success metrics for time-to-first-value.
+- [ ] Document the operational resilience pillars for product and pitch use: refresh recovery, live-pointer recovery, protected live window, and role-safe execution.
 
 ### Performance Intake & Staging
 - [x] **Backend/Supabase:** Performance Request Staging model (Table, RLS, Audit).
@@ -35,6 +38,7 @@ Working rule:
 - [ ] Keep Dashboard metrics and Response Queue MECE.
 - [ ] Standardize header, sticky strip, and bottom nav as the shared shell container.
 - [ ] Keep empty states and helper text compact and operational.
+- [ ] Keep Dashboard evolving toward `insights first, tools second` without weakening the operator workflows underneath.
 
 ### Requirements / Readiness Contract
 - [ ] Keep participant requirements limited to actual admin-defined obligations, not inbound participant requests.
@@ -47,6 +51,7 @@ Phase 2 roadmap links:
 - post-approval readiness convergence: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/post-approval-readiness-convergence.md)
 - intake and review roadmap status: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md)
 - onboarding go / no-go rubric: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md)
+- operator screen organization: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md)
 
 ### Intro System Final Checks
 - [ ] Verify approved intro playback timing and cinematic polish.
@@ -72,6 +77,11 @@ Phase 2 roadmap links:
 - [ ] Add a runbook or internal tooling for super-admin bootstrap and audit.
 - [x] Capture customer-side intake workspace errors with support codes for internal review.
 - [ ] Consider scoped support access or impersonation instead of long-term global super-admin dependence.
+
+### Growth & Proof
+- [ ] Use the first tenant onboarding cycle to prove mapping review / confirm / lock against a second real source shape.
+- [ ] Add the first org-owner insight KPI set to the roadmap before broad onboarding: execution pace variance, blocked acts, readiness risk, and drift trends.
+- [ ] Position operational resilience as a product pillar in internal materials: live refresh recovery, execution continuity, and safe RBAC under pressure.
 
 ### UI System Cleanup
 - [ ] Finish the card/pill density overhaul across Dashboard, Lineup, Participants, and profiles.

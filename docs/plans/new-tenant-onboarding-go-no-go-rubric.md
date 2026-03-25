@@ -97,9 +97,46 @@ When a validation batch finishes:
 ## Current Provisional Stance
 
 As of 2026-03-25:
-- intake looks close to `GO`
-- broader onboarding is still provisional until `Show Flow + Live Console` validation returns
+- intake is materially strong
+- `Show Flow + Live Console` validation has returned strong
+- broader onboarding should no longer be blocked on intake or execution-spine uncertainty alone
+
+## Strategy Shift After Rehearsal Validation
+
+Now that intake and the rehearsal spine both validate, the product should shift from pure stabilization to controlled tenant velocity.
+
+### What This Means
+
+- stop treating intake hardening as the primary narrative
+- treat mapping review / confirm / lock as the last major intake trust gate before broader source variability
+- shift product attention toward onboarding automation and first-tenant repeatability
+- preserve a smaller parallel lane for execution/readiness hardening instead of reopening broad architecture churn
+
+### Resource Guidance
+
+Recommended allocation for the next batch:
+- `~70%` onboarding automation, source trust, and tenant enablement
+- `~30%` execution/readiness hardening and dashboard/operator polish
+
+### Product Narrative Guidance
+
+The roadmap should now emphasize three claims:
+
+1. `Tenant Velocity`
+- how fast a new customer can connect a source and reach first trusted sync
+
+2. `Operational Resilience`
+- refresh recovery
+- live pointer recovery
+- protected live window
+- role-safe execution
+
+3. `Insight Layer`
+- move beyond tools alone
+- explain drift, blocked work, and readiness risk at the org-owner level
+- keep operator workflows intact underneath
 
 So the current product stance is:
-- `pause broad onboarding decision`
-- finish execution-spine validation first
+- `begin controlled onboarding preparation`
+- complete mapping review / confirm / lock as the final intake trust gate
+- treat the first additional tenant as the proving ground for repeatability, not as a bespoke support exercise

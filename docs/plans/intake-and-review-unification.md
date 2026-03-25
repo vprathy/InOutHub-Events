@@ -269,29 +269,31 @@ The following parts of this plan are now materially implemented:
 - Google Sheet sync and spreadsheet upload now go through one backend-led intake path, reducing split-brain import logic.
 - request/contact PII and intake lineage access are now hardened for admin-scoped visibility.
 - request queue filtering, search, count stats, and large-list behavior are now substantially more scalable than the original client-heavy approach.
+- the first slice of mapping review / confirm / lock is now implemented:
+  - new sources profile first
+  - operators review the detected target, used fields, warnings, and drift before sync trust is granted
+  - locked sources can routine-sync directly
 
 ### Still Open
 
 The following items are still open and should remain on the roadmap:
 
-#### 1. Mapping Review / Confirm / Lock
+#### 1. Mapping Review / Confirm / Lock Hardening
 
-This is still the biggest product gap for generalizable intake.
+This is no longer absent, but it is still the biggest product hardening area for generalizable intake.
 
 Detailed implementation plan:
 - `/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-mapping-review-and-lock.md`
 
 Needed behavior:
-- show what the system detected
-- show what fields were actually used
-- show what columns were ignored or preserved only in raw payload
-- surface ambiguities, warnings, and duplicate-collapse behavior
-- require operator confirmation for new or materially changed source shapes
-- save the confirmed mapping to the source so future syncs are faster and more trustworthy
+- continue proving the profile-first / confirm-and-sync path across more than one tenant shape
+- make drift detection and re-review behavior legible in routine operator use
+- decide whether `Save Mapping Only` should remain a first-class operator action or move behind secondary disclosure
+- ensure the locked-mapping contract remains stable for both Google Sheets and upload workflows
 
 Why it belongs next:
 - we proved the intake backbone against a real customer sheet
-- we have not yet proved it is broadly trustworthy across many tenant sheet shapes
+- we now have the right trust flow, but we have not yet proved it broadly across many tenant sheet shapes
 - this is the right bridge between a brittle template-only importer and an opaque “AI guessed it” importer
 
 Roadmap placement:
@@ -354,14 +356,14 @@ Roadmap placement:
 
 Based on what is already shipped, the roadmap should now read:
 
-1. Apply any still-pending live Supabase migrations for the shipped request workflow improvements.
-2. Build mapping review / confirm / lock for intake sources.
-3. Validate one additional tenant/source shape through that confirmation flow.
-4. Add participant-side requirement bridge for post-approval operational work.
-5. Add performance-side requirement-backed consolidation after conversion.
-6. Selectively recover the highest-value proactive operator patterns from the old mobile-readiness branch via the operator-screen and intro plans, not by reviving that branch wholesale.
-7. Define and then build manual emergency intake.
-8. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
+1. Finish validating the shipped mapping review / confirm / lock flow against one additional tenant/source shape.
+2. Define the tenant onboarding automation flow around that trust gate so source connection to first trusted sync becomes repeatable.
+3. Add participant-side requirement bridge for post-approval operational work.
+4. Add performance-side requirement-backed consolidation after conversion.
+5. Selectively recover the highest-value proactive operator patterns from the old mobile-readiness branch via the operator-screen and intro plans, not by reviving that branch wholesale.
+6. Define and then build manual emergency intake.
+7. Define performance deletion / post-conversion rollback rules before adding destructive delete paths.
+8. Add the first org-owner insight layer so the product explains drift and blocked readiness, not just operator tasks.
 
 ### Pivot Rule For New-Tenant Onboarding
 
@@ -372,6 +374,6 @@ We can treat performance intake as stable enough to shift primary effort toward 
 - request review, approval, rejection, and conversion work cleanly
 - request/contact PII and intake lineage are correctly admin-scoped
 - one additional real tenant/source shape succeeds without one-off alias surgery
-- mapping review / confirm / lock exists so operators can trust what the importer understood
+- the shipped mapping review / confirm / lock flow proves repeatable on that additional tenant shape
 
 Until then, new-tenant onboarding should be treated as partially unblocked but still dependent on intake hardening.
