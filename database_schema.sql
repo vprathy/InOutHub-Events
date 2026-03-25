@@ -793,8 +793,8 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
 CREATE OR REPLACE FUNCTION can_view_participant(p_participant_id UUID, p_user_id UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
-    v_event_id UUID;
-    v_role TEXT;
+  v_event_id UUID;
+  v_role TEXT;
     v_user_email TEXT;
 BEGIN
     SELECT event_id INTO v_event_id FROM participants WHERE id = p_participant_id;
@@ -1571,6 +1571,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION can_view_performance_request_contact_pii(p_request_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_event_id UUID;
+  v_role TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_super_admins WHERE user_id = p_user_id) THEN
+    RETURN TRUE;
+  END IF;
+
+  SELECT event_id INTO v_event_id
+  FROM performance_requests
+  WHERE id = p_request_id;
+
+  IF v_event_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  SELECT get_effective_event_role(v_event_id, p_user_id) INTO v_role;
+  RETURN v_role = 'EventAdmin';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ==========================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ==========================================
@@ -1688,6 +1711,43 @@ GRANT SELECT ON v_participants_hardened TO authenticated;
 GRANT SELECT ON v_participants_hardened TO anon;
 GRANT SELECT ON v_participants_hardened TO service_role;
 
+CREATE OR REPLACE VIEW v_performance_requests_hardened AS
+SELECT
+    pr.id,
+    pr.organization_id,
+    pr.event_id,
+    pr.import_run_id,
+    pr.event_source_id,
+    pr.source_anchor,
+    pr.title,
+    pr.lead_name,
+    CASE WHEN can_view_performance_request_contact_pii(pr.id, auth.uid()) THEN pr.lead_email ELSE NULL END AS lead_email,
+    CASE WHEN can_view_performance_request_contact_pii(pr.id, auth.uid()) THEN pr.lead_phone ELSE NULL END AS lead_phone,
+    pr.duration_estimate_minutes,
+    pr.music_supplied,
+    pr.roster_supplied,
+    pr.notes,
+    pr.raw_payload,
+    pr.request_status,
+    pr.conversion_status,
+    pr.converted_act_id,
+    a.name AS converted_act_name,
+    pr.reviewed_at,
+    pr.reviewed_by,
+    pr.approved_at,
+    pr.approved_by,
+    pr.converted_at,
+    pr.converted_by,
+    pr.created_at,
+    pr.updated_at,
+    can_view_performance_request_contact_pii(pr.id, auth.uid()) AS is_contact_pii_unmasked
+FROM performance_requests pr
+LEFT JOIN acts a ON a.id = pr.converted_act_id
+WHERE auth_is_super_admin() OR auth_event_role(pr.event_id) IS NOT NULL;
+
+GRANT SELECT ON v_performance_requests_hardened TO authenticated;
+GRANT SELECT ON v_performance_requests_hardened TO service_role;
+
 ALTER TABLE participant_assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "participant_assets_select" ON participant_assets FOR SELECT USING (auth_is_super_admin() OR can_view_participant(participant_id, auth.uid()));
 CREATE POLICY "participant_assets_manage" ON participant_assets FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IN ('EventAdmin', 'StageManager'));
@@ -1738,12 +1798,47 @@ CREATE POLICY "stage_state_manage_ops" ON stage_state FOR ALL USING (auth_is_sup
 
 ALTER TABLE intake_audit_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "intake_audit_events_select" ON intake_audit_events FOR SELECT USING (
-    auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
 );
 CREATE POLICY "intake_audit_events_manage" ON intake_audit_events FOR ALL USING (
     auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
 ) WITH CHECK (
     auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
+
+ALTER TABLE import_runs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "import_runs_select" ON import_runs FOR SELECT USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
+CREATE POLICY "import_runs_manage" ON import_runs FOR ALL USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+) WITH CHECK (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
+
+ALTER TABLE import_run_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "import_run_records_select" ON import_run_records FOR SELECT USING (
+    EXISTS (
+        SELECT 1
+        FROM import_runs ir
+        WHERE ir.id = import_run_id
+          AND (auth_is_super_admin() OR auth_event_role(ir.event_id) = 'EventAdmin')
+    )
+);
+CREATE POLICY "import_run_records_manage" ON import_run_records FOR ALL USING (
+    EXISTS (
+        SELECT 1
+        FROM import_runs ir
+        WHERE ir.id = import_run_id
+          AND (auth_is_super_admin() OR auth_event_role(ir.event_id) = 'EventAdmin')
+    )
+) WITH CHECK (
+    EXISTS (
+        SELECT 1
+        FROM import_runs ir
+        WHERE ir.id = import_run_id
+          AND (auth_is_super_admin() OR auth_event_role(ir.event_id) = 'EventAdmin')
+    )
 );
 
 ALTER TABLE client_error_events ENABLE ROW LEVEL SECURITY;
@@ -1769,7 +1864,7 @@ GRANT SELECT ON v_recent_client_error_events TO service_role;
 
 ALTER TABLE performance_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "performance_requests_select" ON performance_requests FOR SELECT USING (
-    auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
 );
 CREATE POLICY "performance_requests_manage" ON performance_requests FOR ALL USING (
     auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'

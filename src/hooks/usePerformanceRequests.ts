@@ -146,7 +146,7 @@ function mapPerformanceRequest(row: any): PerformanceRequest {
         requestStatus: row.request_status,
         conversionStatus: row.conversion_status,
         convertedActId: row.converted_act_id,
-        convertedActName: row.converted_act?.name ?? null,
+        convertedActName: row.converted_act_name ?? null,
         reviewedAt: row.reviewed_at,
         reviewedBy: row.reviewed_by,
         approvedAt: row.approved_at,
@@ -231,11 +231,8 @@ export function usePerformanceRequestsQuery({
         queryFn: async () => {
             const normalizedSearch = searchTerm.trim();
             let query = (supabase as any)
-                .from('performance_requests')
-                .select(`
-                    *,
-                    converted_act:acts(id, name)
-                `, { count: 'exact' })
+                .from('v_performance_requests_hardened')
+                .select('*', { count: 'exact' })
                 .eq('event_id', eventId);
 
             query = applyRequestSegmentFilter(query, segment);
@@ -259,7 +256,7 @@ export function usePerformanceRequestCounts(eventId: string | null) {
         queryKey: ['performance-requests-counts', eventId],
         enabled: !!eventId,
         queryFn: async () => {
-            const base = () => (supabase as any).from('performance_requests').select('id', { count: 'exact', head: true }).eq('event_id', eventId);
+            const base = () => (supabase as any).from('v_performance_requests_hardened').select('id', { count: 'exact', head: true }).eq('event_id', eventId);
 
             const [
                 totalResult,
@@ -374,11 +371,8 @@ export function usePerformanceRequestForAct(actId: string | null) {
         enabled: !!actId,
         queryFn: async () => {
             const { data, error } = await (supabase as any)
-                .from('performance_requests')
-                .select(`
-                    *,
-                    converted_act:acts(id, name)
-                `)
+                .from('v_performance_requests_hardened')
+                .select('*')
                 .eq('converted_act_id', actId)
                 .maybeSingle();
 
