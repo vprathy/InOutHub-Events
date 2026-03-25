@@ -168,6 +168,30 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
     const policyByCode = new Map((seededPolicies || []).map((policy: any) => [policy.code, policy]));
 
     const { data: userProfiles } = await supabase.from('user_profiles').select('id, email');
+    
+    // 4a. Seed Super Admins
+    const superAdminEmails = ['vinay.prathy@ziffyvolve.com'];
+    const superAdminProfiles = (userProfiles || [])
+        .filter(p => superAdminEmails.includes((p.email || '').toLowerCase()));
+    if (superAdminProfiles.length > 0) {
+        await (supabase as any).from('app_super_admins').upsert(
+            superAdminProfiles.map(p => ({ user_id: p.id })),
+            { onConflict: 'user_id' }
+        );
+    }
+
+    // 4b. Seed Organization Members (Owner)
+    const orgOwnerEmails = ['owner@ziffyvolve.com'];
+    const orgOwnerProfiles = (userProfiles || [])
+        .filter(p => orgOwnerEmails.includes((p.email || '').toLowerCase()));
+    if (orgOwnerProfiles.length > 0) {
+        await supabase.from('organization_members').upsert(
+            orgOwnerProfiles.map(p => ({ organization_id: orgId, user_id: p.id, role: 'Owner' })),
+            { onConflict: 'organization_id,user_id' }
+        );
+    }
+
+    // 4c. Seed Event Members
     const roleMap = new Map<string, string>([
         ['eventadmin@ziffyvolve.com', 'EventAdmin'],
         ['stagemanager@ziffyvolve.com', 'StageManager'],

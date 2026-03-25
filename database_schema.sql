@@ -9,6 +9,11 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    review_status TEXT NOT NULL DEFAULT 'approved' CHECK (review_status IN ('pending_review', 'approved', 'restricted')),
+    onboarding_contact_email TEXT,
+    review_requested_at TIMESTAMP WITH TIME ZONE,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    reviewed_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -37,6 +42,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+ALTER TABLE organizations
+    ADD CONSTRAINT organizations_reviewed_by_fkey
+    FOREIGN KEY (reviewed_by) REFERENCES user_profiles(id) ON DELETE SET NULL;
 
 -- Platform-Level Super Admins
 CREATE TABLE app_super_admins (
@@ -173,6 +182,45 @@ CREATE TABLE acts (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Staging for external intake (Review -> Approve -> Convert)
+CREATE TABLE performance_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    import_run_id UUID REFERENCES import_runs(id) ON DELETE SET NULL,
+    event_source_id UUID REFERENCES event_sources(id) ON DELETE SET NULL,
+    
+    source_anchor TEXT, -- Unique key from source (e.g. Row ID or Row Hash)
+    
+    title TEXT NOT NULL,
+    lead_name TEXT,
+    lead_email TEXT,
+    lead_phone TEXT,
+    duration_estimate_minutes INTEGER NOT NULL DEFAULT 5,
+    music_supplied BOOLEAN NOT NULL DEFAULT false,
+    roster_supplied BOOLEAN NOT NULL DEFAULT false,
+    notes TEXT,
+    raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    
+    request_status TEXT NOT NULL DEFAULT 'pending' CHECK (request_status IN ('pending', 'reviewed', 'approved', 'rejected')),
+    conversion_status TEXT NOT NULL DEFAULT 'not_started' CHECK (conversion_status IN ('not_started', 'converted', 'failed')),
+    converted_act_id UUID REFERENCES acts(id) ON DELETE SET NULL,
+    
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    reviewed_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    approved_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    converted_at TIMESTAMP WITH TIME ZONE,
+    converted_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Prevent duplicate intake from the same source row per source instance
+    UNIQUE(event_id, event_source_id, source_anchor)
+);
+
+
 CREATE TABLE act_participants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     act_id UUID NOT NULL REFERENCES acts(id) ON DELETE CASCADE,
@@ -293,6 +341,65 @@ CREATE TABLE stage_state (
 -- ==========================================
 -- 5. AUDIT & ACCOUNTABILITY
 -- ==========================================
+
+CREATE TABLE event_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    config JSONB NOT NULL DEFAULT '{}'::jsonb,
+    last_synced_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE import_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    event_source_id UUID REFERENCES event_sources(id) ON DELETE SET NULL,
+    import_target TEXT NOT NULL CHECK (import_target IN ('participants', 'performance_requests')),
+    import_method TEXT NOT NULL CHECK (import_method IN ('google_sheet', 'spreadsheet_upload', 'manual')),
+    source_name TEXT,
+    source_instance TEXT,
+    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'succeeded', 'failed', 'blocked', 'rolled_back')),
+    probable_target TEXT CHECK (probable_target IN ('participants', 'performance_requests', 'unknown')),
+    confidence TEXT CHECK (confidence IN ('high', 'medium', 'low')),
+    stats JSONB NOT NULL DEFAULT '{}'::jsonb,
+    blocking_issues JSONB NOT NULL DEFAULT '[]'::jsonb,
+    source_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    error_message TEXT,
+    initiated_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE import_run_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    import_run_id UUID NOT NULL REFERENCES import_runs(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('participant', 'performance_request', 'act')),
+    entity_id UUID,
+    entity_key TEXT,
+    action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'missing_from_source', 'blocked', 'skipped', 'deleted')),
+    before_data JSONB,
+    after_data JSONB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE intake_audit_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    import_run_id UUID REFERENCES import_runs(id) ON DELETE SET NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('import_run', 'participant', 'performance_request', 'act')),
+    entity_id UUID,
+    action TEXT NOT NULL,
+    note TEXT,
+    before_data JSONB,
+    after_data JSONB,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    performed_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+    performed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -424,7 +531,23 @@ BEGIN
     SELECT role INTO v_org_role FROM public.organization_members WHERE organization_id = v_org_id AND user_id = p_user_id;
     IF v_org_role IN ('Owner', 'Admin') THEN RETURN 'EventAdmin'; END IF;
     SELECT role INTO v_event_role FROM public.event_members WHERE event_id = p_event_id AND user_id = p_user_id;
-    RETURN v_event_role;
+    IF v_event_role IS NOT NULL THEN
+        RETURN v_event_role;
+    END IF;
+
+    -- 4. Act Manager fallback (ActAdmin)
+    IF EXISTS (
+        SELECT 1 FROM act_participants ap
+        JOIN acts a ON a.id = ap.act_id
+        JOIN participants p ON p.id = ap.participant_id
+        WHERE a.event_id = p_event_id
+          AND ap.role = 'Manager'
+          AND normalize_email(extract_participant_contact_email(p.src_raw, p.notes)) = (SELECT normalize_email(email) FROM public.user_profiles WHERE id = p_user_id)
+    ) THEN
+        RETURN 'ActAdmin';
+    END IF;
+
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
 
@@ -458,6 +581,97 @@ RETURNS TEXT AS $$
   SELECT NULLIF(lower(trim(p_email)), '');
 $$ LANGUAGE sql IMMUTABLE;
 
+CREATE OR REPLACE FUNCTION get_my_pending_access_count()
+RETURNS INTEGER AS $$
+DECLARE
+    v_email TEXT;
+BEGIN
+    SELECT normalize_email(email) INTO v_email
+    FROM public.user_profiles
+    WHERE id = auth.uid();
+
+    IF v_email IS NULL THEN
+        RETURN 0;
+    END IF;
+
+    RETURN COALESCE((
+        SELECT COUNT(*)
+        FROM public.pending_event_access
+        WHERE normalized_email = v_email
+          AND status = 'pending'
+    ), 0);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION create_organization_with_owner(
+    p_name TEXT,
+    p_contact_email TEXT DEFAULT NULL,
+    p_requires_review BOOLEAN DEFAULT TRUE
+)
+RETURNS UUID AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_org_id UUID;
+    v_contact_email TEXT;
+    v_review_status TEXT := 'approved';
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Authentication required';
+    END IF;
+
+    IF NULLIF(trim(COALESCE(p_name, '')), '') IS NULL THEN
+        RAISE EXCEPTION 'Organization name is required';
+    END IF;
+
+    IF NOT public.auth_is_super_admin() THEN
+        IF EXISTS (
+            SELECT 1
+            FROM public.organization_members
+            WHERE user_id = v_user_id
+        ) THEN
+            RAISE EXCEPTION 'Only first-time users can self-create an organization during MVP onboarding';
+        END IF;
+
+        IF public.get_my_pending_access_count() > 0 THEN
+            RAISE EXCEPTION 'Pending access already exists for this user. Complete the invite flow instead of creating a new organization.';
+        END IF;
+    END IF;
+
+    SELECT normalize_email(COALESCE(NULLIF(trim(p_contact_email), ''), email))
+    INTO v_contact_email
+    FROM public.user_profiles
+    WHERE id = v_user_id;
+
+    IF p_requires_review AND NOT public.auth_is_super_admin() THEN
+        v_review_status := 'pending_review';
+    END IF;
+
+    INSERT INTO public.organizations (
+        name,
+        review_status,
+        onboarding_contact_email,
+        review_requested_at,
+        reviewed_at,
+        reviewed_by
+    )
+    VALUES (
+        trim(p_name),
+        v_review_status,
+        v_contact_email,
+        CASE WHEN v_review_status = 'pending_review' THEN NOW() ELSE NULL END,
+        CASE WHEN v_review_status = 'approved' THEN NOW() ELSE NULL END,
+        CASE WHEN v_review_status = 'approved' THEN v_user_id ELSE NULL END
+    )
+    RETURNING id INTO v_org_id;
+
+    INSERT INTO public.organization_members (organization_id, user_id, role)
+    VALUES (v_org_id, v_user_id, 'Owner')
+    ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'Owner';
+
+    RETURN v_org_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
 CREATE OR REPLACE FUNCTION is_valid_email(p_email TEXT)
 RETURNS BOOLEAN AS $$
   SELECT COALESCE(normalize_email(p_email) ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$', FALSE);
@@ -477,6 +691,346 @@ RETURNS TEXT AS $$
       (regexp_match(COALESCE(p_notes, ''), '\[Email:\s*([^\]]+)\]', 'i'))[1]
   ));
 $$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION can_view_guardian_pii(p_participant_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id FROM participants WHERE id = p_participant_id;
+    IF v_event_id IS NULL THEN RETURN FALSE; END IF;
+
+    v_role := get_effective_event_role(v_event_id, p_user_id);
+
+    -- Only top-tier admins get guardian PII
+    RETURN v_role = 'EventAdmin';
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION can_view_act_detail(p_act_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id FROM acts WHERE id = p_act_id;
+    IF v_event_id IS NULL THEN RETURN FALSE; END IF;
+
+    v_role := get_effective_event_role(v_event_id, p_user_id);
+
+    -- EventAdmin, SuperAdmin, StageManager see all acts in the event
+    IF v_role IN ('EventAdmin', 'StageManager') THEN
+        RETURN TRUE;
+    END IF;
+
+    -- ActAdmin only sees their own act(s)
+    IF v_role = 'ActAdmin' THEN
+        RETURN EXISTS (
+            SELECT 1 FROM act_participants ap
+            JOIN participants p ON p.id = ap.participant_id
+            WHERE ap.act_id = p_act_id
+              AND ap.role = 'Manager'
+              AND normalize_email(extract_participant_contact_email(p.src_raw, p.notes)) = (SELECT normalize_email(email) FROM public.user_profiles WHERE id = p_user_id)
+        );
+    END IF;
+
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION can_view_participant(p_participant_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_event_id UUID;
+    v_role TEXT;
+    v_user_email TEXT;
+BEGIN
+    SELECT event_id INTO v_event_id FROM participants WHERE id = p_participant_id;
+    IF v_event_id IS NULL THEN RETURN FALSE; END IF;
+
+    v_role := get_effective_event_role(v_event_id, p_user_id);
+
+    -- EventAdmin, SuperAdmin, StageManager can see all participants in the event roster
+    IF v_role IN ('EventAdmin', 'StageManager') THEN
+        RETURN TRUE;
+    END IF;
+
+    -- ActAdmin can only see participants in their own acts
+    IF v_role = 'ActAdmin' THEN
+        SELECT email INTO v_user_email FROM user_profiles WHERE id = p_user_id;
+
+        RETURN EXISTS (
+            SELECT 1
+            FROM act_participants ap_target
+            JOIN acts a ON a.id = ap_target.act_id
+            JOIN act_participants ap_manager ON ap_manager.act_id = a.id
+            JOIN participants p_manager ON p_manager.id = ap_manager.participant_id
+            WHERE ap_target.participant_id = p_participant_id
+              AND ap_manager.role = 'Manager'
+              AND (
+                  normalize_email(p_manager.src_raw->>'email') = normalize_email(v_user_email)
+                  OR normalize_email(p_manager.src_raw->>'Email') = normalize_email(v_user_email)
+                  OR normalize_email(p_manager.src_raw->>'Email Address') = normalize_email(v_user_email)
+                  OR normalize_email(p_manager.src_raw->>'Guardian Email') = normalize_email(v_user_email)
+              )
+        );
+    END IF;
+
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION get_operational_contacts(p_act_id UUID)
+RETURNS TABLE (
+    contact_name TEXT,
+    contact_role TEXT,
+    contact_email TEXT,
+    contact_phone TEXT,
+    priority INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    -- 1. Performance Managers (Participants with role 'Manager')
+    SELECT
+        p.first_name || ' ' || p.last_name as contact_name,
+        'Act Manager' as contact_role,
+        extract_participant_contact_email(p.src_raw, p.notes) as contact_email,
+        COALESCE(p.guardian_phone, (p.src_raw->>'phone')::text) as contact_phone,
+        1 as priority
+    FROM act_participants ap
+    JOIN participants p ON p.id = ap.participant_id
+    WHERE ap.act_id = p_act_id AND ap.role = 'Manager'
+
+    UNION ALL
+
+    -- 2. Act Admins (Users linked via Participant Manager role)
+    SELECT
+        up.email as contact_name,
+        'Act Admin' as contact_role,
+        up.email as contact_email,
+        NULL::text as contact_phone,
+        2 as priority
+    FROM act_participants ap
+    JOIN participants p ON p.id = ap.participant_id
+    JOIN user_profiles up ON normalize_email(up.email) = extract_participant_contact_email(p.src_raw, p.notes)
+    JOIN event_members em ON em.user_id = up.id AND em.event_id = p.event_id
+    WHERE ap.act_id = p_act_id AND ap.role = 'Manager' AND em.role = 'ActAdmin'
+
+    UNION ALL
+
+    -- 3. Event Admins (Static Fallback)
+    SELECT
+        up.email as contact_name,
+        'Event Admin' as contact_role,
+        up.email as contact_email,
+        NULL::text as contact_phone,
+        3 as priority
+    FROM event_members em
+    JOIN user_profiles up ON up.id = em.user_id
+    JOIN acts a ON a.event_id = em.event_id
+    WHERE a.id = p_act_id AND em.role = 'EventAdmin'
+
+    ORDER BY priority ASC, contact_name ASC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION set_performance_request_status(
+    p_request_id UUID,
+    p_action TEXT,
+    p_note TEXT DEFAULT NULL
+)
+RETURNS performance_requests AS $$
+DECLARE
+    v_request performance_requests%ROWTYPE;
+    v_updated performance_requests%ROWTYPE;
+    v_next_status TEXT;
+BEGIN
+    SELECT * INTO v_request
+    FROM performance_requests
+    WHERE id = p_request_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Performance request not found';
+    END IF;
+
+    IF NOT (auth_is_super_admin() OR auth_event_role(v_request.event_id) = 'EventAdmin') THEN
+        RAISE EXCEPTION 'Insufficient permissions to update performance request';
+    END IF;
+
+    v_next_status := CASE
+        WHEN p_action IN ('review', 'reviewed') THEN 'reviewed'
+        WHEN p_action = 'approve' THEN 'approved'
+        WHEN p_action = 'reject' THEN 'rejected'
+        ELSE NULL
+    END;
+
+    IF v_next_status IS NULL THEN
+        RAISE EXCEPTION 'Unsupported performance request action: %', p_action;
+    END IF;
+
+    UPDATE performance_requests
+    SET
+        request_status = v_next_status,
+        reviewed_at = CASE
+            WHEN v_next_status IN ('reviewed', 'approved', 'rejected') THEN COALESCE(reviewed_at, NOW())
+            ELSE reviewed_at
+        END,
+        reviewed_by = CASE
+            WHEN v_next_status IN ('reviewed', 'approved', 'rejected') THEN COALESCE(reviewed_by, auth.uid())
+            ELSE reviewed_by
+        END,
+        approved_at = CASE
+            WHEN v_next_status = 'approved' THEN NOW()
+            WHEN v_next_status = 'rejected' THEN NULL
+            ELSE approved_at
+        END,
+        approved_by = CASE
+            WHEN v_next_status = 'approved' THEN auth.uid()
+            WHEN v_next_status = 'rejected' THEN NULL
+            ELSE approved_by
+        END
+    WHERE id = p_request_id
+    RETURNING * INTO v_updated;
+
+    INSERT INTO intake_audit_events (
+        organization_id,
+        event_id,
+        import_run_id,
+        entity_type,
+        entity_id,
+        action,
+        note,
+        before_data,
+        after_data,
+        metadata
+    )
+    VALUES (
+        v_updated.organization_id,
+        v_updated.event_id,
+        v_updated.import_run_id,
+        'performance_request',
+        v_updated.id,
+        v_next_status,
+        p_note,
+        to_jsonb(v_request),
+        to_jsonb(v_updated),
+        jsonb_build_object(
+            'request_status', v_updated.request_status,
+            'conversion_status', v_updated.conversion_status
+        )
+    );
+
+    RETURN v_updated;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
+
+CREATE OR REPLACE FUNCTION convert_performance_request_to_act(
+    p_request_id UUID,
+    p_setup_time_minutes INTEGER DEFAULT 2
+)
+RETURNS UUID AS $$
+DECLARE
+    v_request performance_requests%ROWTYPE;
+    v_updated performance_requests%ROWTYPE;
+    v_act_id UUID;
+    v_act_notes TEXT;
+BEGIN
+    SELECT * INTO v_request
+    FROM performance_requests
+    WHERE id = p_request_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Performance request not found';
+    END IF;
+
+    IF NOT (auth_is_super_admin() OR auth_event_role(v_request.event_id) = 'EventAdmin') THEN
+        RAISE EXCEPTION 'Insufficient permissions to convert performance request';
+    END IF;
+
+    IF v_request.converted_act_id IS NOT NULL AND v_request.conversion_status = 'converted' THEN
+        RETURN v_request.converted_act_id;
+    END IF;
+
+    IF v_request.request_status <> 'approved' THEN
+        RAISE EXCEPTION 'Only approved performance requests can be converted';
+    END IF;
+
+    v_act_notes := concat_ws(
+        E'\n\n',
+        NULLIF(v_request.notes, ''),
+        NULLIF(
+            concat_ws(
+                ' | ',
+                CASE WHEN NULLIF(v_request.lead_name, '') IS NOT NULL THEN 'Lead: ' || v_request.lead_name END,
+                CASE WHEN NULLIF(v_request.lead_email, '') IS NOT NULL THEN 'Email: ' || v_request.lead_email END,
+                CASE WHEN NULLIF(v_request.lead_phone, '') IS NOT NULL THEN 'Phone: ' || v_request.lead_phone END
+            ),
+            ''
+        )
+    );
+
+    INSERT INTO acts (
+        event_id,
+        name,
+        duration_minutes,
+        setup_time_minutes,
+        arrival_status,
+        notes
+    )
+    VALUES (
+        v_request.event_id,
+        v_request.title,
+        GREATEST(COALESCE(v_request.duration_estimate_minutes, 5), 1),
+        GREATEST(COALESCE(p_setup_time_minutes, 2), 0),
+        'Not Arrived',
+        v_act_notes
+    )
+    RETURNING id INTO v_act_id;
+
+    UPDATE performance_requests
+    SET
+        conversion_status = 'converted',
+        converted_act_id = v_act_id,
+        converted_at = NOW(),
+        converted_by = auth.uid()
+    WHERE id = p_request_id
+    RETURNING * INTO v_updated;
+
+    INSERT INTO intake_audit_events (
+        organization_id,
+        event_id,
+        import_run_id,
+        entity_type,
+        entity_id,
+        action,
+        note,
+        before_data,
+        after_data,
+        metadata
+    )
+    VALUES (
+        v_updated.organization_id,
+        v_updated.event_id,
+        v_updated.import_run_id,
+        'performance_request',
+        v_updated.id,
+        'converted',
+        'Converted approved performance request into an operational performance.',
+        to_jsonb(v_request),
+        to_jsonb(v_updated),
+        jsonb_build_object(
+            'converted_act_id', v_act_id,
+            'request_status', v_updated.request_status,
+            'conversion_status', v_updated.conversion_status
+        )
+    );
+
+    RETURN v_act_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public';
 
 CREATE OR REPLACE FUNCTION ensure_org_member(p_org_id UUID, p_user_id UUID)
 RETURNS VOID AS $$
@@ -1012,8 +1566,8 @@ CREATE POLICY "requirement_policies_manage" ON requirement_policies FOR ALL USIN
 ALTER TABLE requirement_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "requirement_assignments_select" ON requirement_assignments FOR SELECT USING (
     auth_is_super_admin()
-    OR (act_id IS NOT NULL AND auth_event_role(get_act_event_id(act_id)) IS NOT NULL)
-    OR (participant_id IS NOT NULL AND auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL)
+    OR (act_id IS NOT NULL AND can_view_act_detail(act_id, auth.uid()))
+    OR (participant_id IS NOT NULL AND can_view_participant(participant_id, auth.uid()))
 );
 CREATE POLICY "requirement_assignments_manage" ON requirement_assignments FOR ALL USING (
     auth_is_super_admin()
@@ -1050,43 +1604,73 @@ CREATE POLICY "events_select" ON events FOR SELECT USING (auth_is_super_admin() 
 CREATE POLICY "events_manage" ON events FOR ALL USING (auth_is_super_admin() OR auth_event_role(id) = 'EventAdmin');
 
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "participants_select" ON participants FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
+CREATE POLICY "participants_select" ON participants FOR SELECT USING (can_view_participant(id, auth.uid()));
 CREATE POLICY "participants_manage" ON participants FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
 
+-- 6b. View for hardened participant visibility (Masked PII)
+CREATE OR REPLACE VIEW v_participants_hardened AS
+SELECT
+    p.id,
+    p.event_id,
+    p.first_name,
+    p.last_name,
+    p.is_minor,
+    CASE WHEN can_view_guardian_pii(p.id, auth.uid()) THEN p.guardian_name ELSE NULL END as guardian_name,
+    CASE WHEN can_view_guardian_pii(p.id, auth.uid()) THEN p.guardian_phone ELSE NULL END as guardian_phone,
+    p.guardian_relationship,
+    p.identity_verified,
+    p.identity_notes,
+    p.notes,
+    p.has_special_requests,
+    p.special_request_raw,
+    p.source_system,
+    p.source_instance,
+    p.src_raw,
+    p.status,
+    p.created_at,
+    p.updated_at,
+    can_view_guardian_pii(p.id, auth.uid()) as is_pii_unmasked
+FROM participants p
+WHERE can_view_participant(p.id, auth.uid());
+
+GRANT SELECT ON v_participants_hardened TO authenticated;
+GRANT SELECT ON v_participants_hardened TO anon;
+GRANT SELECT ON v_participants_hardened TO service_role;
+
 ALTER TABLE participant_assets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "participant_assets_select" ON participant_assets FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL);
+CREATE POLICY "participant_assets_select" ON participant_assets FOR SELECT USING (auth_is_super_admin() OR can_view_participant(participant_id, auth.uid()));
 CREATE POLICY "participant_assets_manage" ON participant_assets FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE participant_notes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "participant_notes_select" ON participant_notes FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IS NOT NULL);
+CREATE POLICY "participant_notes_select" ON participant_notes FOR SELECT USING (auth_is_super_admin() OR can_view_participant(participant_id, auth.uid()));
 CREATE POLICY "participant_notes_manage" ON participant_notes FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_participant_event_id(participant_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE acts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "acts_select" ON acts FOR SELECT USING (auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL);
+CREATE POLICY "acts_select" ON acts FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(id, auth.uid()));
 CREATE POLICY "acts_manage_admin" ON acts FOR ALL USING (auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin');
 
 ALTER TABLE act_participants ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_participants_select" ON act_participants FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_participants_select" ON act_participants FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_participants_manage" ON act_participants FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
 
 ALTER TABLE act_assets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_assets_select" ON act_assets FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_assets_select" ON act_assets FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_assets_manage" ON act_assets FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
 
 ALTER TABLE act_requirements ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_requirements_select" ON act_requirements FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_requirements_select" ON act_requirements FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_requirements_manage" ON act_requirements FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) = 'EventAdmin');
 
 ALTER TABLE act_readiness_practices ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_readiness_practices_select" ON act_readiness_practices FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_readiness_practices_select" ON act_readiness_practices FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_readiness_practices_manage" ON act_readiness_practices FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE act_readiness_items ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_readiness_items_select" ON act_readiness_items FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_readiness_items_select" ON act_readiness_items FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_readiness_items_manage" ON act_readiness_items FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE act_readiness_issues ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "act_readiness_issues_select" ON act_readiness_issues FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IS NOT NULL);
+CREATE POLICY "act_readiness_issues_select" ON act_readiness_issues FOR SELECT USING (auth_is_super_admin() OR can_view_act_detail(act_id, auth.uid()));
 CREATE POLICY "act_readiness_issues_manage" ON act_readiness_issues FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_act_event_id(act_id)) IN ('EventAdmin', 'StageManager'));
 
 ALTER TABLE stages ENABLE ROW LEVEL SECURITY;
@@ -1100,6 +1684,26 @@ CREATE POLICY "lineup_items_manage_admin" ON lineup_items FOR ALL USING (auth_is
 ALTER TABLE stage_state ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "stage_state_select" ON stage_state FOR SELECT USING (auth_is_super_admin() OR auth_event_role(get_stage_event_id(stage_id)) IS NOT NULL);
 CREATE POLICY "stage_state_manage_ops" ON stage_state FOR ALL USING (auth_is_super_admin() OR auth_event_role(get_stage_event_id(stage_id)) IN ('EventAdmin', 'StageManager'));
+
+ALTER TABLE intake_audit_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "intake_audit_events_select" ON intake_audit_events FOR SELECT USING (
+    auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL
+);
+CREATE POLICY "intake_audit_events_manage" ON intake_audit_events FOR ALL USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+) WITH CHECK (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
+
+ALTER TABLE performance_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "performance_requests_select" ON performance_requests FOR SELECT USING (
+    auth_is_super_admin() OR auth_event_role(event_id) IS NOT NULL
+);
+CREATE POLICY "performance_requests_manage" ON performance_requests FOR ALL USING (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+) WITH CHECK (
+    auth_is_super_admin() OR auth_event_role(event_id) = 'EventAdmin'
+);
 
 -- ==========================================
 -- 8. AUDIT TRIGGERS
@@ -1134,6 +1738,19 @@ CREATE TRIGGER audit_stage_state AFTER INSERT OR UPDATE OR DELETE ON stage_state
 CREATE TRIGGER audit_act_readiness_practices AFTER INSERT OR UPDATE OR DELETE ON act_readiness_practices FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_act_readiness_items AFTER INSERT OR UPDATE OR DELETE ON act_readiness_items FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
 CREATE TRIGGER audit_act_readiness_issues AFTER INSERT OR UPDATE OR DELETE ON act_readiness_issues FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+CREATE TRIGGER audit_performance_requests AFTER INSERT OR UPDATE OR DELETE ON performance_requests FOR EACH ROW EXECUTE FUNCTION handle_audit_log();
+
+CREATE OR REPLACE FUNCTION handle_performance_requests_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_performance_request_updated
+    BEFORE UPDATE ON performance_requests
+    FOR EACH ROW EXECUTE FUNCTION handle_performance_requests_updated_at();
 
 DROP TRIGGER IF EXISTS trg_reconcile_source_participant_access ON participants;
 CREATE TRIGGER trg_reconcile_source_participant_access
@@ -1173,3 +1790,6 @@ CREATE INDEX IF NOT EXISTS idx_requirement_policies_event ON requirement_policie
 CREATE INDEX IF NOT EXISTS idx_requirement_assignments_act ON requirement_assignments(act_id) WHERE act_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_requirement_assignments_participant ON requirement_assignments(participant_id) WHERE participant_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_requirement_assignments_status ON requirement_assignments(status);
+CREATE INDEX IF NOT EXISTS idx_performance_requests_event_id ON performance_requests(event_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_performance_requests_import_id ON performance_requests(import_run_id);
+CREATE INDEX IF NOT EXISTS idx_performance_requests_status ON performance_requests(request_status, conversion_status);

@@ -46,6 +46,7 @@ export default function ParticipantsPage() {
     const { eventId } = useSelection();
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
+    const [isAddGuideOpen, setIsAddGuideOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'at_risk'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
@@ -215,13 +216,10 @@ export default function ParticipantsPage() {
                     description="Sync your participant list from a Google Sheet or CSV to get started."
                     icon={Users}
                     action={{
-                        label: canManageSync ? 'Import Participants' : 'Sync Requires Event Admin',
+                        label: canManageSync ? 'Open Import Data' : capabilities.isPendingReview ? 'Import Limited During Review' : 'Sync Requires Event Admin',
                         onClick: () => {
                             if (!canManageSync) return;
-                            const nextParams = new URLSearchParams(searchParams);
-                            nextParams.set('action', 'import');
-                            setSearchParams(nextParams, { replace: true });
-                            setIsImportModalOpen(true);
+                            navigate('/admin/import-data?action=import');
                         }
                     }}
                 />
@@ -317,7 +315,7 @@ export default function ParticipantsPage() {
                                                     ) : null}
                                                 </div>
                                             </div>
-                                            {participant.isMinor && participant.guardianPhone ? (
+                                            {participant.isMinor && participant.guardianPhone && capabilities.canViewGuardianPII ? (
                                                 <a
                                                     href={`tel:${participant.guardianPhone}`}
                                                     onClick={(event) => event.stopPropagation()}
@@ -347,13 +345,52 @@ export default function ParticipantsPage() {
             {canManageRoster ? (
                 <button
                     type="button"
-                    onClick={() => setIsAddParticipantOpen(true)}
+                    onClick={() => setIsAddGuideOpen(true)}
                     className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
                     aria-label="Add person"
                 >
                     <Plus className="h-5 w-5 stroke-[2.75]" />
                     <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add Person</span>
                 </button>
+            ) : null}
+
+            {isAddGuideOpen ? (
+                <div className="fixed inset-0 z-[130] bg-background/65 backdrop-blur-sm" onClick={() => setIsAddGuideOpen(false)}>
+                    <div
+                        className="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] border border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border/80" />
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-black tracking-tight text-foreground">Add One Person</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Use this for one quick person. For spreadsheets or bulk roster updates, use Import Data.
+                            </p>
+                        </div>
+                        <div className="mt-5 grid gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAddGuideOpen(false);
+                                    setIsAddParticipantOpen(true);
+                                }}
+                                className="min-h-[44px] rounded-2xl bg-primary px-4 text-sm font-black uppercase tracking-[0.16em] text-primary-foreground"
+                            >
+                                Continue
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAddGuideOpen(false);
+                                    navigate('/admin/import-data?action=import');
+                                }}
+                                className="min-h-[44px] rounded-2xl border border-border bg-background px-4 text-sm font-bold text-foreground"
+                            >
+                                Open Import Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
             ) : null}
 
             {isActionsSheetOpen ? (

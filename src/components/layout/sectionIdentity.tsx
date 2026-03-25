@@ -13,7 +13,7 @@ import {
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelection } from '@/context/SelectionContext';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
@@ -115,6 +115,30 @@ const SECTION_IDENTITIES: SectionIdentity[] = [
         badgeClassName: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     },
     {
+        key: 'import-data',
+        label: 'Import Data',
+        group: 'Admin',
+        hint: 'Intake & mapping',
+        subtitle: 'Connect imports, review mappings, and refresh source data',
+        icon: Database,
+        shellClassName:
+            'border-cyan-500/15 bg-[linear-gradient(90deg,rgba(6,182,212,0.12),rgba(59,130,246,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(34,211,238,0.18),rgba(59,130,246,0.05)_45%,transparent)]',
+        iconClassName: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+        badgeClassName: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+    },
+    {
+        key: 'performance-requests',
+        label: 'Performance Requests',
+        group: 'Admin',
+        hint: 'Review & convert',
+        subtitle: 'Review imported requests before they become live performances',
+        icon: Music,
+        shellClassName:
+            'border-violet-500/15 bg-[linear-gradient(90deg,rgba(139,92,246,0.12),rgba(236,72,153,0.04)_44%,transparent)] dark:bg-[linear-gradient(90deg,rgba(167,139,250,0.18),rgba(244,114,182,0.05)_45%,transparent)]',
+        iconClassName: 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+        badgeClassName: 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    },
+    {
         key: 'admin',
         label: 'Admin',
         group: 'Admin',
@@ -134,6 +158,8 @@ function matchSection(pathname: string) {
     if (pathname.startsWith('/show-flow') || pathname.startsWith('/lineup')) return 'show-flow';
     if (pathname.startsWith('/stage-console')) return 'console';
     if (pathname.startsWith('/admin/access') || pathname === '/access') return 'access';
+    if (pathname.startsWith('/admin/import-data')) return 'import-data';
+    if (pathname.startsWith('/admin/performance-requests')) return 'performance-requests';
     if (pathname.startsWith('/admin/requirements') || pathname === '/requirements') return 'requirements';
     if (pathname.startsWith('/admin')) return 'admin';
     if (pathname.startsWith('/dashboard')) return 'dashboard';
@@ -154,6 +180,7 @@ export function useSectionIdentity() {
 export function SectionIdentityStrip() {
     const section = useSectionIdentity();
     const location = useLocation();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { eventId } = useSelection();
     const capabilities = useEventCapabilities(eventId || null, null);
@@ -166,12 +193,12 @@ export function SectionIdentityStrip() {
     const isRequirements = section.key === 'requirements';
     const canManageSources = capabilities.canSyncParticipants;
     const canEditParticipant = capabilities.canManageParticipantRecords;
-    const canManageActMedia = capabilities.canManageActMedia;
+    const canUsePremiumGeneration = capabilities.canUsePremiumGeneration;
 
     const openSources = () => {
-        const nextParams = new URLSearchParams(searchParams);
+        const nextParams = new URLSearchParams();
         nextParams.set('action', 'import');
-        setSearchParams(nextParams, { replace: true });
+        navigate(`/admin/import-data?${nextParams.toString()}`);
     };
 
     const openParticipantEdit = () => {
@@ -233,16 +260,16 @@ export function SectionIdentityStrip() {
                                 type="button"
                                 onClick={openSources}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
-                                aria-label="Open participant data sources"
+                                aria-label="Open import data"
                             >
                                 <Database className="h-4 w-4 text-primary" />
-                                <span>Sources</span>
+                                <span>Import Data</span>
                             </button>
                         ) : null}
                     </div>
                 ) : isPerformances ? (
                     <div className="flex shrink-0 items-center gap-2 self-center">
-                        {canManageActMedia ? (
+                        {canUsePremiumGeneration ? (
                             <button
                                 type="button"
                                 onClick={() => openPerformanceAction('prepare-intros')}

@@ -17,6 +17,33 @@ export type ParticipantImportField =
     | 'specialRequest';
 
 export type ParticipantImportProfile = Partial<Record<ParticipantImportField, string>>;
+export type ParticipantImportAssessment = {
+    profile: ParticipantImportProfile;
+    gaps: string[];
+    confidence: 'high' | 'medium' | 'low';
+    probableTarget: 'participants' | 'performance_requests' | 'unknown';
+    blockingIssues: string[];
+};
+
+export type PerformanceRequestImportField =
+    | 'title'
+    | 'leadName'
+    | 'leadEmail'
+    | 'leadPhone'
+    | 'durationMinutes'
+    | 'musicSupplied'
+    | 'rosterSupplied'
+    | 'notes'
+    | 'sourceAnchor';
+
+export type PerformanceRequestImportProfile = Partial<Record<PerformanceRequestImportField, string>>;
+export type PerformanceRequestImportAssessment = {
+    profile: PerformanceRequestImportProfile;
+    gaps: string[];
+    confidence: 'high' | 'medium' | 'low';
+    probableTarget: 'performance_requests' | 'participants' | 'unknown';
+    blockingIssues: string[];
+};
 
 const HEADER_ALIASES: Record<ParticipantImportField, string[]> = {
     firstName: ['student full name first name', 'student first name', 'participant first name', 'first name', 'firstname', 'first_name'],
@@ -53,6 +80,18 @@ const VALUE_INFERENCE_FIELDS: ParticipantImportField[] = [
     'products',
     'notes',
 ];
+
+const REQUEST_HEADER_ALIASES: Record<PerformanceRequestImportField, string[]> = {
+    title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item'],
+    leadName: ['lead name', 'contact name', 'teacher name', 'coach name', 'manager name', 'submitted by', 'requester name', 'name'],
+    leadEmail: ['lead email', 'contact email', 'teacher email', 'email address', 'email'],
+    leadPhone: ['lead phone', 'contact phone', 'teacher phone', 'manager phone', 'phone number', 'phone'],
+    durationMinutes: ['duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
+    musicSupplied: ['music supplied', 'music submitted', 'music included', 'music?'],
+    rosterSupplied: ['roster supplied', 'cast supplied', 'roster included', 'participants supplied'],
+    notes: ['notes', 'comments', 'special notes', 'special requests', 'description'],
+    sourceAnchor: ['submission id', 'request id', 'entry id', 'row id', 'timestamp', 'order id'],
+};
 
 function normalizeHeader(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -115,6 +154,11 @@ function isLikelySubmissionId(value: string) {
 
 function isLikelyLongText(value: string) {
     return value.length >= 12 && /\s/.test(value);
+}
+
+function isLikelyBooleanFlag(value: string) {
+    const normalized = value.trim().toLowerCase();
+    return ['yes', 'no', 'true', 'false', 'y', 'n', '1', '0', 'supplied', 'missing', 'included'].includes(normalized);
 }
 
 function getSampleValues(rows: RawRow[], header: string) {
@@ -248,6 +292,198 @@ export function inferParticipantImportProfile(
     return { profile, gaps };
 }
 
+export function assessParticipantImport(
+    headers: string[],
+    rows: RawRow[] = [],
+    savedProfile?: ParticipantImportProfile
+): ParticipantImportAssessment {
+    const { profile, gaps } = inferParticipantImportProfile(headers, rows, savedProfile);
+    const normalizedHeaders = headers.map((header) => normalizeHeader(header));
+
+    const participantSignalCount = [
+        profile.firstName || profile.lastName || profile.fullName ? 1 : 0,
+        profile.phone ? 1 : 0,
+        profile.guardianName || profile.parentFirstName || profile.parentLastName ? 1 : 0,
+        profile.studentId || profile.submissionId ? 1 : 0,
+        profile.specialRequest ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+
+    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team'];
+    const performanceSignalCount = normalizedHeaders.filter((header) => performanceKeywords.some((keyword) => header.includes(keyword))).length;
+
+    let probableTarget: ParticipantImportAssessment['probableTarget'] = 'participants';
+    if (!(profile.firstName || profile.lastName || profile.fullName) && performanceSignalCount >= 2) {
+        probableTarget = 'performance_requests';
+    } else if (!(profile.firstName || profile.lastName || profile.fullName) && participantSignalCount <= 1) {
+        probableTarget = 'unknown';
+    }
+
+    let confidence: ParticipantImportAssessment['confidence'] = 'low';
+    if (participantSignalCount >= 4) confidence = 'high';
+    else if (participantSignalCount >= 2) confidence = 'medium';
+
+    const blockingIssues: string[] = [];
+    if (!(profile.firstName || profile.lastName || profile.fullName)) {
+        blockingIssues.push('Participant name columns were not recognized, so this file cannot be trusted as a participant import yet.');
+    }
+    if (probableTarget === 'performance_requests') {
+        blockingIssues.push('This file looks more like performance-request data than a participant roster. Switch the intake target instead of importing it here.');
+    }
+
+    if (rows.length > 2000) {
+        blockingIssues.push(`The file contains ${rows.length} rows, which exceeds the browser upload limit of 2,000. Please split the file or use the Google Sheet sync for larger datasets.`);
+    }
+
+    // Phase 1 Internal Duplicate Detection (Warn only in gaps unless excessive)
+    const seenAnchors = new Set<string>();
+    let internalDuplicateCount = 0;
+    for (const row of rows.slice(0, 1000)) { // Sample first 1k for performance
+        const read = (field: ParticipantImportField) => profile[field] ? String(row[profile[field]!] || '').trim() : '';
+        const fName = read('firstName') || read('fullName');
+        const phone = read('phone');
+        const anchor = `${fName}:${phone}`.toLowerCase();
+        if (anchor !== ':' && seenAnchors.has(anchor)) {
+            internalDuplicateCount++;
+        }
+        seenAnchors.add(anchor);
+    }
+
+    if (internalDuplicateCount > 10) {
+        gaps.push(`Detected ${internalDuplicateCount}+ duplicate participants within the source file. Verify the source data to avoid overlapping records.`);
+    }
+
+    return {
+        profile,
+        gaps,
+        confidence,
+        probableTarget,
+        blockingIssues,
+    };
+}
+
+export function inferPerformanceRequestImportProfile(
+    headers: string[],
+    rows: RawRow[] = [],
+    savedProfile?: PerformanceRequestImportProfile
+) {
+    const profile: PerformanceRequestImportProfile = {};
+    const assignedHeaders = new Set<string>();
+
+    const savedFields = Object.entries(savedProfile || {}) as Array<[PerformanceRequestImportField, string]>;
+    for (const [field, header] of savedFields) {
+        if (header && headers.includes(header)) {
+            profile[field] = header;
+            assignedHeaders.add(header);
+        }
+    }
+
+    const headerCandidates: Array<[PerformanceRequestImportField, string[] | undefined, RegExp | undefined]> = [
+        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title)\b/],
+        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(lead|contact|teacher|coach|manager|requester)\b.*\bname\b/],
+        ['leadEmail', REQUEST_HEADER_ALIASES.leadEmail, /\b(email)\b/],
+        ['leadPhone', REQUEST_HEADER_ALIASES.leadPhone, /\b(phone|mobile|cell)\b/],
+        ['durationMinutes', REQUEST_HEADER_ALIASES.durationMinutes, /\b(duration|runtime|length)\b/],
+        ['musicSupplied', REQUEST_HEADER_ALIASES.musicSupplied, /\bmusic\b/],
+        ['rosterSupplied', REQUEST_HEADER_ALIASES.rosterSupplied, /\b(roster|cast|participant)\b.*\b(supplied|included)\b/],
+        ['notes', REQUEST_HEADER_ALIASES.notes, /\b(notes|comments|description|request)\b/],
+        ['sourceAnchor', REQUEST_HEADER_ALIASES.sourceAnchor, /\b(submission|request|entry|row|timestamp|order)\b.*\b(id)?\b/],
+    ];
+
+    for (const [field, aliases, fallbackPattern] of headerCandidates) {
+        if (profile[field]) continue;
+        const detected = detectHeader(headers, aliases || [], fallbackPattern);
+        if (detected && !assignedHeaders.has(detected)) {
+            profile[field] = detected;
+            assignedHeaders.add(detected);
+        }
+    }
+
+    for (const header of headers) {
+        if (assignedHeaders.has(header)) continue;
+        const values = getSampleValues(rows, header);
+        if (!profile.durationMinutes && scoreFieldByValues('age', values) >= 0.6) {
+            profile.durationMinutes = header;
+            assignedHeaders.add(header);
+            continue;
+        }
+        if (!profile.leadEmail && values.length > 0 && values.filter(isLikelyEmail).length / values.length >= 0.6) {
+            profile.leadEmail = header;
+            assignedHeaders.add(header);
+            continue;
+        }
+        if (!profile.leadPhone && values.length > 0 && values.filter(isLikelyPhone).length / values.length >= 0.6) {
+            profile.leadPhone = header;
+            assignedHeaders.add(header);
+            continue;
+        }
+        if (!profile.musicSupplied && values.length > 0 && values.filter(isLikelyBooleanFlag).length / values.length >= 0.6) {
+            profile.musicSupplied = header;
+            assignedHeaders.add(header);
+            continue;
+        }
+    }
+
+    const gaps: string[] = [];
+    if (!profile.title) {
+        gaps.push('Performance title column was not recognized automatically.');
+    }
+    if (!profile.leadName && !profile.leadEmail) {
+        gaps.push('Lead contact columns were not recognized automatically.');
+    }
+
+    return { profile, gaps };
+}
+
+export function assessPerformanceRequestImport(
+    headers: string[],
+    rows: RawRow[] = [],
+    savedProfile?: PerformanceRequestImportProfile
+): PerformanceRequestImportAssessment {
+    const { profile, gaps } = inferPerformanceRequestImportProfile(headers, rows, savedProfile);
+    const normalizedHeaders = headers.map((header) => normalizeHeader(header));
+
+    const requestSignalCount = [
+        profile.title ? 1 : 0,
+        profile.leadName || profile.leadEmail ? 1 : 0,
+        profile.durationMinutes ? 1 : 0,
+        profile.musicSupplied || profile.rosterSupplied ? 1 : 0,
+        profile.sourceAnchor ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+
+    const participantKeywords = ['guardian', 'parent', 'student age', 'first name', 'last name', 'participant first name'];
+    const participantSignalCount = normalizedHeaders.filter((header) => participantKeywords.some((keyword) => header.includes(keyword))).length;
+
+    let probableTarget: PerformanceRequestImportAssessment['probableTarget'] = 'performance_requests';
+    if (!profile.title && participantSignalCount >= 2) {
+        probableTarget = 'participants';
+    } else if (!profile.title && requestSignalCount <= 1) {
+        probableTarget = 'unknown';
+    }
+
+    let confidence: PerformanceRequestImportAssessment['confidence'] = 'low';
+    if (requestSignalCount >= 4) confidence = 'high';
+    else if (requestSignalCount >= 2) confidence = 'medium';
+
+    const blockingIssues: string[] = [];
+    if (!profile.title) {
+        blockingIssues.push('Performance title column was not recognized, so this file cannot be trusted as a performance-request import yet.');
+    }
+    if (probableTarget === 'participants') {
+        blockingIssues.push('This file looks more like participant roster data than a performance-request intake. Switch the intake target instead of importing it here.');
+    }
+    if (rows.length > 2000) {
+        blockingIssues.push(`The file contains ${rows.length} rows, which exceeds the browser upload limit of 2,000. Please split the file or use the Google Sheet sync for larger datasets.`);
+    }
+
+    return {
+        profile,
+        gaps,
+        confidence,
+        probableTarget,
+        blockingIssues,
+    };
+}
+
 export function mapImportedParticipantRow(args: {
     eventId: string;
     sourceSystem: 'spreadsheet-upload' | 'google-sheets';
@@ -322,6 +558,69 @@ export function mapImportedParticipantRow(args: {
         special_request_raw: specialRequestRaw || null,
         special_request_source_column: profile.specialRequest || null,
         has_special_requests: hasSpecialRequests,
-        src_raw: row as any,
+        src_raw: Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [
+                k,
+                typeof v === 'string' && v.length > 512 ? v.substring(0, 512) + '... [truncated]' : v
+            ])
+        ) as any,
+    };
+}
+
+function coerceBooleanFlag(value: string) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+    return ['yes', 'true', 'y', '1', 'supplied', 'included', 'uploaded'].includes(normalized);
+}
+
+export function mapImportedPerformanceRequestRow(args: {
+    eventId: string;
+    organizationId: string;
+    sourceSystem: 'spreadsheet-upload' | 'google-sheets';
+    eventSourceId?: string | null;
+    importRunId?: string | null;
+    row: RawRow;
+    profile: PerformanceRequestImportProfile;
+}) {
+    const { eventId, organizationId, row, profile, eventSourceId = null, importRunId = null } = args;
+
+    const read = (header?: string) => (header ? toText(row[header]) : '');
+    const title = read(profile.title);
+    const leadName = read(profile.leadName);
+    const leadEmail = read(profile.leadEmail);
+    const leadPhone = read(profile.leadPhone);
+    const durationRaw = read(profile.durationMinutes);
+    const parsedDuration = Number(durationRaw);
+    const sourceAnchor = read(profile.sourceAnchor);
+    const notes = read(profile.notes);
+
+    const fallbackAnchor = [
+        title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        leadEmail.toLowerCase(),
+        leadPhone.replace(/\D/g, '').slice(-4),
+    ]
+        .filter(Boolean)
+        .join(':');
+
+    return {
+        organization_id: organizationId,
+        event_id: eventId,
+        import_run_id: importRunId,
+        event_source_id: eventSourceId,
+        source_anchor: sourceAnchor || fallbackAnchor || null,
+        title: title || 'Untitled Request',
+        lead_name: leadName || null,
+        lead_email: leadEmail || null,
+        lead_phone: leadPhone || null,
+        duration_estimate_minutes: Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 5,
+        music_supplied: coerceBooleanFlag(read(profile.musicSupplied)),
+        roster_supplied: coerceBooleanFlag(read(profile.rosterSupplied)),
+        notes: notes || null,
+        raw_payload: Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [
+                k,
+                typeof v === 'string' && v.length > 512 ? `${v.substring(0, 512)}... [truncated]` : v,
+            ])
+        ) as any,
     };
 }

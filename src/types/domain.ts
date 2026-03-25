@@ -4,8 +4,6 @@ import type { ResolvedRequirementPolicy } from '@/lib/requirementPolicies';
 // ==========================================
 // 1. CONSTANTS & TYPES
 // ==========================================
-// We define strict union types for string fields with CHECK constraints in the database.
-// This provides type safety and autocomplete in the UI layer.
 
 export const OrganizationRole = {
     Owner: 'Owner',
@@ -53,14 +51,6 @@ export const StageStatus = {
 } as const;
 export type StageStatus = typeof StageStatus[keyof typeof StageStatus];
 
-/**
- * ExecutionStatus reflects the tactile state of an act during a live show.
- * Queued: Initial state.
- * Backstage: Checked in and physically present at the venue.
- * OnDeck: Next in line, standing by the stage entrance.
- * Live: Currently performing on stage.
- * Completed: Performance finished.
- */
 export const ExecutionStatus = {
     Queued: 'Queued',
     Backstage: 'Backstage',
@@ -81,7 +71,6 @@ export type AssetLevel = typeof AssetLevel[keyof typeof AssetLevel];
 // ==========================================
 // 2. RAW DATABASE MODELS
 // ==========================================
-// These map 1:1 with the rows returned by Supabase.
 
 export type DbOrganization = Database['public']['Tables']['organizations']['Row'];
 export type DbUserProfile = Database['public']['Tables']['user_profiles']['Row'];
@@ -99,12 +88,7 @@ export type DbStageState = Database['public']['Tables']['stage_state']['Row'];
 // ==========================================
 // 3. FRONTEND DOMAIN MODELS (Combined/Nested)
 // ==========================================
-// The UI rarely needs a raw table row. It needs compound objects (e.g., an Act with its Participants and Requirements attached).
-// We define those composite interfaces here.
 
-/**
- * The core operational token used throughout the React UI. Represents the base Act row.
- */
 export interface Act {
     id: string;
     eventId: string;
@@ -115,9 +99,6 @@ export interface Act {
     notes: string | null;
 }
 
-/**
- * A richer Act model that includes nested relations fetched via Supabase joins.
- */
 export interface ActDetails extends Act {
     participants?: ActParticipantDetail[];
     assets?: ActAsset[];
@@ -140,10 +121,6 @@ export interface ActDetails extends Act {
     activeRequirementPolicies?: ResolvedRequirementPolicy[];
 }
 
-/**
- * Optimized model for scannable operational lists.
- * Provides counts and status flags without the overhead of full nested arrays.
- */
 export interface ActWithCounts extends Act {
     participantCount: number;
     managerName?: string | null;
@@ -151,7 +128,6 @@ export interface ActWithCounts extends Act {
     approvedPhotoCount?: number;
     assetCount: number;
     requirementCount: number;
-    // Core readiness indicators
     hasTechnicalRider: boolean;
     hasMusicTrack: boolean;
     hasIntroRequirement: boolean;
@@ -168,7 +144,6 @@ export interface ActWithCounts extends Act {
         blockingLevel?: string | null;
     }>;
     introBackgroundUrl?: string | null;
-    // Operational readiness
     missingAssetCount: number;
     specialRequestCount: number;
     readinessState?: ActReadinessState;
@@ -180,12 +155,9 @@ export interface ActWithCounts extends Act {
     activeRequirementPolicies?: ResolvedRequirementPolicy[];
 }
 
-/**
- * Represents a Participant cleanly mapped to the UI, including their role in a specific Act.
- */
 export interface ActParticipantDetail {
-    id: string; // The act_participants.id
-    participantId: string; // The participants.id
+    id: string;
+    participantId: string;
     firstName: string;
     lastName: string;
     role: PerformanceRole | string;
@@ -338,7 +310,6 @@ export interface Participant {
     identityVerified?: boolean;
     identityNotes?: string | null;
     photoUrl?: string | null;
-    // Operational metadata (injected for roster/summary)
     actCount?: number;
     assetStats?: {
         total: number;
@@ -360,7 +331,6 @@ export interface Participant {
     }>;
     assets?: ParticipantAsset[];
     activeRequirementPolicies?: ResolvedRequirementPolicy[];
-    // Trust-First Source Tracking
     sourceSystem: string | null;
     sourceInstance: string | null;
     sourceAnchorType: string | null;
@@ -368,6 +338,7 @@ export interface Participant {
     sourceImportedAt: string | null;
     sourceLastSeenAt: string | null;
     srcRaw: any | null;
+    isPIIUnmasked?: boolean;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -418,6 +389,14 @@ export interface ParticipantNote {
     createdAt: string;
 }
 
+export interface OperationalContact {
+    contactName: string;
+    contactRole: string;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    priority: number;
+}
+
 export interface ParticipantDetail extends Participant {
     acts: {
         id: string;
@@ -437,31 +416,70 @@ export interface ParticipantDetail extends Participant {
         status: Participant['status'];
     }[];
     operationalNotes: ParticipantNote[];
+    operationalContacts?: OperationalContact[];
     auditLogs: any[];
 }
 
-/**
- * A Stage and its current live status, representing the real-time operational state used by the Stage Console.
- */
+export interface PerformanceRequest {
+    id: string;
+    organizationId: string;
+    eventId: string;
+    importRunId: string | null;
+    eventSourceId: string | null;
+    sourceAnchor: string | null;
+    title: string;
+    leadName: string | null;
+    leadEmail: string | null;
+    leadPhone: string | null;
+    durationEstimateMinutes: number;
+    musicSupplied: boolean;
+    rosterSupplied: boolean;
+    notes: string | null;
+    rawPayload: any;
+    requestStatus: 'pending' | 'reviewed' | 'approved' | 'rejected';
+    conversionStatus: 'not_started' | 'converted' | 'failed';
+    convertedActId: string | null;
+    convertedActName?: string | null;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    approvedAt: string | null;
+    approvedBy: string | null;
+    convertedAt: string | null;
+    convertedBy: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+export interface IntakeAuditEvent {
+    id: string;
+    entityId: string | null;
+    entityType: string;
+    action: string;
+    note: string | null;
+    beforeData: any;
+    afterData: any;
+    metadata: any;
+    performedAt: string;
+    performedBy: string | null;
+    actorName: string | null;
+    actorEmail: string | null;
+}
+
 export interface StageConsoleState {
     id: string;
     name: string;
     description: string | null;
     status: StageStatus;
     currentLineupItemId: string | null;
-    // Often, we want to know what Act is currently on stage
     currentAct?: Act | null;
 }
 
-/**
- * A scheduled item in a lineup, joining the Act details to the schedule time.
- */
 export interface LineupSlot {
     id: string;
     stageId: string;
     actId: string;
-    scheduledStartTime: string; // ISO String
+    scheduledStartTime: string;
     sortOrder: number;
     executionStatus: string;
-    act: ActDetails; // The nested act details
+    act: ActDetails;
 }

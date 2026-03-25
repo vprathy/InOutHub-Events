@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Landmark, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 interface CreateOrgModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: (orgId: string) => void;
     initialData?: { id: string; name: string } | null;
+    requiresReviewOnCreate?: boolean;
 }
 
-export function CreateOrgModal({ isOpen, onClose, onSuccess, initialData }: CreateOrgModalProps) {
+export function CreateOrgModal({ isOpen, onClose, onSuccess, initialData, requiresReviewOnCreate = false }: CreateOrgModalProps) {
+    const { user } = useAuth();
     const [name, setName] = useState('');
     const [type, setType] = useState('Cultural Org');
     const [email, setEmail] = useState('');
@@ -22,9 +25,9 @@ export function CreateOrgModal({ isOpen, onClose, onSuccess, initialData }: Crea
         } else if (isOpen && !initialData) {
             setName('');
             setType('Cultural Org');
-            setEmail('');
+            setEmail(user?.email || '');
         }
-    }, [isOpen, initialData]);
+    }, [initialData, isOpen, requiresReviewOnCreate, user?.email]);
 
     if (!isOpen) return null;
 
@@ -48,7 +51,11 @@ export function CreateOrgModal({ isOpen, onClose, onSuccess, initialData }: Crea
             } else {
                 // Atomic: creates org + inserts Owner row in a single DB transaction
                 const { data: orgId, error: rpcError } = await (supabase as any)
-                    .rpc('create_organization_with_owner', { p_name: name });
+                    .rpc('create_organization_with_owner', {
+                        p_name: name,
+                        p_contact_email: email.trim() || null,
+                        p_requires_review: requiresReviewOnCreate,
+                    });
 
                 if (rpcError) throw rpcError;
 
@@ -119,6 +126,12 @@ export function CreateOrgModal({ isOpen, onClose, onSuccess, initialData }: Crea
                                 />
                             </div>
                         </div>
+
+                        {requiresReviewOnCreate && !initialData ? (
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs font-medium text-amber-700">
+                                Your workspace opens immediately and enters pilot review in the background. Higher-risk actions stay limited until internal approval is complete.
+                            </div>
+                        ) : null}
                     </div>
 
                     {error && (

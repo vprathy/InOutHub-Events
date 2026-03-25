@@ -17,6 +17,8 @@ const ParticipantsPage = lazy(() => import('@/pages/ParticipantsPage'));
 const RequirementsPage = lazy(() => import('@/pages/RequirementsPage'));
 const AccessPage = lazy(() => import('@/pages/AccessPage'));
 const AdminPage = lazy(() => import('@/pages/AdminPage'));
+const ImportDataPage = lazy(() => import('@/pages/ImportDataPage'));
+const PerformanceRequestsPage = lazy(() => import('@/pages/PerformanceRequestsPage'));
 const ParticipantProfilePage = lazy(() => import('@/pages/ParticipantProfilePage'));
 const PerformanceProfilePage = lazy(() => import('@/pages/PerformanceProfilePage'));
 const LineupPage = lazy(() => import('@/pages/LineupPage'));
@@ -80,6 +82,22 @@ export const router = createBrowserRouter([
                 element: (
                     <LazyRoute>
                         <RequirementsPage />
+                    </LazyRoute>
+                ),
+            },
+            {
+                path: 'admin/import-data',
+                element: (
+                    <LazyRoute>
+                        <ImportDataPage />
+                    </LazyRoute>
+                ),
+            },
+            {
+                path: 'admin/performance-requests',
+                element: (
+                    <LazyRoute>
+                        <PerformanceRequestsPage />
                     </LazyRoute>
                 ),
             },

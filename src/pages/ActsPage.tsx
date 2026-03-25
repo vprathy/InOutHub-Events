@@ -7,7 +7,7 @@ import { Music, Search, Loader2, CheckCircle2, Users, Funnel, X, Plus, Clock3, C
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { AddPerformanceModal } from '@/components/acts/AddPerformanceModal';
 import { UploadActAssetModal } from '@/components/acts/UploadActAssetModal';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { prepareIntroAutopilot } from '@/lib/introCapabilities';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
@@ -16,6 +16,7 @@ import { OperationalMetricCard, type OperationalTone } from '@/components/ui/Ope
 
 export default function ActsPage() {
     const { eventId } = useSelection();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -23,6 +24,7 @@ export default function ActsPage() {
     const [sortBy, setSortBy] = useState<'name' | 'duration' | 'readiness'>('name');
     const [expandedActId, setExpandedActId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isAddGuideOpen, setIsAddGuideOpen] = useState(false);
     const [uploadMusicAct, setUploadMusicAct] = useState<NonNullable<typeof acts>[number] | null>(null);
     const [batchNotice, setBatchNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
     const { data: acts, isLoading, error } = useActsQuery(eventId || '');
@@ -45,13 +47,13 @@ export default function ActsPage() {
             }
         }
 
-        if (actionParam === 'prepare-intros' && capabilities.canManageActMedia) {
+        if (actionParam === 'prepare-intros' && capabilities.canUsePremiumGeneration) {
             void handleBatchPrepareIntros();
             const nextParams = new URLSearchParams(searchParams);
             nextParams.delete('action');
             setSearchParams(nextParams, { replace: true });
         }
-    }, [searchParams, capabilities.canManageActMedia]);
+    }, [searchParams, capabilities.canUsePremiumGeneration]);
 
     const updateFilter = (nextFilter: typeof activeFilter) => {
         setActiveFilter(nextFilter);
@@ -119,6 +121,11 @@ export default function ActsPage() {
     }), [acts, deferredSearchQuery, activeFilter, sortBy]);
 
     const handleBatchPrepareIntros = async () => {
+        if (!capabilities.canUsePremiumGeneration) {
+            setBatchNotice({ tone: 'error', message: 'Intro generation stays limited until pilot review is approved for this organization.' });
+            return;
+        }
+
         const eligibleActs = (acts || []).filter((act) => act.introEligible);
         if (eligibleActs.length === 0) {
             setBatchNotice({ tone: 'error', message: 'No performances currently meet the intro prerequisites.' });
@@ -382,13 +389,52 @@ export default function ActsPage() {
             {capabilities.canCreateActs ? (
                 <button
                     type="button"
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={() => setIsAddGuideOpen(true)}
                     className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
                     aria-label="Add performance"
                 >
                     <Plus className="h-5 w-5 stroke-[2.75]" />
                     <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add</span>
                 </button>
+            ) : null}
+
+            {isAddGuideOpen ? (
+                <div className="fixed inset-0 z-[130] bg-background/65 backdrop-blur-sm" onClick={() => setIsAddGuideOpen(false)}>
+                    <div
+                        className="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] border border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border/80" />
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-black tracking-tight text-foreground">Add One Performance</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Use this for one quick performance. For external files or bulk requests, use Import Data.
+                            </p>
+                        </div>
+                        <div className="mt-5 grid gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAddGuideOpen(false);
+                                    setIsAddModalOpen(true);
+                                }}
+                                className="min-h-[44px] rounded-2xl bg-primary px-4 text-sm font-black uppercase tracking-[0.16em] text-primary-foreground"
+                            >
+                                Continue
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsAddGuideOpen(false);
+                                    navigate('/admin/import-data?action=import');
+                                }}
+                                className="min-h-[44px] rounded-2xl border border-border bg-background px-4 text-sm font-bold text-foreground"
+                            >
+                                Open Import Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
             ) : null}
 
             <AddPerformanceModal

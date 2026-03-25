@@ -7,6 +7,7 @@ export type EventSource = {
     name: string;
     type: 'google_sheet' | 'csv';
     config: {
+        intakeTarget?: 'participants' | 'performance_requests';
         sheetId?: string;
         url?: string;
         fileName?: string;

@@ -1,0 +1,161 @@
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronDown, Database, FileSpreadsheet, Link2, Loader2, Plus, Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
+import { useSelection } from '@/context/SelectionContext';
+import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
+import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
+import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
+import { useEventSources } from '@/hooks/useEventSources';
+import { OperationalMetricCard } from '@/components/ui/OperationalCards';
+import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
+
+export default function ImportDataPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { organizationId, eventId } = useSelection();
+    const { data: currentEventRole, isLoading: isLoadingEventRole } = useCurrentEventRole(eventId || null);
+    const { data: currentOrgRole, isLoading: isLoadingOrgRole } = useCurrentOrgRole(organizationId || null);
+    const { data: isSuperAdmin = false, isLoading: isLoadingSuperAdmin } = useIsSuperAdmin();
+    const { sources } = useEventSources(eventId || '');
+    const [isMethodsOpen, setIsMethodsOpen] = useState(false);
+    const onboardingCapabilities = useOnboardingCapabilities(organizationId || null, eventId || null);
+
+    const canOpenAdmin =
+        isSuperAdmin
+        || currentEventRole === 'EventAdmin'
+        || currentOrgRole === 'Owner'
+        || currentOrgRole === 'Admin';
+
+    const sourceStats = useMemo(() => {
+        const total = sources.length;
+        const withMappingGaps = sources.filter((source) => (source.config.mappingGaps?.length || 0) > 0).length;
+        return { total, withMappingGaps };
+    }, [sources]);
+    const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';
+
+    if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
+        return (
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!canOpenAdmin) {
+        return (
+            <div className="space-y-5">
+                <PageHeader title="Import Data" subtitle="Source connections and mapping review are limited to event admins, org admins, and super admins." />
+                <div className="surface-panel rounded-[1.35rem] border p-6 text-sm text-muted-foreground">
+                    This event context does not grant import-management access.
+                </div>
+            </div>
+        );
+    }
+
+    const importsLocked = !onboardingCapabilities.canUseImports;
+
+    return (
+        <div className="space-y-5 pb-12">
+            <PageHeader
+                title="Import Data"
+                subtitle="Connect external files, review mappings, and refresh imported data for this event."
+            />
+
+            {importsLocked ? (
+                <div className="rounded-[1.25rem] border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm font-medium text-amber-700">
+                    Pilot review is still pending for this organization. Large imports and external source sync stay limited until internal approval is complete.
+                </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2">
+                <OperationalMetricCard
+                    label="Connected Imports"
+                    value={sourceStats.total}
+                    icon={Database}
+                    tone="default"
+                    className="min-h-[80px]"
+                />
+                <OperationalMetricCard
+                    label="Need Mapping Review"
+                    value={sourceStats.withMappingGaps}
+                    icon={Sparkles}
+                    tone={sourceStats.withMappingGaps > 0 ? 'warning' : 'good'}
+                    className="min-h-[80px]"
+                />
+            </div>
+
+            <div className="space-y-4">
+                <button
+                    type="button"
+                    onClick={() => setIsMethodsOpen((current) => !current)}
+                    className="surface-panel w-full rounded-[1.5rem] p-4 text-left sm:p-5"
+                >
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Import Methods</p>
+                            <p className="mt-1 text-sm font-semibold text-foreground">This workspace is event-specific. Use it to bring participant or performance-request data into this event only.</p>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${isMethodsOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                    {isMethodsOpen ? (
+                        <div className="mt-4 space-y-3">
+                            <div className="rounded-[1.25rem] border border-border/70 bg-background/80 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="rounded-2xl border border-border/70 bg-accent/15 p-3 text-primary">
+                                        <Link2 className="h-5 w-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black text-foreground">Connect Google Sheet</p>
+                                        <p className="text-sm text-muted-foreground">Use when the source should stay refreshable over time.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="rounded-[1.25rem] border border-border/70 bg-background/80 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="rounded-2xl border border-border/70 bg-accent/15 p-3 text-primary">
+                                        <FileSpreadsheet className="h-5 w-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black text-foreground">Upload Spreadsheet</p>
+                                        <p className="text-sm text-muted-foreground">Use for one-off event imports and manual external files.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+                </button>
+
+                {importsLocked ? null : (
+                    <ImportParticipantsModal
+                        eventId={eventId || ''}
+                        isOpen
+                        embedded
+                        initialMode={initialMode}
+                        onClose={() => {
+                            const nextParams = new URLSearchParams(searchParams);
+                            nextParams.delete('action');
+                            setSearchParams(nextParams, { replace: true });
+                        }}
+                    />
+                )}
+            </div>
+
+            {!importsLocked ? (
+                <button
+                    type="button"
+                    onClick={() => {
+                        const nextParams = new URLSearchParams(searchParams);
+                        nextParams.set('action', 'import');
+                        setSearchParams(nextParams, { replace: true });
+                    }}
+                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
+                    aria-label="Add import"
+                >
+                    <Plus className="h-5 w-5 stroke-[2.75]" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add Import</span>
+                </button>
+            ) : null}
+        </div>
+    );
+}

@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getDevUserByRole } from '@/lib/dev/config';
 import { resetDemoEvent } from '@/lib/dev/resetDemoEvent';
+import { seedDemoEvent } from '@/lib/dev/seedDemoEvent';
 import { useSelection } from '@/context/SelectionContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { isDevLoginEnabled } from '@/lib/authConfig';
@@ -66,6 +67,58 @@ export default function DevQuickLogin() {
     const [isResetting, setIsResetting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    const ensureDevWorkspace = async (roleId: string) => {
+        const { count: orgCount, error: orgCountError } = await supabase
+            .from('organizations')
+            .select('id', { count: 'exact', head: true });
+
+        if (orgCountError) throw orgCountError;
+
+        if ((orgCount || 0) === 0) {
+            const orgResult: any = await withTimeout(
+                supabase
+                    .from('organizations')
+                    .insert({ name: 'Demo Productions' })
+                    .select('id')
+                    .single() as any,
+                'Create demo organization'
+            );
+            const { data: org, error: orgError } = orgResult;
+
+            if (orgError) throw orgError;
+
+            const usersResult: any = await withTimeout(
+                supabase.from('user_profiles').select('id, email') as any,
+                'Load demo users'
+            );
+            const { data: users, error: usersError } = usersResult;
+
+            if (usersError) throw usersError;
+
+            const organizationMembers = (users || []).map((user: any) => ({
+                organization_id: org.id,
+                user_id: user.id,
+                role: user.email === 'vinay.prathy@ziffyvolve.com' || user.email === 'owner@ziffyvolve.com' ? 'Owner' : 'Member',
+            }));
+
+            if (organizationMembers.length > 0) {
+                const memberResult: any = await withTimeout(
+                    supabase.from('organization_members').upsert(organizationMembers, { onConflict: 'organization_id,user_id' }) as any,
+                    'Link demo organization members'
+                );
+                const { error: memberError } = memberResult;
+                if (memberError) throw memberError;
+            }
+
+            await seedDemoEvent(supabase as any, org.id);
+            return;
+        }
+
+        if (roleId === 'super-admin') {
+            return;
+        }
+    };
 
     const withTimeout = async <T,>(promise: Promise<T>, label: string, timeoutMs = 12000): Promise<T> => {
         return await Promise.race([
@@ -149,6 +202,7 @@ export default function DevQuickLogin() {
             // Clear any previous session context and cache
             setOrganizationId(null);
             queryClient.clear();
+            await ensureDevWorkspace(roleId);
 
             // After logging in, redirect to the main app dashboard
             navigate('/');

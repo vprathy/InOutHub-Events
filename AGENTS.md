@@ -73,6 +73,9 @@ This file defines the operating contract for any agent working in the `InOutHub-
 5. Verify Schedule/Lineup.
 6. **Execution Test:** Verify Stage Console reflects changes and advances correctly.
 
+Critical flow guardrail:
+- Any change affecting auth, workspace selection, onboarding, dashboard entry, or stage-console entry must be regression-checked against the protected entry flows in `docs/critical_flow_guardrails.md` before it is treated as complete.
+
 ---
 
 ## 9. Gate Tracking

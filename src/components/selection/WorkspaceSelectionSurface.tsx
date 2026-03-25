@@ -14,6 +14,9 @@ import { supabase } from '@/lib/supabase';
 import { useSelection } from '@/context/SelectionContext';
 import { CreateOrgModal } from '@/components/selection/CreateOrgModal';
 import { CreateEventModal } from '@/components/selection/CreateEventModal';
+import { useOnboardingState } from '@/hooks/useOnboardingState';
+import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
+import { useAppSignOut } from '@/hooks/useAppSignOut';
 
 type Stage = 'organization' | 'event';
 
@@ -25,6 +28,7 @@ interface OrganizationRecord {
     id: string;
     name: string;
     roleLabel: string;
+    reviewStatus: string;
 }
 
 interface EventRecord {
@@ -39,6 +43,7 @@ interface EventRecord {
 interface EditableOrganization {
     id: string;
     name: string;
+    reviewStatus: string;
 }
 
 interface EditableEvent {
@@ -96,6 +101,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
     const navigate = useNavigate();
     const location = useLocation();
     const { organizationId, setOrganizationId, setEventId } = useSelection();
+    const signOut = useAppSignOut();
 
     const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
     const [events, setEvents] = useState<EventRecord[]>([]);
@@ -108,6 +114,8 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
     const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
     const [editingOrg, setEditingOrg] = useState<EditableOrganization | null>(null);
     const [editingEvent, setEditingEvent] = useState<EditableEvent | null>(null);
+    const onboarding = useOnboardingState(organizationId, null);
+    const onboardingCapabilities = useOnboardingCapabilities(organizationId, null);
 
     useEffect(() => {
         void fetchOrgs();
@@ -121,6 +129,12 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
         }
         void fetchEvents(organizationId);
     }, [stage, organizationId, navigate, location.state]);
+
+    useEffect(() => {
+        if (stage === 'organization' && !organizationId && onboarding.suggestedOrganizationId) {
+            handleOrgSelect(onboarding.suggestedOrganizationId);
+        }
+    }, [stage, organizationId, onboarding.suggestedOrganizationId]);
 
     async function fetchOrgs() {
         setIsLoadingOrgs(true);
@@ -165,6 +179,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                 id: org.id,
                 name: org.name,
                 roleLabel: userIsSuperAdmin ? 'Super Admin' : org.organization_members?.[0]?.role || 'Member',
+                reviewStatus: 'approved',
             }));
 
             setOrgs(mapped);
@@ -265,6 +280,55 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
         }
 
         if (filteredOrgs.length === 0) {
+            if (onboarding.mode === 'founder_onboarding') {
+                return (
+                    <div className="surface-panel rounded-[1.5rem] p-6 sm:p-7">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">First Workspace</p>
+                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Start your organization</h2>
+                        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                            Create your organization first, then add the first event. Your workspace opens immediately while pilot review happens in the background.
+                        </p>
+                        <div className="mt-5">
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateOrgOpen(true)}
+                                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
+                            >
+                                Create Organization
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (onboarding.mode === 'pending_access') {
+                return (
+                    <div className="surface-panel rounded-[1.5rem] p-6 sm:p-7">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Invite Pending</p>
+                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">We found access waiting for you</h2>
+                        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                            Your first sign-in is complete, but the invited workspace is still syncing. Refresh in a moment, or sign out and retry with the invited email if this looks wrong.
+                        </p>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={() => window.location.reload()}
+                                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
+                            >
+                                Refresh Access
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void signOut()}
+                                className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-black text-foreground"
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="surface-panel rounded-[1.5rem] p-6 text-center">
                     <p className="text-sm font-bold text-foreground">
@@ -295,9 +359,16 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="block max-w-full truncate whitespace-nowrap text-[1.1rem] font-black leading-tight text-foreground">{org.name}</p>
-                                <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                                    {org.roleLabel}
-                                </p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <p className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                                        {org.roleLabel}
+                                    </p>
+                                    {org.reviewStatus === 'pending_review' ? (
+                                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
+                                            Pilot Review
+                                        </span>
+                                    ) : null}
+                                </div>
                             </div>
                         </div>
                         {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
@@ -305,7 +376,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                                 type="button"
                                 onClick={(event) => {
                                     event.stopPropagation();
-                                    openOrgEditor({ id: org.id, name: org.name });
+                                    openOrgEditor({ id: org.id, name: org.name, reviewStatus: org.reviewStatus });
                                 }}
                                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                 aria-label={`Edit ${org.name}`}
@@ -329,6 +400,31 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
         }
 
         if (events.length === 0) {
+            if (onboarding.mode === 'event_onboarding') {
+                return (
+                    <div className="surface-panel rounded-[1.5rem] p-6 sm:p-7">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">First Event</p>
+                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Create your first event</h2>
+                        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                            {canEditOrganization
+                                ? 'Add the first event for this organization to unlock the dashboard, roster, performances, and show flow workspace.'
+                                : 'This organization has no events yet. An org admin or super admin needs to create the first event.'}
+                        </p>
+                        {canEditOrganization ? (
+                            <div className="mt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateEventOpen(true)}
+                                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
+                                >
+                                    Create First Event
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
+                );
+            }
+
             return (
                 <div className="surface-panel rounded-[1.5rem] p-6 text-center">
                     <p className="text-sm font-bold text-foreground">No events yet in this organization.</p>
@@ -402,10 +498,12 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                         </h1>
                         {stage === 'organization' ? (
                             <p className="text-sm text-muted-foreground">Choose your organization</p>
+                        ) : onboarding.mode === 'event_onboarding' ? (
+                            <p className="text-sm text-muted-foreground">Create the first event for this organization</p>
                         ) : null}
                     </div>
 
-                    {stage === 'organization' ? (
+                    {stage === 'organization' && onboarding.mode === 'org_selection' ? (
                         <button
                             onClick={() => setSearchOpen((open) => !open)}
                             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -416,7 +514,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                     ) : null}
                 </div>
 
-                {stage === 'organization' && searchOpen ? (
+                {stage === 'organization' && onboarding.mode === 'org_selection' && searchOpen ? (
                     <div className="surface-panel flex items-center gap-3 rounded-[1.2rem] px-4 py-3">
                         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <input
@@ -466,7 +564,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                 {stage === 'organization' ? renderOrgList() : renderEvents()}
             </div>
 
-            {isSuperAdmin ? (
+            {(isSuperAdmin || (stage === 'organization' && onboardingCapabilities.canCreateFirstOrganization) || (stage === 'event' && canEditOrganization)) ? (
                 <button
                     onClick={() => (stage === 'organization' ? setIsCreateOrgOpen(true) : setIsCreateEventOpen(true))}
                     className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
@@ -483,6 +581,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                     setEditingOrg(null);
                 }}
                 initialData={editingOrg}
+                requiresReviewOnCreate={Boolean(!editingOrg && onboardingCapabilities.canCreateFirstOrganization)}
                 onSuccess={(orgId) => {
                     void fetchOrgs();
                     const wasEditing = Boolean(editingOrg);

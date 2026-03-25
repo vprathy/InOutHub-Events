@@ -23,6 +23,7 @@ import {
     RefreshCw,
     Plus,
     Trash2,
+    Mail,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
@@ -329,16 +330,50 @@ export function ParticipantProfilePage() {
             return (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,auto]">
                     <div className="space-y-3">
-                        <div>
-                            <p className="text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
-                            <p className="text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
-                        </div>
-                        {participant.guardianRelationship ? (
+                        {capabilities.canViewGuardianPII ? (
+                            <div>
+                                <p className="text-sm font-bold text-foreground">{participant.guardianName || 'Guardian name not captured'}</p>
+                                <p className="text-sm text-muted-foreground">{participant.guardianPhone || 'Guardian phone not captured'}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Authorized Operational Contacts</p>
+                                {participant.operationalContacts?.length ? (
+                                    <div className="space-y-2">
+                                        {participant.operationalContacts.map((contact, i) => (
+                                            <div key={i} className="rounded-xl border border-border/50 bg-accent/10 p-3">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-foreground">{contact.contactName}</p>
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{contact.contactRole}</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {contact.contactPhone && (
+                                                            <a href={`tel:${contact.contactPhone}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors hover:bg-primary/20">
+                                                                <Phone className="h-4 w-4" />
+                                                            </a>
+                                                        )}
+                                                        {contact.contactEmail && (
+                                                            <a href={`mailto:${contact.contactEmail}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors hover:bg-primary/20">
+                                                                <Mail className="h-4 w-4" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm italic text-muted-foreground">No operational contacts found for linked acts.</p>
+                                )}
+                            </div>
+                        )}
+                        {participant.guardianRelationship && capabilities.canViewGuardianPII ? (
                             <p className="text-xs text-muted-foreground">Relationship: {participant.guardianRelationship}</p>
                         ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2 sm:flex-col">
-                        {participant.guardianPhone ? (
+                    {capabilities.canViewGuardianPII && participant.guardianPhone ? (
+                        <div className="flex flex-wrap gap-2 sm:flex-col">
                             <a
                                 href={`tel:${participant.guardianPhone}`}
                                 className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
@@ -346,8 +381,8 @@ export function ParticipantProfilePage() {
                                 <Phone className="mr-1.5 h-3.5 w-3.5" />
                                 Call Guardian
                             </a>
-                        ) : null}
-                    </div>
+                        </div>
+                    ) : null}
                 </div>
             );
         }
@@ -567,9 +602,9 @@ export function ParticipantProfilePage() {
                             <span className="shrink-0 pt-0.5 text-muted-foreground/40">·</span>
                             <p className="min-w-0 text-sm text-muted-foreground">{readinessDetail}</p>
                         </div>
-                        {participant.isMinor && participant.guardianPhone ? (
+                        {participant.isMinor && (participant.guardianPhone || participant.operationalContacts?.length) ? (
                             <div className="flex flex-wrap gap-2">
-                                {participant.isMinor && participant.guardianPhone ? (
+                                {capabilities.canViewGuardianPII && participant.guardianPhone ? (
                                     <a
                                         href={`tel:${participant.guardianPhone}`}
                                         className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
@@ -577,6 +612,18 @@ export function ParticipantProfilePage() {
                                         <Phone className="mr-1.5 h-3.5 w-3.5" />
                                         Call Guardian
                                     </a>
+                                ) : (!capabilities.canViewGuardianPII && participant.operationalContacts?.length) ? (
+                                    <Button
+                                        variant="outline"
+                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        onClick={() => {
+                                            setActiveActionKey('guardian_contact_complete');
+                                            requirementsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                        }}
+                                    >
+                                        <Phone className="mr-1.5 h-3.5 w-3.5" />
+                                        View Operational Contacts
+                                    </Button>
                                 ) : null}
                             </div>
                         ) : null}
@@ -804,12 +851,16 @@ export function ParticipantProfilePage() {
                                             <span className="ml-3 text-sm font-bold text-foreground">{participant.age ?? 'Not captured yet'}</span>
                                         </div>
                                         <div className="flex min-h-11 items-center justify-between py-2">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian</span>
-                                            <span className="ml-3 truncate text-sm font-bold text-foreground">{participant.guardianName || 'Not captured yet'}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground line-clamp-1">Guardian</span>
+                                            <span className={`ml-3 truncate text-sm font-bold ${!participant.isPIIUnmasked && participant.isMinor ? 'text-muted-foreground italic font-medium' : 'text-foreground'}`}>
+                                                {participant.isPIIUnmasked ? (participant.guardianName || 'Not captured yet') : 'Protected (Operational Fallback)'}
+                                            </span>
                                         </div>
                                         <div className="flex min-h-11 items-center justify-between py-2">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Guardian Phone</span>
-                                            <span className="ml-3 text-sm font-bold text-foreground">{participant.guardianPhone || 'Not captured yet'}</span>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground line-clamp-1">Guardian Phone</span>
+                                            <span className={`ml-3 text-sm font-bold ${!participant.isPIIUnmasked && participant.isMinor ? 'text-muted-foreground italic font-medium' : 'text-foreground'}`}>
+                                                {participant.isPIIUnmasked ? (participant.guardianPhone || 'Not captured yet') : 'Operational Contacts Only'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

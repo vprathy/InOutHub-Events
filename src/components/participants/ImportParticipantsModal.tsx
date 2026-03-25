@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useImportParticipants, useSyncGoogleSheet } from '@/hooks/useParticipants';
-import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, Clock, Plus, ArrowLeft, SlidersHorizontal, LockKeyhole, Sparkles } from 'lucide-react';
+import { useImportParticipants, useSyncGoogleSheet, useImportRuns } from '@/hooks/useParticipants';
+import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, ArrowLeft, SlidersHorizontal, Clock } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/Input';
 import { useEventSources, type EventSource } from '@/hooks/useEventSources';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import type { ParticipantImportField, ParticipantImportProfile } from '@/lib/participantImportMapping';
+import { isImportRunStale } from '@/types/intake';
 
 interface ImportParticipantsModalProps {
     eventId: string;
     isOpen: boolean;
     onClose: () => void;
+    embedded?: boolean;
+    initialMode?: 'dashboard' | 'add_source_select' | 'link_sheet' | 'upload_spreadsheet' | 'mapping_review';
 }
 
 const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper: string }> = [
@@ -31,7 +34,13 @@ const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper
     { key: 'notes', label: 'Notes', helper: 'Freeform notes to preserve during import' },
 ];
 
-export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportParticipantsModalProps) {
+export function ImportParticipantsModal({
+    eventId,
+    isOpen,
+    onClose,
+    embedded = false,
+    initialMode = 'dashboard',
+}: ImportParticipantsModalProps) {
     const [urlInput, setUrlInput] = useState('');
     const [spreadsheetId, setSpreadsheetId] = useState('');
     const [file, setFile] = useState<File | null>(null);
@@ -44,12 +53,14 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
     const [mappingSource, setMappingSource] = useState<EventSource | null>(null);
     const [draftMapping, setDraftMapping] = useState<ParticipantImportProfile>({});
     const [showTechnicalSetup, setShowTechnicalSetup] = useState(false);
+    const [intakeTarget, setIntakeTarget] = useState<'participants' | 'performance_requests'>('participants');
     const [serviceAccountEmail] = useState('inouthub-importer@inouthub-events.iam.gserviceaccount.com');
 
     const { organizationId } = useSelection();
     const { sources, addSource, removeSource, updateSourceSyncStatus } = useEventSources(eventId);
     const { mutateAsync: importSpreadsheet } = useImportParticipants(eventId);
     const { mutateAsync: syncSheet } = useSyncGoogleSheet(eventId);
+    const { data: importRuns } = useImportRuns(eventId);
 
     const { data: selectionNames } = useQuery({
         queryKey: ['selection-metadata', organizationId, eventId],
@@ -73,10 +84,21 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
             setSyncGaps([]);
             setMappingSource(null);
             setDraftMapping({});
+            setShowTechnicalSetup(false);
+            setIntakeTarget('participants');
         }
     }, [isOpen]);
 
+    useEffect(() => {
+        if (isOpen) {
+            setUiMode(initialMode);
+        }
+    }, [isOpen, initialMode]);
+
     if (!isOpen) return null;
+
+    const participantSources = sources.filter((source) => (source.config.intakeTarget || 'participants') === 'participants');
+    const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
 
     const buildSourceConfig = (source: EventSource | { config?: EventSource['config'] }, result: { mapping?: Record<string, string | undefined>; gaps?: string[]; headers?: string[] }) => ({
         ...(source.config || {}),
@@ -117,10 +139,14 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                 eventId,
                 name: sourceName,
                 type: 'google_sheet',
-                config: { sheetId: spreadsheetId, url: urlInput }
+                config: { intakeTarget, sheetId: spreadsheetId, url: urlInput }
             });
 
-            const result = await syncSheet({ sheetId: spreadsheetId, savedMapping: newSource.config?.inferredMapping });
+            const result = await syncSheet({
+                sheetId: spreadsheetId,
+                savedMapping: newSource.config?.inferredMapping,
+                intakeTarget,
+            });
             await updateSourceSyncStatus({
                 sourceId: newSource.id,
                 lastSyncedAt: new Date().toISOString(),
@@ -149,10 +175,15 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                 eventId,
                 name: sourceName,
                 type: 'csv', // Keeping 'csv' type in DB for compatibility but UI says Spreadsheet
-                config: { fileName: file.name }
+                config: { intakeTarget, fileName: file.name }
             });
 
-            const result = await importSpreadsheet({ file, sourceId: newSource.id, savedMapping: newSource.config?.inferredMapping });
+            const result = await importSpreadsheet({
+                file,
+                sourceId: newSource.id,
+                savedMapping: newSource.config?.inferredMapping,
+                intakeTarget,
+            });
             await updateSourceSyncStatus({
                 sourceId: newSource.id,
                 lastSyncedAt: new Date().toISOString(),
@@ -182,7 +213,11 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
         try {
             for (const source of sources) {
                 if (source.type === 'google_sheet' && source.config.sheetId) {
-                    const result = await syncSheet({ sheetId: source.config.sheetId, savedMapping: source.config.inferredMapping });
+                    const result = await syncSheet({
+                        sheetId: source.config.sheetId,
+                        savedMapping: source.config.inferredMapping,
+                        intakeTarget: source.config.intakeTarget || 'participants',
+                    });
                     await updateSourceSyncStatus({
                         sourceId: source.id,
                         lastSyncedAt: new Date().toISOString(),
@@ -211,7 +246,11 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
         setSyncGaps([]);
         try {
             if (source.type === 'google_sheet' && source.config.sheetId) {
-                const result = await syncSheet({ sheetId: source.config.sheetId, savedMapping: source.config.inferredMapping });
+                const result = await syncSheet({
+                    sheetId: source.config.sheetId,
+                    savedMapping: source.config.inferredMapping,
+                    intakeTarget: source.config.intakeTarget || 'participants',
+                });
                 await updateSourceSyncStatus({
                     sourceId: source.id,
                     lastSyncedAt: new Date().toISOString(),
@@ -228,30 +267,41 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-card border-t sm:border border-border w-full max-w-md sm:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
-                {/* Header */}
-                <div className="px-6 py-5 flex items-center justify-between border-b border-border/50">
-                    <div className="flex flex-col">
-                        <div className="flex items-center space-x-2">
-                            {uiMode !== 'dashboard' && (
-                                <button onClick={() => setUiMode('dashboard')} className="p-1 -ml-1 hover:bg-accent rounded-full text-muted-foreground mr-1">
-                                    <ArrowLeft className="w-4 h-4" />
-                                </button>
-                            )}
-                            <h2 className="text-xl font-bold text-foreground">Sync Board</h2>
-                        </div>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1 ml-0.5">
-                            {selectionNames?.eventName || 'Event Participants'}
-                        </span>
+    const headerTitle =
+        uiMode === 'dashboard'
+            ? embedded ? 'Import Data Workspace' : 'Import Data'
+            : uiMode === 'mapping_review'
+                ? 'Review Mapping'
+                : uiMode === 'add_source_select'
+                    ? 'Add Import'
+                    : uiMode === 'link_sheet'
+                        ? 'Connect Google Sheet'
+                        : 'Upload Spreadsheet';
+
+    const content = (
+        <>
+            <div className={`flex items-center justify-between border-b border-border/50 ${embedded ? 'px-5 py-4' : 'px-6 py-5'}`}>
+                <div className="flex flex-col">
+                    <div className="flex items-center space-x-2">
+                        {uiMode !== 'dashboard' ? (
+                            <button onClick={() => setUiMode('dashboard')} className="p-1 -ml-1 hover:bg-accent rounded-full text-muted-foreground mr-1">
+                                <ArrowLeft className="w-4 h-4" />
+                            </button>
+                        ) : null}
+                        <h2 className={`${embedded ? 'text-lg' : 'text-xl'} font-bold text-foreground`}>{headerTitle}</h2>
                     </div>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1 ml-0.5">
+                        {selectionNames?.eventName || 'Current Event'}
+                    </span>
+                </div>
+                {!embedded ? (
                     <button onClick={onClose} className="p-2.5 bg-accent/50 hover:bg-accent rounded-full transition-colors">
                         <X className="w-5 h-5 text-muted-foreground" />
                     </button>
-                </div>
+                ) : null}
+            </div>
 
-                <div className="p-6">
+            <div className={embedded ? 'p-5' : 'p-6'}>
                     {status === 'success' ? (
                         <div className="flex flex-col items-center justify-center py-10 space-y-4 animate-in zoom-in-95">
                             <div className="bg-emerald-500/10 p-5 rounded-full ring-8 ring-emerald-500/5">
@@ -295,66 +345,45 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                         </div>
                     ) : uiMode === 'dashboard' ? (
                         <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-1">
-                            {/* Active Sources */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Active Sources</h3>
-                                    {sources.length > 1 && (
+                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Participant Imports</h3>
+                                    {participantSources.length > 1 ? (
                                         <button onClick={handleSyncAll} className="text-[10px] font-bold text-teal-500 hover:text-teal-400 uppercase tracking-widest transition-colors">
-                                            Sync All Sources
+                                            Refresh All Imports
                                         </button>
-                                    )}
+                                    ) : null}
                                 </div>
-                                <div className="space-y-3">
-                                    {sources.length > 0 ? sources.map(source => (
-                                        <div key={source.id} className="p-4 bg-muted/30 border border-border rounded-2xl flex items-center space-x-4">
-                                            <div className="bg-accent p-2.5 rounded-xl">
-                                                {source.type === 'google_sheet' ? <FileSpreadsheet className="w-6 h-6 text-teal-500" /> : <FileJson className="w-6 h-6 text-blue-500" />}
+                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70">
+                                    {participantSources.length > 0 ? participantSources.map((source, index) => (
+                                        <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < participantSources.length - 1 ? 'border-b border-border/70' : ''}`}>
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
+                                                {source.type === 'google_sheet' ? <FileSpreadsheet className="w-5 h-5 text-teal-500" /> : <FileJson className="w-5 h-5 text-blue-500" />}
                                             </div>
-                                            <div className="flex-1 min-w-0 text-left">
-                                                <p className="text-sm font-bold text-foreground truncate">{source.name}</p>
-                                                <div className="flex items-center space-x-2 text-[10px] text-muted-foreground font-medium mt-0.5">
-                                                    <span className="capitalize">{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
-                                                    {source.lastSyncedAt && (
+                                            <div className="min-w-0 flex-1 text-left">
+                                                <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
+                                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                                    <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
+                                                    {source.lastSyncedAt ? (
                                                         <>
                                                             <span>•</span>
-                                                            <div className="flex items-center space-x-1">
-                                                                <Clock className="w-3 h-3" />
-                                                                <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                                                            </div>
+                                                            <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                                         </>
-                                                    )}
+                                                    ) : null}
+                                                    <span>•</span>
+                                                    <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
                                                 </div>
-                                                {(source.config.mappingGaps?.length || source.config.mappingMode === 'locked') && (
-                                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                        {source.config.mappingMode === 'locked' ? (
-                                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
-                                                                <LockKeyhole className="h-3 w-3" />
-                                                                Mapping Locked
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">
-                                                                <Sparkles className="h-3 w-3" />
-                                                                Inferred Mapping
-                                                            </span>
-                                                        )}
-                                                        {(source.config.mappingGaps?.length || 0) > 0 && (
-                                                            <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
-                                                                {source.config.mappingGaps?.length} gap{(source.config.mappingGaps?.length || 0) > 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
-                                            <div className="flex items-center space-x-1">
-                                                {source.type === 'google_sheet' && (
+                                            <div className="flex items-center gap-1">
+                                                {source.type === 'google_sheet' ? (
                                                     <button
                                                         onClick={() => handleSyncSingleSource(source)}
-                                                        className="p-2 hover:bg-teal-500/10 rounded-full text-teal-500 transition-colors"
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                                                        aria-label={`Refresh ${source.name}`}
                                                     >
                                                         <RefreshCw className="w-4 h-4" />
                                                     </button>
-                                                )}
+                                                ) : null}
                                                 <ActionMenu options={[
                                                     { label: 'Review Mapping', icon: <SlidersHorizontal className="w-4 h-4" />, onClick: () => openMappingReview(source) },
                                                     { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
@@ -362,26 +391,120 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                             </div>
                                         </div>
                                     )) : (
-                                        <div className="p-8 border border-dashed border-border rounded-2xl text-center space-y-2 opacity-60">
-                                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">No sources connected</p>
+                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                            No participant imports connected yet.
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Add Source Toggle */}
-                            <div className="pt-2">
-                                <button onClick={() => setUiMode('add_source_select')} className="w-full h-16 bg-foreground text-background hover:bg-foreground/90 rounded-2xl flex items-center justify-center space-x-3 text-sm font-black uppercase tracking-widest shadow-xl active:scale-[0.98] transition-all">
-                                    <Plus className="w-5 h-5" />
-                                    <span>Add Source</span>
-                                </button>
-                                {status === 'error' && (
-                                    <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-bold flex items-center space-x-2">
-                                        <AlertCircle className="w-4 h-4 shrink-0" />
-                                        <span>{errorMessage}</span>
-                                    </div>
-                                )}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Performance Request Imports</h3>
+                                </div>
+                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70">
+                                    {performanceRequestSources.length > 0 ? performanceRequestSources.map((source, index) => (
+                                        <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < performanceRequestSources.length - 1 ? 'border-b border-border/70' : ''}`}>
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
+                                                {source.type === 'google_sheet' ? <FileSpreadsheet className="w-5 h-5 text-teal-500" /> : <FileJson className="w-5 h-5 text-blue-500" />}
+                                            </div>
+                                            <div className="min-w-0 flex-1 text-left">
+                                                <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
+                                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                                    <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
+                                                    {source.lastSyncedAt ? (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                                        </>
+                                                    ) : null}
+                                                    <span>•</span>
+                                                    <span>{source.config.mappingGaps?.length ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}` : 'Mapped'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {source.type === 'google_sheet' ? (
+                                                    <button
+                                                        onClick={() => handleSyncSingleSource(source)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                                                        aria-label={`Refresh ${source.name}`}
+                                                    >
+                                                        <RefreshCw className="w-4 h-4" />
+                                                    </button>
+                                                ) : null}
+                                                <ActionMenu options={[
+                                                    { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
+                                                ]} />
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                            No performance request imports connected yet.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-3 h-3 text-muted-foreground" />
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Recent Sync Activity</h3>
+                                    </div>
+                                </div>
+                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70 divide-y divide-border/70">
+                                    {importRuns && importRuns.length > 0 ? importRuns.map((run) => {
+                                        const isStale = isImportRunStale(run);
+                                        const stats = run.stats as any || {};
+                                        return (
+                                            <div key={run.id} className="p-3 text-left">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className={`h-2 w-2 rounded-full ${
+                                                            run.status === 'succeeded' ? 'bg-emerald-500' :
+                                                            run.status === 'running' ? (isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse') :
+                                                            run.status === 'rolled_back' ? 'bg-gray-400' :
+                                                            'bg-red-500'
+                                                        }`} />
+                                                        <span className="text-xs font-bold text-foreground capitalize">
+                                                            {run.source_name || (run.import_target === 'performance_requests' ? 'Performance Request Sync' : 'Participant Sync')}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[10px] font-medium text-muted-foreground">
+                                                        {new Date(run.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-1 flex items-center justify-between">
+                                                    <div className="flex flex-col">
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {run.status === 'running' ? (isStale ? 'Stale / Timed Out' : 'Syncing...') : 
+                                                             run.status === 'succeeded' ? `${stats.new || 0} new, ${stats.updated || 0} updated` : 
+                                                             run.status === 'rolled_back' ? 'Changes rolled back' :
+                                                             run.error_message || 'Sync failed'}
+                                                        </p>
+                                                        {run.status === 'blocked' && run.blocking_issues && (run.blocking_issues as string[]).length > 0 && (
+                                                            <p className="text-[9px] text-amber-600 font-medium leading-tight mt-0.5">
+                                                                Stopped: {(run.blocking_issues as string[])[0]}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                            No recent sync activity.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {status === 'error' ? (
+                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-bold flex items-center space-x-2">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>{errorMessage}</span>
+                                </div>
+                            ) : null}
                         </div>
                     ) : uiMode === 'mapping_review' ? (
                         <div className="space-y-5 animate-in slide-in-from-right-4 duration-300 text-left">
@@ -445,17 +568,41 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                             </div>
                         </div>
                     ) : uiMode === 'add_source_select' ? (
-                        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
-                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Select Source Type</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => setUiMode('upload_spreadsheet')} className="h-28 bg-accent/40 border border-border rounded-2xl flex flex-col items-center justify-center space-y-2 hover:bg-accent transition-all active:scale-95 shadow-sm">
-                                    <div className="bg-blue-500/10 p-3 rounded-xl text-blue-500"><FileJson className="w-6 h-6" /></div>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest">Upload Spreadsheet</span>
+                        <div className="space-y-5 animate-in slide-in-from-bottom-4 duration-300">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-black tracking-tight text-foreground">Choose what you are importing</h3>
+                                <p className="text-xs text-muted-foreground">Choose the intake lane first so spreadsheets and Google Sheets land in the correct operational workflow.</p>
+                            </div>
+                            <div className="grid gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setIntakeTarget('participants')}
+                                    className={`rounded-[1.25rem] border p-4 text-left transition-colors ${intakeTarget === 'participants' ? 'border-primary/30 bg-primary/5' : 'border-border/70 bg-background/80'}`}
+                                >
+                                    <p className="text-sm font-black text-foreground">Participants</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">Use this for roster spreadsheets and participant refreshes.</p>
                                 </button>
-                                <button onClick={() => setUiMode('link_sheet')} className="h-28 bg-accent/40 border border-border rounded-2xl flex flex-col items-center justify-center space-y-2 hover:bg-accent transition-all active:scale-95 shadow-sm">
-                                    <div className="bg-teal-500/10 p-3 rounded-xl text-teal-500"><FileSpreadsheet className="w-6 h-6" /></div>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest">Connect Google Sheet</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIntakeTarget('performance_requests')}
+                                    className={`rounded-[1.25rem] border p-4 text-left transition-colors ${intakeTarget === 'performance_requests' ? 'border-primary/30 bg-primary/5' : 'border-border/70 bg-background/80'}`}
+                                >
+                                    <p className="text-sm font-black text-foreground">Performance Requests</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">Use this for partner submissions and external request files before conversion into live performances.</p>
                                 </button>
+                            </div>
+                            <div className="space-y-3">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Select Import Method</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button onClick={() => setUiMode('upload_spreadsheet')} className="h-28 bg-accent/40 border border-border rounded-2xl flex flex-col items-center justify-center space-y-2 hover:bg-accent transition-all active:scale-95 shadow-sm">
+                                        <div className="bg-blue-500/10 p-3 rounded-xl text-blue-500"><FileJson className="w-6 h-6" /></div>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">Upload Spreadsheet</span>
+                                    </button>
+                                    <button onClick={() => setUiMode('link_sheet')} className="h-28 bg-accent/40 border border-border rounded-2xl flex flex-col items-center justify-center space-y-2 hover:bg-accent transition-all active:scale-95 shadow-sm">
+                                        <div className="bg-teal-500/10 p-3 rounded-xl text-teal-500"><FileSpreadsheet className="w-6 h-6" /></div>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">Connect Google Sheet</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ) : uiMode === 'link_sheet' ? (
@@ -502,7 +649,7 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                 )}
                             </div>
                             <Button disabled={!spreadsheetId || !sourceName} onClick={handleLinkSheet} className="w-full h-16 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">
-                                Link & Sync
+                                Link & Refresh
                             </Button>
                         </div>
                     ) : (
@@ -531,11 +678,26 @@ export function ImportParticipantsModal({ eventId, isOpen, onClose }: ImportPart
                                 </label>
                             </div>
                             <Button disabled={!file || !sourceName} onClick={handleUploadSpreadsheet} className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">
-                                Upload & Sync
+                                Upload & Refresh
                             </Button>
                         </div>
                     )}
-                </div>
+            </div>
+        </>
+    );
+
+    if (embedded) {
+        return (
+            <div className="surface-panel overflow-hidden rounded-[1.5rem] border">
+                {content}
+            </div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card border-t sm:border border-border w-full max-w-md sm:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
+                {content}
             </div>
         </div>
     );

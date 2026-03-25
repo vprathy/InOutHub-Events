@@ -8,6 +8,7 @@ import { useAssignEventRole, useEventMembers, usePendingEventAccess, useRemoveEv
 import { Button } from '@/components/ui/Button';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
+import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
 
 type AccessRole = 'EventAdmin' | 'StageManager' | 'ActAdmin' | 'Member';
 
@@ -20,6 +21,7 @@ export default function AccessPage() {
     const { data: pendingAccess = [], isLoading: isLoadingPending } = usePendingEventAccess(eventId || null);
     const { mutateAsync: assignRole, isPending: isAssigning } = useAssignEventRole(eventId || null);
     const { mutateAsync: removeMember, isPending: isRemoving } = useRemoveEventMember(eventId || null);
+    const onboardingCapabilities = useOnboardingCapabilities(organizationId || null, eventId || null);
 
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<AccessRole>('StageManager');
@@ -48,7 +50,7 @@ export default function AccessPage() {
         );
     }, [pendingAccess, searchQuery]);
 
-    if (!eventId || isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin) {
+    if (!eventId || isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -69,6 +71,8 @@ export default function AccessPage() {
             </div>
         );
     }
+
+    const invitesLocked = !onboardingCapabilities.canManageInvites;
 
     const handleQuickGrant = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -98,6 +102,12 @@ export default function AccessPage() {
                         : 'border-destructive/20 bg-destructive/5 text-destructive'
                 }`}>
                     {notice.message}
+                </div>
+            ) : null}
+
+            {invitesLocked ? (
+                <div className="rounded-[1.2rem] border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm font-medium text-amber-700">
+                    Pilot review is still pending for this organization. Broad invite and staffing actions stay limited until internal approval is complete.
                 </div>
             ) : null}
 
@@ -141,7 +151,7 @@ export default function AccessPage() {
                         <option value="ActAdmin">Act Admin</option>
                         <option value="Member">Member</option>
                     </select>
-                    <Button type="submit" className="min-h-11 w-full" disabled={isAssigning || !email.trim()}>
+                    <Button type="submit" className="min-h-11 w-full" disabled={isAssigning || !email.trim() || invitesLocked}>
                         {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                         Grant Access
                     </Button>
@@ -238,7 +248,7 @@ export default function AccessPage() {
                                                 <Button
                                                     variant="outline"
                                                     className="min-h-11 px-4"
-                                                    disabled={isAssigning || nextRole === member.role}
+                                                    disabled={isAssigning || nextRole === member.role || invitesLocked}
                                                     onClick={async () => {
                                                         setNotice(null);
                                                         try {
@@ -257,7 +267,7 @@ export default function AccessPage() {
                                                 <Button
                                                     variant="outline"
                                                     className="min-h-11 min-w-11 px-3"
-                                                    disabled={isRemoving || isAutomated}
+                                                    disabled={isRemoving || isAutomated || invitesLocked}
                                                     onClick={async () => {
                                                         setNotice(null);
                                                         try {

@@ -31,6 +31,17 @@ const VALUE_HINTS = {
 }
 
 const VALUE_INFERENCE_FIELDS = ['phone', 'email', 'age', 'specialRequest', 'fullName', 'guardianName', 'studentId', 'submissionId', 'products', 'notes'] as const
+const REQUEST_HEADER_ALIASES = {
+    title: ['performance title', 'performance name', 'act title', 'act name', 'dance title', 'item title', 'title', 'performance', 'act', 'item'],
+    leadName: ['lead name', 'contact name', 'teacher name', 'coach name', 'manager name', 'submitted by', 'requester name', 'name'],
+    leadEmail: ['lead email', 'contact email', 'teacher email', 'email address', 'email'],
+    leadPhone: ['lead phone', 'contact phone', 'teacher phone', 'manager phone', 'phone number', 'phone'],
+    durationMinutes: ['duration estimate minutes', 'duration minutes', 'duration', 'runtime', 'length'],
+    musicSupplied: ['music supplied', 'music submitted', 'music included', 'music?'],
+    rosterSupplied: ['roster supplied', 'cast supplied', 'roster included', 'participants supplied'],
+    notes: ['notes', 'comments', 'special notes', 'special requests', 'description'],
+    sourceAnchor: ['submission id', 'request id', 'entry id', 'row id', 'timestamp', 'order id'],
+}
 
 function normalizeHeader(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -90,6 +101,11 @@ function isLikelySubmissionId(value: string) {
 
 function isLikelyLongText(value: string) {
     return value.length >= 12 && /\s/.test(value)
+}
+
+function isLikelyBooleanFlag(value: string) {
+    const normalized = value.trim().toLowerCase()
+    return ['yes', 'no', 'true', 'false', 'y', 'n', '1', '0', 'supplied', 'missing', 'included'].includes(normalized)
 }
 
 function getSampleValues(rows: Record<string, string>[], header: string) {
@@ -206,6 +222,170 @@ function inferProfile(headers: string[], rows: Record<string, string>[], savedPr
     return { profile, gaps }
 }
 
+function assessParticipantImport(headers: string[], rows: Record<string, string>[], savedProfile?: Record<string, string>) {
+    const { profile, gaps } = inferProfile(headers, rows, savedProfile)
+    const normalizedHeaders = headers.map((header) => normalizeHeader(header))
+
+    const participantSignalCount = [
+        profile.firstName || profile.lastName || profile.fullName ? 1 : 0,
+        profile.phone ? 1 : 0,
+        profile.guardianName || profile.parentFirstName || profile.parentLastName ? 1 : 0,
+        profile.studentId || profile.submissionId ? 1 : 0,
+        profile.specialRequest ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0)
+
+    const performanceKeywords = ['performance', 'act', 'dance', 'item', 'duration', 'runtime', 'music', 'song', 'lead', 'teacher', 'team']
+    const performanceSignalCount = normalizedHeaders.filter((header) => performanceKeywords.some((keyword) => header.includes(keyword))).length
+
+    let probableTarget: 'participants' | 'performance_requests' | 'unknown' = 'participants'
+    if (!(profile.firstName || profile.lastName || profile.fullName) && performanceSignalCount >= 2) {
+        probableTarget = 'performance_requests'
+    } else if (!(profile.firstName || profile.lastName || profile.fullName) && participantSignalCount <= 1) {
+        probableTarget = 'unknown'
+    }
+
+    let confidence: 'high' | 'medium' | 'low' = 'low'
+    if (participantSignalCount >= 4) confidence = 'high'
+    else if (participantSignalCount >= 2) confidence = 'medium'
+
+    const blockingIssues: string[] = []
+    if (!(profile.firstName || profile.lastName || profile.fullName)) {
+        blockingIssues.push('Participant name columns were not recognized, so this file cannot be trusted as a participant import yet.')
+    }
+    if (probableTarget === 'performance_requests') {
+        blockingIssues.push('This file looks more like performance-request data than a participant roster. Switch the intake target instead of importing it here.')
+    }
+
+    if (rows.length > 5000) {
+        blockingIssues.push(`The file contains ${rows.length} rows, which exceeds the interactive sync limit of 5,000. Please split the file or contact support for a background ingest.`)
+    }
+
+    // Phase 1 Internal Duplicate Detection (Warn only in gaps unless excessive)
+    const seenAnchors = new Set<string>()
+    let internalDuplicateCount = 0
+    for (const row of rows.slice(0, 1000)) { // Sample first 1k for performance
+        const read = (field: string) => profile[field] ? String(row[profile[field]!] || '').trim() : ''
+        const fName = read('firstName') || read('fullName')
+        const phone = read('phone')
+        const anchor = `${fName}:${phone}`.toLowerCase()
+        if (seenAnchors.has(anchor)) {
+            internalDuplicateCount++
+        }
+        seenAnchors.add(anchor)
+    }
+
+    if (internalDuplicateCount > 10) {
+        gaps.push(`Detected ${internalDuplicateCount}+ duplicate participants within the source file. Verify the source data to avoid overlapping records.`)
+    }
+
+    return { profile, gaps, confidence, probableTarget, blockingIssues }
+}
+
+function inferPerformanceRequestProfile(headers: string[], rows: Record<string, string>[], savedProfile?: Record<string, string>) {
+    const profile: Record<string, string | undefined> = {}
+    const assignedHeaders = new Set<string>()
+
+    for (const [field, header] of Object.entries(savedProfile || {})) {
+        if (header && headers.includes(header)) {
+            profile[field] = header
+            assignedHeaders.add(header)
+        }
+    }
+
+    const headerMatches: Array<[string, string[], RegExp | undefined]> = [
+        ['title', REQUEST_HEADER_ALIASES.title, /\b(performance|act|dance|item|title)\b/],
+        ['leadName', REQUEST_HEADER_ALIASES.leadName, /\b(lead|contact|teacher|coach|manager|requester)\b.*\bname\b/],
+        ['leadEmail', REQUEST_HEADER_ALIASES.leadEmail, /\bemail\b/],
+        ['leadPhone', REQUEST_HEADER_ALIASES.leadPhone, /\b(phone|mobile|cell)\b/],
+        ['durationMinutes', REQUEST_HEADER_ALIASES.durationMinutes, /\b(duration|runtime|length)\b/],
+        ['musicSupplied', REQUEST_HEADER_ALIASES.musicSupplied, /\bmusic\b/],
+        ['rosterSupplied', REQUEST_HEADER_ALIASES.rosterSupplied, /\b(roster|cast|participant)\b.*\b(supplied|included)\b/],
+        ['notes', REQUEST_HEADER_ALIASES.notes, /\b(notes|comments|description|request)\b/],
+        ['sourceAnchor', REQUEST_HEADER_ALIASES.sourceAnchor, /\b(submission|request|entry|row|timestamp|order)\b/],
+    ]
+
+    for (const [field, aliases, fallbackPattern] of headerMatches) {
+        if (profile[field]) continue
+        const detected = detectHeader(headers, aliases, fallbackPattern)
+        if (detected && !assignedHeaders.has(detected)) {
+            profile[field] = detected
+            assignedHeaders.add(detected)
+        }
+    }
+
+    for (const header of headers) {
+        if (assignedHeaders.has(header)) continue
+        const values = getSampleValues(rows, header)
+        if (!profile.durationMinutes && scoreFieldByValues('age', values) >= 0.6) {
+            profile.durationMinutes = header
+            assignedHeaders.add(header)
+            continue
+        }
+        if (!profile.leadEmail && values.length > 0 && values.filter(isLikelyEmail).length / values.length >= 0.6) {
+            profile.leadEmail = header
+            assignedHeaders.add(header)
+            continue
+        }
+        if (!profile.leadPhone && values.length > 0 && values.filter(isLikelyPhone).length / values.length >= 0.6) {
+            profile.leadPhone = header
+            assignedHeaders.add(header)
+            continue
+        }
+        if (!profile.musicSupplied && values.length > 0 && values.filter(isLikelyBooleanFlag).length / values.length >= 0.6) {
+            profile.musicSupplied = header
+            assignedHeaders.add(header)
+        }
+    }
+
+    const gaps: string[] = []
+    if (!profile.title) gaps.push('Performance title column was not recognized automatically.')
+    if (!profile.leadName && !profile.leadEmail) gaps.push('Lead contact columns were not recognized automatically.')
+    return { profile, gaps }
+}
+
+function assessPerformanceRequestImport(headers: string[], rows: Record<string, string>[], savedProfile?: Record<string, string>) {
+    const { profile, gaps } = inferPerformanceRequestProfile(headers, rows, savedProfile)
+    const normalizedHeaders = headers.map((header) => normalizeHeader(header))
+
+    const requestSignalCount = [
+        profile.title ? 1 : 0,
+        profile.leadName || profile.leadEmail ? 1 : 0,
+        profile.durationMinutes ? 1 : 0,
+        profile.musicSupplied || profile.rosterSupplied ? 1 : 0,
+        profile.sourceAnchor ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0)
+
+    const participantKeywords = ['guardian', 'parent', 'student age', 'first name', 'last name', 'participant first name']
+    const participantSignalCount = normalizedHeaders.filter((header) => participantKeywords.some((keyword) => header.includes(keyword))).length
+
+    let probableTarget: 'participants' | 'performance_requests' | 'unknown' = 'performance_requests'
+    if (!profile.title && participantSignalCount >= 2) probableTarget = 'participants'
+    else if (!profile.title && requestSignalCount <= 1) probableTarget = 'unknown'
+
+    let confidence: 'high' | 'medium' | 'low' = 'low'
+    if (requestSignalCount >= 4) confidence = 'high'
+    else if (requestSignalCount >= 2) confidence = 'medium'
+
+    const blockingIssues: string[] = []
+    if (!profile.title) {
+        blockingIssues.push('Performance title column was not recognized, so this file cannot be trusted as a performance-request import yet.')
+    }
+    if (probableTarget === 'participants') {
+        blockingIssues.push('This file looks more like participant roster data than a performance-request intake. Switch the intake target instead of importing it here.')
+    }
+    if (rows.length > 5000) {
+        blockingIssues.push(`The file contains ${rows.length} rows, which exceeds the interactive sync limit of 5,000. Please split the file or contact support for a background ingest.`)
+    }
+
+    return { profile, gaps, confidence, probableTarget, blockingIssues }
+}
+
+function coerceBooleanFlag(value: string) {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    return ['yes', 'true', 'y', '1', 'supplied', 'included', 'uploaded'].includes(normalized)
+}
+
 // Helper to get Google Access Token using Service Account (Deno Native)
 async function getGoogleAccessToken(serviceAccount: any) {
     const now = Math.floor(Date.now() / 1000)
@@ -261,6 +441,12 @@ Deno.serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
+    let runTrackingClient: ReturnType<typeof createClient> | null = null
+    let trackedImportRunId: string | null = null
+    let trackedEventId: string | null = null
+    let trackedOrganizationId: string | null = null
+    let trackedUserId: string | null = null
+
     try {
         const authHeader = req.headers.get('Authorization')
         console.log('Authorization Header present:', !!authHeader)
@@ -270,6 +456,7 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
             { global: { headers: { Authorization: authHeader! } } }
         )
+        runTrackingClient = supabaseClient
 
         // 1. Get User and verify role
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
@@ -277,9 +464,11 @@ Deno.serve(async (req) => {
             console.error('getUser Error:', userError)
             throw new Error(`Unauthorized: ${userError?.message || 'No user session found'}`)
         }
+        trackedUserId = user.id
 
         const body = await req.json()
-        const { sheetId, eventId, dryRun = true, savedMapping } = body
+        const { sheetId, eventId, dryRun = true, savedMapping, intakeTarget = 'participants' } = body
+        trackedEventId = eventId ?? null
         if (!eventId || !sheetId) {
             console.log('Missing body params:', { eventId: !!eventId, sheetId: !!sheetId })
             throw new Error('Missing eventId or sheetId')
@@ -345,7 +534,253 @@ Deno.serve(async (req) => {
             })
             return rowData
         })
-        const { profile, gaps } = inferProfile(headers, parsedRows, savedMapping)
+        const assessment = intakeTarget === 'performance_requests'
+            ? assessPerformanceRequestImport(headers, parsedRows, savedMapping)
+            : assessParticipantImport(headers, parsedRows, savedMapping)
+        const { profile, gaps, confidence, probableTarget, blockingIssues } = assessment
+
+        const { data: eventRecord, error: eventError } = await supabaseClient
+            .from('events')
+            .select('organization_id')
+            .eq('id', eventId)
+            .single()
+
+        if (eventError || !eventRecord) {
+            throw new Error(`Unable to resolve event context: ${eventError?.message || 'Missing event'}`)
+        }
+        trackedOrganizationId = eventRecord.organization_id
+
+        const { data: sourceRows } = await (supabaseClient as any)
+            .from('event_sources')
+            .select('id, name, config')
+            .eq('event_id', eventId)
+
+        const matchedSource = ((sourceRows as any[]) || []).find((source) => source.config?.sheetId === sheetId)
+        let importRunId: string | null = null
+
+        if (!dryRun) {
+            const { data: importRun, error: importRunError } = await (supabaseClient as any)
+                .from('import_runs')
+                .insert({
+                    organization_id: eventRecord.organization_id,
+                    event_id: eventId,
+                    event_source_id: matchedSource?.id || null,
+                    import_target: intakeTarget,
+                    import_method: 'google_sheet',
+                    source_name: matchedSource?.name || 'Google Sheet Import',
+                    source_instance: sheetId,
+                    status: blockingIssues.length > 0 ? 'blocked' : 'running',
+                    probable_target: probableTarget,
+                    confidence,
+                    blocking_issues: blockingIssues,
+                    source_snapshot: {
+                        headers,
+                        mapping: profile,
+                        gaps,
+                        sheetId,
+                    },
+                    initiated_by: user.id,
+                })
+                .select('id')
+                .single()
+
+            if (importRunError) throw importRunError
+            importRunId = importRun.id
+            trackedImportRunId = importRun.id
+        }
+
+        if (blockingIssues.length > 0) {
+            if (importRunId) {
+                await (supabaseClient as any)
+                    .from('import_runs')
+                    .update({
+                        status: 'blocked',
+                        error_message: blockingIssues[0],
+                        completed_at: new Date().toISOString(),
+                    })
+                    .eq('id', importRunId)
+
+                await (supabaseClient as any)
+                    .from('intake_audit_events')
+                    .insert({
+                        organization_id: eventRecord.organization_id,
+                        event_id: eventId,
+                        import_run_id: importRunId,
+                        entity_type: 'import_run',
+                        entity_id: importRunId,
+                        action: 'blocked',
+                        note: blockingIssues[0],
+                        metadata: { probableTarget, confidence, sheetId },
+                        performed_by: user.id,
+                    })
+            }
+            throw new Error(blockingIssues[0])
+        }
+
+        if (intakeTarget === 'performance_requests') {
+            const requests = parsedRows.map((rowData) => {
+                const read = (header?: string) => (header ? String(rowData[header] || '').trim() : '')
+                const title = read(profile.title)
+                const leadName = read(profile.leadName)
+                const leadEmail = read(profile.leadEmail)
+                const leadPhone = read(profile.leadPhone)
+                const durationRaw = read(profile.durationMinutes)
+                const durationEstimate = Number(durationRaw)
+                const sourceAnchor = read(profile.sourceAnchor)
+                const fallbackAnchor = [
+                    title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                    leadEmail.toLowerCase(),
+                    leadPhone.replace(/\D/g, '').slice(-4),
+                ].filter(Boolean).join(':')
+
+                return {
+                    organization_id: eventRecord.organization_id,
+                    event_id: eventId,
+                    import_run_id: importRunId,
+                    event_source_id: matchedSource?.id || null,
+                    source_anchor: sourceAnchor || fallbackAnchor || null,
+                    title: title || 'Untitled Request',
+                    lead_name: leadName || null,
+                    lead_email: leadEmail || null,
+                    lead_phone: leadPhone || null,
+                    duration_estimate_minutes: Number.isFinite(durationEstimate) && durationEstimate > 0 ? durationEstimate : 5,
+                    music_supplied: coerceBooleanFlag(read(profile.musicSupplied)),
+                    roster_supplied: coerceBooleanFlag(read(profile.rosterSupplied)),
+                    notes: read(profile.notes) || null,
+                    raw_payload: Object.fromEntries(
+                        Object.entries(rowData).map(([k, v]) => [
+                            k,
+                            typeof v === 'string' && v.length > 512 ? v.substring(0, 512) + '... [truncated]' : v
+                        ])
+                    )
+                }
+            }).filter((request) => request.title !== 'Untitled Request' || request.lead_name || request.source_anchor)
+
+            const anchors = requests.map((request) => request.source_anchor).filter(Boolean)
+            const { data: existingRecords, error: fetchError } = await (supabaseClient as any)
+                .from('performance_requests')
+                .select('id, source_anchor, request_status, conversion_status, converted_act_id')
+                .eq('event_id', eventId)
+                .eq('event_source_id', matchedSource?.id || null)
+                .in('source_anchor', anchors)
+
+            if (fetchError) throw fetchError
+
+            const existingByAnchor = new Map((existingRecords || []).map((row: any) => [row.source_anchor, row]))
+            const newAnchors = anchors.filter((anchor) => !existingByAnchor.has(anchor))
+
+            if (dryRun) {
+                return new Response(JSON.stringify({
+                    success: true,
+                    stats: {
+                        total: requests.length,
+                        new: newAnchors.length,
+                        updated: requests.length - newAnchors.length,
+                        missing: 0
+                    },
+                    mapping: profile,
+                    gaps,
+                    probableTarget,
+                    confidence,
+                    headers,
+                    preview: requests.slice(0, 5),
+                }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                })
+            }
+
+            const { error: upsertError } = await (supabaseClient as any)
+                .from('performance_requests')
+                .upsert(requests, {
+                    onConflict: 'event_id,event_source_id,source_anchor'
+                })
+
+            if (upsertError) throw upsertError
+
+            const { data: currentRows, error: currentRowsError } = await (supabaseClient as any)
+                .from('performance_requests')
+                .select('id, source_anchor, request_status, conversion_status, converted_act_id')
+                .eq('event_id', eventId)
+                .eq('event_source_id', matchedSource?.id || null)
+                .in('source_anchor', anchors)
+
+            if (currentRowsError) throw currentRowsError
+
+            const currentByAnchor = new Map((currentRows || []).map((row: any) => [row.source_anchor, row]))
+
+            if (importRunId) {
+                const importRunRecords = requests.map((request) => {
+                    const previous = existingByAnchor.get(request.source_anchor)
+                    const current = currentByAnchor.get(request.source_anchor)
+                    return {
+                        import_run_id: importRunId,
+                        entity_type: 'performance_request',
+                        entity_id: current?.id || null,
+                        entity_key: request.source_anchor,
+                        action: previous ? 'updated' : 'created',
+                        before_data: previous || null,
+                        after_data: current || null,
+                    }
+                })
+
+                const { error: runRecordError } = await (supabaseClient as any)
+                    .from('import_run_records')
+                    .insert(importRunRecords)
+
+                if (runRecordError) throw runRecordError
+
+                const stats = {
+                    total: requests.length,
+                    new: newAnchors.length,
+                    updated: requests.length - newAnchors.length,
+                    missing: 0
+                }
+
+                const { error: finalizeError } = await (supabaseClient as any)
+                    .from('import_runs')
+                    .update({
+                        status: 'succeeded',
+                        stats,
+                        completed_at: new Date().toISOString(),
+                    })
+                    .eq('id', importRunId)
+
+                if (finalizeError) throw finalizeError
+
+                const { error: auditError } = await (supabaseClient as any)
+                    .from('intake_audit_events')
+                    .insert({
+                        organization_id: eventRecord.organization_id,
+                        event_id: eventId,
+                        import_run_id: importRunId,
+                        entity_type: 'import_run',
+                        entity_id: importRunId,
+                        action: 'completed',
+                        note: 'Google Sheet performance request refresh completed.',
+                        metadata: { stats, probableTarget, confidence, sheetId },
+                        performed_by: user.id,
+                    })
+
+                if (auditError) throw auditError
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                stats: {
+                    total: requests.length,
+                    new: newAnchors.length,
+                    updated: requests.length - newAnchors.length,
+                    missing: 0
+                },
+                mapping: profile,
+                gaps,
+                probableTarget,
+                confidence,
+                headers,
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+        }
 
         const participants = parsedRows.map(rowData => {
 
@@ -414,7 +849,12 @@ Deno.serve(async (req) => {
                 special_request_raw: specialRequestRaw || null,
                 special_request_source_column: profile.specialRequest || null,
                 has_special_requests: hasSpecialRequests,
-                src_raw: rowData
+                src_raw: Object.fromEntries(
+                    Object.entries(rowData).map(([k, v]) => [
+                        k, 
+                        typeof v === 'string' && v.length > 512 ? v.substring(0, 512) + '... [truncated]' : v
+                    ])
+                )
             }
         }).filter(p => p.first_name !== 'Unknown' || p.last_name !== 'Participant')
 
@@ -445,6 +885,8 @@ Deno.serve(async (req) => {
                 },
                 mapping: profile,
                 gaps,
+                probableTarget,
+                confidence,
                 headers,
                 preview: participants.slice(0, 5),
                 missingPreview: missingAnchors.slice(0, 5)
@@ -476,14 +918,123 @@ Deno.serve(async (req) => {
 
         if (insertError) throw insertError
 
+        const { data: currentRows, error: currentRowsError } = await supabaseClient
+            .from('participants')
+            .select('id, source_anchor_value, status')
+            .eq('event_id', eventId)
+            .eq('source_instance', sheetId)
+            .eq('source_system', 'google-sheets')
+            .in('source_anchor_value', [...incomingAnchors])
+
+        if (currentRowsError) throw currentRowsError
+
+        const currentByAnchor = new Map((currentRows || []).map((row) => [row.source_anchor_value, row]))
+
+        if (importRunId) {
+            const importedParticipantIds = (currentRows || []).map((row) => row.id)
+            if (importedParticipantIds.length > 0) {
+                const { error: lineageError } = await (supabaseClient as any)
+                    .from('participants')
+                    .update({ last_import_run_id: importRunId })
+                    .in('id', importedParticipantIds)
+
+                if (lineageError) throw lineageError
+            }
+
+            const newParticipantIds = newAnchors
+                .map((anchor) => currentByAnchor.get(anchor)?.id)
+                .filter(Boolean)
+
+            if (newParticipantIds.length > 0) {
+                const { error: createLineageError } = await (supabaseClient as any)
+                    .from('participants')
+                    .update({ created_by_import_run_id: importRunId })
+                    .in('id', newParticipantIds)
+
+                if (createLineageError) throw createLineageError
+            }
+        }
+
         if (missingAnchors.length > 0) {
             await supabaseClient
                 .from('participants')
-                .update({ status: 'missing_from_source' })
+                .update({
+                    status: 'missing_from_source',
+                    ...(importRunId ? { last_import_run_id: importRunId } : {})
+                })
                 .eq('event_id', eventId)
                 .eq('source_instance', sheetId)
                 .in('source_anchor_value', missingAnchors)
                 .neq('status', 'missing_from_source')
+        }
+
+        if (importRunId) {
+            const importRunRecords = participants.map((participant) => {
+                const previous = existingRecords?.find((row) => row.source_anchor_value === participant.source_anchor_value)
+                const current = currentByAnchor.get(participant.source_anchor_value)
+                return {
+                    import_run_id: importRunId,
+                    entity_type: 'participant',
+                    entity_id: current?.id || null,
+                    entity_key: participant.source_anchor_value,
+                    action: previous ? 'updated' : 'created',
+                    before_data: previous ? { id: previous.id, status: previous.status } : null,
+                    after_data: current ? { id: current.id, status: current.status } : null,
+                }
+            })
+
+            const missingRunRecords = missingAnchors.map((anchor) => {
+                const previous = existingRecords?.find((row) => row.source_anchor_value === anchor)
+                return {
+                    import_run_id: importRunId,
+                    entity_type: 'participant',
+                    entity_id: previous?.id || null,
+                    entity_key: anchor,
+                    action: 'missing_from_source',
+                    before_data: previous ? { id: previous.id, status: previous.status } : null,
+                    after_data: { status: 'missing_from_source' },
+                }
+            })
+
+            const { error: runRecordError } = await (supabaseClient as any)
+                .from('import_run_records')
+                .insert([...importRunRecords, ...missingRunRecords])
+
+            if (runRecordError) throw runRecordError
+
+            const stats = {
+                total: participants.length,
+                new: newAnchors.length,
+                updated: updatedAnchors.length,
+                missing: missingAnchors.length
+            }
+
+            const { error: finalizeError } = await (supabaseClient as any)
+                .from('import_runs')
+                .update({
+                    status: 'succeeded',
+                    stats,
+                    completed_at: new Date().toISOString(),
+                })
+                .eq('id', importRunId)
+
+            if (finalizeError) throw finalizeError
+
+            const { error: auditError } = await (supabaseClient as any)
+                .from('intake_audit_events')
+                .insert({
+                    organization_id: eventRecord.organization_id,
+                    event_id: eventId,
+                    import_run_id: importRunId,
+                    entity_type: 'import_run',
+                    entity_id: importRunId,
+                    action: 'completed',
+                    note: 'Google Sheet participant refresh completed.',
+                    metadata: { stats, probableTarget, confidence, sheetId },
+                    performed_by: user.id,
+                })
+
+            if (auditError) throw auditError
         }
 
         return new Response(JSON.stringify({
@@ -496,6 +1047,8 @@ Deno.serve(async (req) => {
             },
             mapping: profile,
             gaps,
+            probableTarget,
+            confidence,
             headers,
             message: 'Sync completed successfully'
         }), {
@@ -504,6 +1057,32 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Edge Function error:', error)
+        if (trackedImportRunId && runTrackingClient) {
+            await (runTrackingClient as any)
+                .from('import_runs')
+                .update({
+                    status: 'failed',
+                    error_message: error.message || 'Google Sheet import failed',
+                    completed_at: new Date().toISOString(),
+                })
+                .eq('id', trackedImportRunId)
+
+            if (trackedEventId && trackedOrganizationId) {
+                await (runTrackingClient as any)
+                    .from('intake_audit_events')
+                    .insert({
+                        organization_id: trackedOrganizationId,
+                        event_id: trackedEventId,
+                        import_run_id: trackedImportRunId,
+                        entity_type: 'import_run',
+                        entity_id: trackedImportRunId,
+                        action: 'failed',
+                        note: error.message || 'Google Sheet import failed',
+                        metadata: { source: 'import-participants edge function' },
+                        performed_by: trackedUserId,
+                    })
+            }
+        }
         return new Response(JSON.stringify({ error: error.message }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

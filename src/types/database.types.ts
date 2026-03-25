@@ -656,18 +656,41 @@ export type Database = {
                     created_at: string | null
                     id: string
                     name: string
+                    onboarding_contact_email: string | null
+                    review_requested_at: string | null
+                    review_status: string
+                    reviewed_at: string | null
+                    reviewed_by: string | null
                 }
                 Insert: {
                     created_at?: string | null
                     id?: string
                     name: string
+                    onboarding_contact_email?: string | null
+                    review_requested_at?: string | null
+                    review_status?: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
                 }
                 Update: {
                     created_at?: string | null
                     id?: string
                     name?: string
+                    onboarding_contact_email?: string | null
+                    review_requested_at?: string | null
+                    review_status?: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "organizations_reviewed_by_fkey"
+                        columns: ["reviewed_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             participant_assets: {
                 Row: {
@@ -1201,6 +1224,363 @@ export type Database = {
                     },
                 ]
             }
+            performance_requests: {
+                Row: {
+                    approved_at: string | null
+                    approved_by: string | null
+                    conversion_status: string
+                    converted_act_id: string | null
+                    converted_at: string | null
+                    converted_by: string | null
+                    created_at: string | null
+                    duration_estimate_minutes: number
+                    event_id: string
+                    event_source_id: string | null
+                    id: string
+                    import_run_id: string | null
+                    lead_email: string | null
+                    lead_name: string | null
+                    lead_phone: string | null
+                    music_supplied: boolean
+                    notes: string | null
+                    organization_id: string
+                    raw_payload: Json
+                    request_status: string
+                    reviewed_at: string | null
+                    reviewed_by: string | null
+                    roster_supplied: boolean
+                    source_anchor: string | null
+                    title: string
+                    updated_at: string | null
+                }
+                Insert: {
+                    approved_at?: string | null
+                    approved_by?: string | null
+                    conversion_status?: string
+                    converted_act_id?: string | null
+                    converted_at?: string | null
+                    converted_by?: string | null
+                    created_at?: string | null
+                    duration_estimate_minutes?: number
+                    event_id: string
+                    event_source_id?: string | null
+                    id?: string
+                    import_run_id?: string | null
+                    lead_email?: string | null
+                    lead_name?: string | null
+                    lead_phone?: string | null
+                    music_supplied?: boolean
+                    notes?: string | null
+                    organization_id: string
+                    raw_payload?: Json
+                    request_status?: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
+                    roster_supplied?: boolean
+                    source_anchor?: string | null
+                    title: string
+                    updated_at?: string | null
+                }
+                Update: {
+                    approved_at?: string | null
+                    approved_by?: string | null
+                    conversion_status?: string
+                    converted_act_id?: string | null
+                    converted_at?: string | null
+                    converted_by?: string | null
+                    created_at?: string | null
+                    duration_estimate_minutes?: number
+                    event_id?: string
+                    event_source_id?: string | null
+                    id?: string
+                    import_run_id?: string | null
+                    lead_email?: string | null
+                    lead_name?: string | null
+                    lead_phone?: string | null
+                    music_supplied?: boolean
+                    notes?: string | null
+                    organization_id?: string
+                    raw_payload?: Json
+                    request_status?: string
+                    reviewed_at?: string | null
+                    reviewed_by?: string | null
+                    roster_supplied?: boolean
+                    source_anchor?: string | null
+                    title?: string
+                    updated_at?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "performance_requests_approved_by_fkey"
+                        columns: ["approved_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_converted_act_id_fkey"
+                        columns: ["converted_act_id"]
+                        isOneToOne: false
+                        referencedRelation: "acts"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_converted_by_fkey"
+                        columns: ["converted_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_event_source_id_fkey"
+                        columns: ["event_source_id"]
+                        isOneToOne: false
+                        referencedRelation: "event_sources"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_import_run_id_fkey"
+                        columns: ["import_run_id"]
+                        isOneToOne: false
+                        referencedRelation: "import_runs"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "performance_requests_reviewed_by_fkey"
+                        columns: ["reviewed_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            import_runs: {
+                Row: {
+                    blocking_issues: Json
+                    completed_at: string | null
+                    confidence: string | null
+                    error_message: string | null
+                    event_id: string
+                    event_source_id: string | null
+                    id: string
+                    import_method: string
+                    import_target: string
+                    initiated_by: string | null
+                    organization_id: string | null
+                    probable_target: string | null
+                    source_instance: string | null
+                    source_name: string | null
+                    source_snapshot: Json
+                    started_at: string
+                    stats: Json
+                    status: string
+                }
+                Insert: {
+                    blocking_issues?: Json
+                    completed_at?: string | null
+                    confidence?: string | null
+                    error_message?: string | null
+                    event_id: string
+                    event_source_id?: string | null
+                    id?: string
+                    import_method: string
+                    import_target: string
+                    initiated_by?: string | null
+                    organization_id?: string | null
+                    probable_target?: string | null
+                    source_instance?: string | null
+                    source_name?: string | null
+                    source_snapshot?: Json
+                    started_at?: string
+                    stats?: Json
+                    status?: string
+                }
+                Update: {
+                    blocking_issues?: Json
+                    completed_at?: string | null
+                    confidence?: string | null
+                    error_message?: string | null
+                    event_id?: string
+                    event_source_id?: string | null
+                    id?: string
+                    import_method?: string
+                    import_target?: string
+                    initiated_by?: string | null
+                    organization_id?: string | null
+                    probable_target?: string | null
+                    source_instance?: string | null
+                    source_name?: string | null
+                    source_snapshot?: Json
+                    started_at?: string
+                    stats?: Json
+                    status?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "import_runs_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "import_runs_event_source_id_fkey"
+                        columns: ["event_source_id"]
+                        isOneToOne: false
+                        referencedRelation: "event_sources"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "import_runs_initiated_by_fkey"
+                        columns: ["initiated_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "import_runs_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            import_run_records: {
+                Row: {
+                    action: string
+                    after_data: Json | null
+                    before_data: Json | null
+                    created_at: string
+                    entity_id: string | null
+                    entity_key: string | null
+                    entity_type: string
+                    id: string
+                    import_run_id: string
+                }
+                Insert: {
+                    action: string
+                    after_data?: Json | null
+                    before_data?: Json | null
+                    created_at?: string
+                    entity_id?: string | null
+                    entity_key?: string | null
+                    entity_type: string
+                    id?: string
+                    import_run_id: string
+                }
+                Update: {
+                    action?: string
+                    after_data?: Json | null
+                    before_data?: Json | null
+                    created_at?: string
+                    entity_id?: string | null
+                    entity_key?: string | null
+                    entity_type?: string
+                    id?: string
+                    import_run_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "import_run_records_import_run_id_fkey"
+                        columns: ["import_run_id"]
+                        isOneToOne: false
+                        referencedRelation: "import_runs"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            intake_audit_events: {
+                Row: {
+                    action: string
+                    after_data: Json | null
+                    before_data: Json | null
+                    entity_id: string | null
+                    entity_type: string
+                    event_id: string
+                    id: string
+                    import_run_id: string | null
+                    metadata: Json
+                    note: string | null
+                    organization_id: string | null
+                    performed_at: string
+                    performed_by: string | null
+                }
+                Insert: {
+                    action: string
+                    after_data?: Json | null
+                    before_data?: Json | null
+                    entity_id?: string | null
+                    entity_type: string
+                    event_id: string
+                    id?: string
+                    import_run_id?: string | null
+                    metadata?: Json
+                    note?: string | null
+                    organization_id?: string | null
+                    performed_at?: string
+                    performed_by?: string | null
+                }
+                Update: {
+                    action?: string
+                    after_data?: Json | null
+                    before_data?: Json | null
+                    entity_id?: string | null
+                    entity_type?: string
+                    event_id?: string
+                    id?: string
+                    import_run_id?: string | null
+                    metadata?: Json
+                    note?: string | null
+                    organization_id?: string | null
+                    performed_at?: string
+                    performed_by?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "intake_audit_events_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "intake_audit_events_import_run_id_fkey"
+                        columns: ["import_run_id"]
+                        isOneToOne: false
+                        referencedRelation: "import_runs"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "intake_audit_events_organization_id_fkey"
+                        columns: ["organization_id"]
+                        isOneToOne: false
+                        referencedRelation: "organizations"
+                        referencedColumns: ["id"]
+                    },
+                    {
+                        foreignKeyName: "intake_audit_events_performed_by_fkey"
+                        columns: ["performed_by"]
+                        isOneToOne: false
+                        referencedRelation: "user_profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
         }
         Views: {
             [_ in never]: never
@@ -1227,9 +1607,14 @@ export type Database = {
             auth_org_role: { Args: { p_org_id: string }; Returns: string }
             can_manage_event_staff: { Args: { p_event_id: string }; Returns: boolean }
             create_organization_with_owner: {
-                Args: { p_name: string }
+                Args: {
+                    p_contact_email?: string | null
+                    p_name: string
+                    p_requires_review?: boolean | null
+                }
                 Returns: string
             }
+            get_my_pending_access_count: { Args: never; Returns: number }
             get_act_event_id: { Args: { p_act_id: string }; Returns: string }
             get_participant_event_id: {
                 Args: { p_participant_id: string }

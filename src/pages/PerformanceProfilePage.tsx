@@ -54,6 +54,7 @@ export function PerformanceProfilePage() {
     const canManageReadiness = capabilities.canManageReadiness;
     const canManageActCast = capabilities.canManageActCast;
     const canManageActMedia = capabilities.canManageActMedia;
+    const canUsePremiumGeneration = capabilities.canUsePremiumGeneration;
 
     const openIssueCount = act.readinessSummary?.openIssueCount || 0;
     const openPrepCount = act.readinessSummary?.incompleteChecklistCount || act.readinessSummary?.missingChecklistCount || 0;
@@ -123,7 +124,7 @@ export function PerformanceProfilePage() {
                                 ? `${Math.max(unresolvedRequirementRows.length, openIssueCount, openPrepCount)} item${Math.max(unresolvedRequirementRows.length, openIssueCount, openPrepCount) === 1 ? '' : 's'} need review`
                                 : 'No blockers open'}
                     </p>
-                    {introRequirement && !introRequirement.fulfilled ? (
+                    {introRequirement && !introRequirement.fulfilled && canUsePremiumGeneration ? (
                         <Button
                             variant="outline"
                             className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
@@ -171,14 +172,20 @@ export function PerformanceProfilePage() {
                                                 <p className="text-sm text-muted-foreground">{row.detail}</p>
                                                 {row.policyCode === 'ACT_INTRO' ? (
                                                     <div className="mt-3">
-                                                        <Button
-                                                            variant="outline"
-                                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                                            onClick={scrollToIntroBuilder}
-                                                        >
-                                                            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                                                            {introRequirement?.fulfilled ? 'Open Approved Intro' : 'Open Intro Studio'}
-                                                        </Button>
+                                                        {canUsePremiumGeneration ? (
+                                                            <Button
+                                                                variant="outline"
+                                                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                                onClick={scrollToIntroBuilder}
+                                                            >
+                                                                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                                                                {introRequirement?.fulfilled ? 'Open Approved Intro' : 'Open Intro Studio'}
+                                                            </Button>
+                                                        ) : (
+                                                            <p className="text-xs font-medium text-amber-700">
+                                                                Intro generation is temporarily limited while this workspace is under pilot review.
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 ) : row.policyCode === 'ACT_AUDIO' ? (
                                                     <div className="mt-3">
@@ -377,9 +384,11 @@ export function PerformanceProfilePage() {
             </div>
 
             {/* ── Intro Video Builder ── */}
-            <Card id="intro-builder" className="border bg-card/50 scroll-mt-28">
-                <IntroVideoBuilder actId={act.id} />
-            </Card>
+            {canUsePremiumGeneration ? (
+                <Card id="intro-builder" className="border bg-card/50 scroll-mt-28">
+                    <IntroVideoBuilder actId={act.id} />
+                </Card>
+            ) : null}
 
             {/* ── Modals ── */}
             {canManageActMedia ? <UploadActAssetModal
