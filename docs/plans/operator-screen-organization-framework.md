@@ -218,6 +218,63 @@ This framework should govern:
 
 It is especially important for detail screens, because that is where drift and clutter accumulate fastest.
 
+## Show Flow vs Live Console Contract
+
+These two screens must both exist, but they must not do the same job.
+
+### Show Flow
+
+Purpose:
+- shape the running order
+- repair the running order
+- manage stage setup before or around live execution
+
+Operator questions:
+- what is the running order?
+- what should be moved, added, or fixed?
+- which stage is this on?
+- where are the risk points before we go live?
+
+Allowed emphasis:
+- stage selection
+- stage setup
+- add/remove from lineup
+- reorder
+- scheduling/risk insight
+
+Guardrail:
+- this is the planning and repair workspace, not the live calling workspace
+
+### Live Console
+
+Purpose:
+- run the show
+- protect the live pointer
+- keep the next cue visible
+
+Operator questions:
+- what is live now?
+- what is next?
+- what do I press to keep the show moving?
+- are we drifting, paused, or overtime?
+
+Allowed emphasis:
+- current / next / upcoming
+- start / advance / pause
+- live recovery after refresh/reconnect
+- approved intro playback visibility
+
+Guardrail:
+- this is the execution workspace, not the lineup editing workspace
+
+### Handoff Rule
+
+The handoff between the two screens must stay explicit:
+- plan or fix in `Show Flow`
+- run in `Live Console`
+
+If both screens start showing the same lineup with only minor button differences, the product has drifted.
+
 ## 2026-03-25 Selective Recovery From `codex/mobile-readiness-redesign`
 
 The older `codex/mobile-readiness-redesign` branch should not be merged wholesale back into `main`.

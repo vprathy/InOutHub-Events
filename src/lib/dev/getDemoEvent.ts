@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { DEV_FIXTURE_EVENT_NAME } from '@/lib/dev/constants';
 
 export interface DemoEventContext {
     eventId: string;
@@ -13,13 +14,13 @@ export async function getDemoEvent(): Promise<DemoEventContext> {
     const { data: event, error } = await supabase
         .from('events')
         .select('id, organization_id')
-        .eq('name', 'Demo Event')
+        .eq('name', DEV_FIXTURE_EVENT_NAME)
         .single();
 
     if (error || !event) {
         throw new Error(
-            `Demo Event "Demo Event" not found. ` +
-            `Please run the seed script or click "Reset Demo Event" on the Dev Login page.`
+            `Dev fixture event "${DEV_FIXTURE_EVENT_NAME}" not found. ` +
+            `Use "Reset Dev Fixture" on the Dev Login page to create or rebuild it.`
         );
     }
 

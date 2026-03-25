@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { faker } from '@faker-js/faker';
+import { DEV_FIXTURE_EVENT_NAME } from '@/lib/dev/constants';
 
 const PHASE_ONE_PARTICIPANT_POLICIES = [
     {
@@ -138,7 +139,7 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
         .from('events')
         .insert({
             organization_id: orgId,
-            name: 'Demo Event',
+            name: DEV_FIXTURE_EVENT_NAME,
             start_date: new Date().toISOString().split('T')[0],
             end_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
         })
@@ -729,5 +730,5 @@ export async function seedDemoEvent(supabase: SupabaseClient, orgId: string) {
 
     await supabase.from('lineup_items').insert(lineupInserts);
 
-    console.log('✅ Seed Demo Event complete!');
+    console.log(`✅ Seed ${DEV_FIXTURE_EVENT_NAME} complete!`);
 }

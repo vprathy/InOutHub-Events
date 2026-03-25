@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getDevUserByRole } from '@/lib/dev/config';
+import { DEV_FIXTURE_EVENT_NAME, DEV_FIXTURE_ORGANIZATION_NAME } from '@/lib/dev/constants';
 import { resetDemoEvent } from '@/lib/dev/resetDemoEvent';
 import { seedDemoEvent } from '@/lib/dev/seedDemoEvent';
 import { useSelection } from '@/context/SelectionContext';
@@ -79,7 +80,7 @@ export default function DevQuickLogin() {
             const orgResult: any = await withTimeout(
                 supabase
                     .from('organizations')
-                    .insert({ name: 'Demo Productions' })
+                    .insert({ name: DEV_FIXTURE_ORGANIZATION_NAME })
                     .select('id')
                     .single() as any,
                 'Create demo organization'
@@ -138,10 +139,10 @@ export default function DevQuickLogin() {
         setSuccess(null);
         try {
             await resetDemoEvent();
-            setSuccess('Demo Event reset successfully!');
+            setSuccess(`${DEV_FIXTURE_EVENT_NAME} fixture reset successfully.`);
         } catch (err: any) {
             console.error('[DEV ONLY] Reset failed:', err);
-            setError(err.message || 'Failed to reset demo event');
+            setError(err.message || 'Failed to reset dev fixture');
         } finally {
             setIsResetting(false);
         }
@@ -273,9 +274,11 @@ export default function DevQuickLogin() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-lg">
-                                    {isResetting ? 'Resetting...' : 'Reset Demo Event'}
+                                    {isResetting ? 'Resetting...' : 'Reset Dev Fixture'}
                                 </h3>
-                                <p className="text-sm opacity-80">Wipes and recreates the demo event, role fixtures, lineup, and readiness data.</p>
+                                <p className="text-sm opacity-80">
+                                    Rebuilds the dedicated {DEV_FIXTURE_EVENT_NAME} fixture for dev testing. This does not target your active working event unless it is explicitly using that fixture.
+                                </p>
                             </div>
                         </button>
                     </div>
