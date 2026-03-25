@@ -30,6 +30,7 @@ import { reportClientError } from '@/lib/clientErrorReporting';
 import { supabase } from '@/lib/supabase';
 import {
     useConvertPerformanceRequest,
+    usePerformanceRequestCounts,
     usePerformanceRequestTimeline,
     usePerformanceRequestsQuery,
     useSetPerformanceRequestStatus,
@@ -347,7 +348,7 @@ export default function PerformanceRequestsPage() {
     const { data: currentEventRole, isLoading: isLoadingEventRole } = useCurrentEventRole(eventId || null);
     const { data: currentOrgRole, isLoading: isLoadingOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false, isLoading: isLoadingSuperAdmin } = useIsSuperAdmin();
-    const { data: requests = [], error, refetch } = usePerformanceRequestsQuery(eventId || null);
+    const { data: requestCounts, isLoading: isLoadingRequestCounts } = usePerformanceRequestCounts(eventId || null);
     const { sources } = useEventSources(eventId || '');
     const { data: importRuns = [] } = useImportRuns(eventId || '');
 
@@ -364,6 +365,19 @@ export default function PerformanceRequestsPage() {
     const detailRef = useRef<HTMLDivElement | null>(null);
     const pendingScrollRequestRef = useRef<string | null>(null);
     const [isDesktop, setIsDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : false));
+    const {
+        data: requestQuery,
+        error,
+        refetch,
+        isLoading: isLoadingRequests,
+    } = usePerformanceRequestsQuery({
+        eventId: eventId || null,
+        segment: activeSegment,
+        searchTerm,
+        limit: visibleCount,
+    });
+    const requests = requestQuery?.requests || [];
+    const totalFilteredCount = requestQuery?.totalCount || 0;
 
     const canOpenAdmin =
         isSuperAdmin
@@ -371,58 +385,27 @@ export default function PerformanceRequestsPage() {
         || currentOrgRole === 'Owner'
         || currentOrgRole === 'Admin';
 
-    const segmentedRequests = useMemo(() => {
-        const normalizedSearch = searchTerm.trim().toLowerCase();
-
-        return requests.filter((request) => {
-            const matchesSegment = activeSegment === 'all'
-                ? true
-                : activeSegment === 'converted'
-                    ? request.conversionStatus === 'converted'
-                    : activeSegment === 'approved'
-                        ? request.requestStatus === 'approved' && request.conversionStatus !== 'converted'
-                        : activeSegment === 'rejected'
-                            ? request.requestStatus === 'rejected'
-                            : request.requestStatus === 'pending' || request.requestStatus === 'reviewed';
-
-            if (!matchesSegment) return false;
-            if (!normalizedSearch) return true;
-
-            return [
-                request.title,
-                request.leadName,
-                request.leadEmail,
-                request.leadPhone,
-            ]
-                .filter(Boolean)
-                .some((value) => String(value).toLowerCase().includes(normalizedSearch));
-        });
-    }, [activeSegment, requests, searchTerm]);
-
     const selectedRequest = useMemo(
-        () => segmentedRequests.find((request) => request.id === selectedRequestId)
-            || requests.find((request) => request.id === selectedRequestId)
-            || segmentedRequests[0]
+        () => requests.find((request) => request.id === selectedRequestId)
             || requests[0]
             || null,
-        [requests, segmentedRequests, selectedRequestId]
+        [requests, selectedRequestId]
     );
-    const visibleRequests = useMemo(() => segmentedRequests.slice(0, visibleCount), [segmentedRequests, visibleCount]);
 
     useEffect(() => {
         setVisibleCount(25);
     }, [activeSegment, searchTerm]);
 
     useEffect(() => {
-        if (!selectedRequestId && segmentedRequests[0]?.id) {
-            setSelectedRequestId(segmentedRequests[0].id);
+        if (!selectedRequestId && requests[0]?.id) {
+            setSelectedRequestId(requests[0].id);
             return;
         }
 
         if (selectedRequestId && !requests.some((request) => request.id === selectedRequestId)) {
-            setSelectedRequestId(segmentedRequests[0]?.id || requests[0]?.id || null);
+            setSelectedRequestId(requests[0]?.id || null);
         }
-    }, [requests, segmentedRequests, selectedRequestId]);
+    }, [requests, selectedRequestId]);
 
     useEffect(() => {
         if (!selectedRequest?.id || pendingScrollRequestRef.current !== selectedRequest.id) return;
@@ -448,12 +431,12 @@ export default function PerformanceRequestsPage() {
     const setStatus = useSetPerformanceRequestStatus(eventId || null, selectedRequest?.id || null);
     const convertRequest = useConvertPerformanceRequest(eventId || null, selectedRequest?.id || null);
 
-    const stats = {
-        total: requests.length,
-        pending: requests.filter((request) => request.requestStatus === 'pending' || request.requestStatus === 'reviewed').length,
-        approved: requests.filter((request) => request.requestStatus === 'approved' && request.conversionStatus !== 'converted').length,
-        converted: requests.filter((request) => request.conversionStatus === 'converted').length,
-        rejected: requests.filter((request) => request.requestStatus === 'rejected').length,
+    const stats = requestCounts || {
+        total: 0,
+        pending: 0,
+        approved: 0,
+        converted: 0,
+        rejected: 0,
     };
     const performanceRequestSourceIds = useMemo(
         () => new Set(sources.filter((source) => source.config.intakeTarget === 'performance_requests').map((source) => source.id)),
@@ -490,12 +473,12 @@ export default function PerformanceRequestsPage() {
                 eventRole: currentEventRole || null,
                 context: {
                     view: 'performance_requests_page',
-                    requestCount: requests.length,
+                    requestCount: totalFilteredCount,
                 },
             });
             setLoadSupportCode(result.supportCode);
         })();
-    }, [currentEventRole, currentOrgRole, error, eventId, organizationId, requests.length]);
+    }, [currentEventRole, currentOrgRole, error, eventId, organizationId, totalFilteredCount]);
 
     useEffect(() => {
         if (!statusError || !eventId) return;
@@ -533,7 +516,7 @@ export default function PerformanceRequestsPage() {
         statusError,
     ]);
 
-    if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin) {
+    if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || isLoadingRequests || isLoadingRequestCounts) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -723,7 +706,7 @@ export default function PerformanceRequestsPage() {
                         </div>
                     </div>
                 </div>
-            ) : requests.length === 0 ? (
+            ) : stats.total === 0 ? (
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
                     <div className="surface-panel rounded-[1.5rem] p-4 sm:p-5">
                         <EmptyState
@@ -805,7 +788,7 @@ export default function PerformanceRequestsPage() {
                         </div>
 
                         <div className="mt-4 space-y-2">
-                            {visibleRequests.map((request) => {
+                            {requests.map((request) => {
                                 const isSelected = request.id === selectedRequest?.id;
                                 const isExpanded = expandedRequestId === request.id;
                                 const lifecycle = stageLabel(getLifecycleStage(request.requestStatus, request.conversionStatus));
@@ -922,12 +905,12 @@ export default function PerformanceRequestsPage() {
                                     </button>
                                 );
                             })}
-                            {segmentedRequests.length === 0 ? (
+                            {totalFilteredCount === 0 ? (
                                 <div className="rounded-[1.15rem] border border-dashed border-border/70 px-4 py-6 text-center text-sm text-muted-foreground">
                                     No requests match this filter yet.
                                 </div>
                             ) : null}
-                            {segmentedRequests.length > visibleRequests.length ? (
+                            {totalFilteredCount > requests.length ? (
                                 <Button
                                     variant="outline"
                                     className="mt-2 min-h-11 w-full rounded-xl text-[10px] font-black uppercase tracking-[0.16em]"
@@ -936,9 +919,9 @@ export default function PerformanceRequestsPage() {
                                     Load 25 More
                                 </Button>
                             ) : null}
-                            {segmentedRequests.length > 0 ? (
+                            {totalFilteredCount > 0 ? (
                                 <p className="px-1 text-xs text-muted-foreground">
-                                    Showing {visibleRequests.length} of {segmentedRequests.length} request{segmentedRequests.length === 1 ? '' : 's'} in this view.
+                                    Showing {requests.length} of {totalFilteredCount} request{totalFilteredCount === 1 ? '' : 's'} in this view.
                                 </p>
                             ) : null}
                         </div>

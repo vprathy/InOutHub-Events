@@ -179,22 +179,119 @@ function mapIntakeAuditEvent(row: any): IntakeAuditEvent {
     };
 }
 
-export function usePerformanceRequestsQuery(eventId: string | null) {
+type PerformanceRequestSegment = 'pending' | 'approved' | 'converted' | 'rejected' | 'all';
+
+function applyRequestSegmentFilter(query: any, segment: PerformanceRequestSegment) {
+    if (segment === 'converted') {
+        return query.eq('conversion_status', 'converted');
+    }
+
+    if (segment === 'approved') {
+        return query.eq('request_status', 'approved').neq('conversion_status', 'converted');
+    }
+
+    if (segment === 'rejected') {
+        return query.eq('request_status', 'rejected');
+    }
+
+    if (segment === 'pending') {
+        return query.or('request_status.eq.pending,request_status.eq.reviewed');
+    }
+
+    return query;
+}
+
+function applyRequestSearch(query: any, normalizedSearch: string) {
+    if (!normalizedSearch) return query;
+
+    return query.or(
+        [
+            `title.ilike.%${normalizedSearch}%`,
+            `lead_name.ilike.%${normalizedSearch}%`,
+            `lead_email.ilike.%${normalizedSearch}%`,
+            `lead_phone.ilike.%${normalizedSearch}%`,
+        ].join(',')
+    );
+}
+
+export function usePerformanceRequestsQuery({
+    eventId,
+    segment,
+    searchTerm,
+    limit,
+}: {
+    eventId: string | null;
+    segment: PerformanceRequestSegment;
+    searchTerm: string;
+    limit: number;
+}) {
     return useQuery({
-        queryKey: ['performance-requests', eventId],
+        queryKey: ['performance-requests', eventId, segment, searchTerm, limit],
         enabled: !!eventId,
         queryFn: async () => {
-            const { data, error } = await (supabase as any)
+            const normalizedSearch = searchTerm.trim();
+            let query = (supabase as any)
                 .from('performance_requests')
                 .select(`
                     *,
                     converted_act:acts(id, name)
-                `)
-                .eq('event_id', eventId)
-                .order('created_at', { ascending: false });
+                `, { count: 'exact' })
+                .eq('event_id', eventId);
+
+            query = applyRequestSegmentFilter(query, segment);
+            query = applyRequestSearch(query, normalizedSearch);
+
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(0, Math.max(limit - 1, 0));
 
             if (error) throw error;
-            return ((data as any[]) || []).map(mapPerformanceRequest);
+            return {
+                requests: ((data as any[]) || []).map(mapPerformanceRequest),
+                totalCount: count || 0,
+            };
+        },
+    });
+}
+
+export function usePerformanceRequestCounts(eventId: string | null) {
+    return useQuery({
+        queryKey: ['performance-requests-counts', eventId],
+        enabled: !!eventId,
+        queryFn: async () => {
+            const base = () => (supabase as any).from('performance_requests').select('id', { count: 'exact', head: true }).eq('event_id', eventId);
+
+            const [
+                totalResult,
+                pendingResult,
+                approvedResult,
+                convertedResult,
+                rejectedResult,
+            ] = await Promise.all([
+                base(),
+                applyRequestSegmentFilter(base(), 'pending'),
+                applyRequestSegmentFilter(base(), 'approved'),
+                applyRequestSegmentFilter(base(), 'converted'),
+                applyRequestSegmentFilter(base(), 'rejected'),
+            ]);
+
+            const errors = [
+                totalResult.error,
+                pendingResult.error,
+                approvedResult.error,
+                convertedResult.error,
+                rejectedResult.error,
+            ].filter(Boolean);
+
+            if (errors[0]) throw errors[0];
+
+            return {
+                total: totalResult.count || 0,
+                pending: pendingResult.count || 0,
+                approved: approvedResult.count || 0,
+                converted: convertedResult.count || 0,
+                rejected: rejectedResult.count || 0,
+            };
         },
     });
 }
