@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { IntakeAuditEvent, PerformanceRequest } from '@/types/domain';
 
@@ -218,18 +218,20 @@ export function usePerformanceRequestsQuery({
     eventId,
     segment,
     searchTerm,
-    limit,
+    pageSize,
 }: {
     eventId: string | null;
     segment: PerformanceRequestSegment;
     searchTerm: string;
-    limit: number;
+    pageSize: number;
 }) {
-    return useQuery({
-        queryKey: ['performance-requests', eventId, segment, searchTerm, limit],
+    return useInfiniteQuery({
+        queryKey: ['performance-requests', eventId, segment, searchTerm, pageSize],
         enabled: !!eventId,
-        queryFn: async () => {
+        initialPageParam: 0,
+        queryFn: async ({ pageParam }) => {
             const normalizedSearch = searchTerm.trim();
+            const offset = typeof pageParam === 'number' ? pageParam : 0;
             let query = (supabase as any)
                 .from('v_performance_requests_hardened')
                 .select('*', { count: 'exact' })
@@ -240,14 +242,22 @@ export function usePerformanceRequestsQuery({
 
             const { data, error, count } = await query
                 .order('created_at', { ascending: false })
-                .range(0, Math.max(limit - 1, 0));
+                .range(offset, offset + Math.max(pageSize - 1, 0));
 
             if (error) throw error;
+
+            const requests = ((data as any[]) || []).map(mapPerformanceRequest);
+            const totalCount = count || 0;
+            const nextOffset = offset + requests.length;
+
             return {
-                requests: ((data as any[]) || []).map(mapPerformanceRequest),
-                totalCount: count || 0,
+                requests,
+                totalCount,
+                nextOffset,
+                hasMore: nextOffset < totalCount,
             };
         },
+        getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
     });
 }
 
@@ -256,38 +266,20 @@ export function usePerformanceRequestCounts(eventId: string | null) {
         queryKey: ['performance-requests-counts', eventId],
         enabled: !!eventId,
         queryFn: async () => {
-            const base = () => (supabase as any).from('v_performance_requests_hardened').select('id', { count: 'exact', head: true }).eq('event_id', eventId);
+            const { data, error } = await (supabase as any).rpc('get_performance_request_stats', {
+                p_event_id: eventId,
+            });
 
-            const [
-                totalResult,
-                pendingResult,
-                approvedResult,
-                convertedResult,
-                rejectedResult,
-            ] = await Promise.all([
-                base(),
-                applyRequestSegmentFilter(base(), 'pending'),
-                applyRequestSegmentFilter(base(), 'approved'),
-                applyRequestSegmentFilter(base(), 'converted'),
-                applyRequestSegmentFilter(base(), 'rejected'),
-            ]);
+            if (error) throw error;
 
-            const errors = [
-                totalResult.error,
-                pendingResult.error,
-                approvedResult.error,
-                convertedResult.error,
-                rejectedResult.error,
-            ].filter(Boolean);
-
-            if (errors[0]) throw errors[0];
+            const stats = Array.isArray(data) ? data[0] : data;
 
             return {
-                total: totalResult.count || 0,
-                pending: pendingResult.count || 0,
-                approved: approvedResult.count || 0,
-                converted: convertedResult.count || 0,
-                rejected: rejectedResult.count || 0,
+                total: Number(stats?.total || 0),
+                pending: Number(stats?.pending || 0),
+                approved: Number(stats?.approved || 0),
+                converted: Number(stats?.converted || 0),
+                rejected: Number(stats?.rejected || 0),
             };
         },
     });
@@ -339,6 +331,7 @@ export function useSetPerformanceRequestStatus(eventId: string | null, requestId
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['performance-requests', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['performance-requests-counts', eventId] });
             queryClient.invalidateQueries({ queryKey: ['performance-request-timeline', requestId] });
         },
     });
@@ -359,6 +352,7 @@ export function useConvertPerformanceRequest(eventId: string | null, requestId: 
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['performance-requests', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['performance-requests-counts', eventId] });
             queryClient.invalidateQueries({ queryKey: ['performance-request-timeline', requestId] });
             queryClient.invalidateQueries({ queryKey: ['acts', eventId] });
         },

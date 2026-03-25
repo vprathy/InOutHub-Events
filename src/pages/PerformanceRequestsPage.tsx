@@ -370,7 +370,7 @@ export default function PerformanceRequestsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeSegment, setActiveSegment] = useState<'pending' | 'approved' | 'converted' | 'rejected' | 'all'>('pending');
     const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
-    const [visibleCount, setVisibleCount] = useState(25);
+    const pageSize = 25;
     const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
     const lastLoadErrorRef = useRef<string | null>(null);
     const lastActionErrorRef = useRef<string | null>(null);
@@ -378,18 +378,23 @@ export default function PerformanceRequestsPage() {
     const pendingScrollRequestRef = useRef<string | null>(null);
     const [isDesktop, setIsDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : false));
     const {
-        data: requestQuery,
+        data: requestPages,
         error,
         refetch,
         isLoading: isLoadingRequests,
+        isFetchingNextPage,
+        fetchNextPage,
     } = usePerformanceRequestsQuery({
         eventId: eventId || null,
         segment: activeSegment,
         searchTerm,
-        limit: visibleCount,
+        pageSize,
     });
-    const requests = requestQuery?.requests || [];
-    const totalFilteredCount = requestQuery?.totalCount || 0;
+    const requests = useMemo(
+        () => requestPages?.pages.flatMap((page) => page.requests) || [],
+        [requestPages]
+    );
+    const totalFilteredCount = requestPages?.pages[0]?.totalCount || 0;
 
     const canOpenAdmin =
         isSuperAdmin
@@ -403,10 +408,6 @@ export default function PerformanceRequestsPage() {
             || null,
         [requests, selectedRequestId]
     );
-
-    useEffect(() => {
-        setVisibleCount(25);
-    }, [activeSegment, searchTerm]);
 
     useEffect(() => {
         if (!selectedRequestId && requests[0]?.id) {
@@ -945,9 +946,17 @@ export default function PerformanceRequestsPage() {
                                 <Button
                                     variant="outline"
                                     className="mt-2 min-h-11 w-full rounded-xl text-[10px] font-black uppercase tracking-[0.16em]"
-                                    onClick={() => setVisibleCount((count) => count + 25)}
+                                    onClick={() => void fetchNextPage()}
+                                    disabled={isFetchingNextPage}
                                 >
-                                    Load 25 More
+                                    {isFetchingNextPage ? (
+                                        <>
+                                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                                            Loading More
+                                        </>
+                                    ) : (
+                                        'Load 25 More'
+                                    )}
                                 </Button>
                             ) : null}
                             {totalFilteredCount > 0 ? (
