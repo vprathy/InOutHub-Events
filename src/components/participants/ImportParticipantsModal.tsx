@@ -716,7 +716,7 @@ export function ImportParticipantsModal({
             <section className={`rounded-[1.25rem] border p-4 text-left ${sourceTrustToneClassName}`}>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Source Trust Status</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Action</p>
                         <p className="mt-1 text-sm font-bold text-foreground">{sourceTrustTitle}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{sourceTrustBody}</p>
                     </div>
@@ -748,7 +748,7 @@ export function ImportParticipantsModal({
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Connected Sources</p>
-                        <p className="mt-1 text-sm font-black text-foreground">Manage trusted imports for this event</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Manage imports for this event</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
                 </summary>
@@ -900,14 +900,14 @@ export function ImportParticipantsModal({
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Recent Sync Activity</p>
-                        <p className="mt-1 text-sm font-black text-foreground">Latest import outcomes and troubleshooting history</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Recent outcomes and troubleshooting</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
                 </summary>
                 <div className="mt-4 space-y-4">
                     {lastSyncSummary ? (
                         <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 p-4 text-left">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Latest Sync Summary</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Latest Sync Summary</p>
                             <p className="mt-1 text-sm font-bold text-foreground">
                                 {lastSyncSummary.sourceName}: {lastSyncSummary.stats.new} new, {lastSyncSummary.stats.updated} updated, {lastSyncSummary.stats.missing} missing.
                             </p>
@@ -915,7 +915,7 @@ export function ImportParticipantsModal({
                                 Imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)} • Detected target {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence {lastSyncSummary.confidence || 'n/a'}
                             </p>
                             <details className="mt-3">
-                                <summary className="cursor-pointer text-xs font-bold text-emerald-700">View what was used</summary>
+                                <summary className="cursor-pointer text-xs font-bold text-emerald-700 dark:text-emerald-300">View what was used</summary>
                                 {(() => {
                                     const mappedFields = summarizeMappedFields(lastSyncSummary.mapping);
                                     const usedHeaderCount = new Set(mappedFields.map((item) => item.header)).size;
@@ -974,7 +974,7 @@ export function ImportParticipantsModal({
                                                     run.error_message || 'Sync failed'}
                                             </p>
                                             {run.status === 'blocked' && run.blocking_issues && (run.blocking_issues as string[]).length > 0 && (
-                                                <p className="mt-0.5 text-[9px] font-medium leading-tight text-amber-600">
+                                                <p className="mt-0.5 text-[9px] font-medium leading-tight text-amber-700 dark:text-amber-300">
                                                     Stopped: {(run.blocking_issues as string[])[0]}
                                                 </p>
                                             )}
@@ -1036,10 +1036,10 @@ export function ImportParticipantsModal({
                             <div className="flex items-start gap-3">
                                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                                 <div className="min-w-0">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">Import Issue</p>
-                                    <p className="mt-1 text-sm font-medium text-red-700">{errorMessage || 'The import did not complete. Review the source setup and try again.'}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600 dark:text-red-300">Import Issue</p>
+                                    <p className="mt-1 text-sm font-medium text-red-700 dark:text-red-200">{errorMessage || 'The import did not complete. Review the source setup and try again.'}</p>
                                     {reportedSupportCode ? (
-                                        <p className="mt-2 text-xs font-semibold text-red-700">
+                                        <p className="mt-2 text-xs font-semibold text-red-700 dark:text-red-200">
                                             Reference code: <span className="font-black tracking-[0.08em]">{reportedSupportCode}</span>
                                         </p>
                                     ) : null}

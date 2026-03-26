@@ -44,13 +44,13 @@ const getBackgroundSourceLabel = (description: string | null | undefined) => {
         if (source === 'fallback_background') {
             return {
                 label: 'Fallback Backdrop',
-                className: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
             };
         }
         if (source === 'generated_background' || source === 'generative_background' || source === 'intro_requirement') {
             return {
                 label: 'Backdrop Ready',
-                className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
             };
         }
         return null;
@@ -159,7 +159,7 @@ export function LivePerformanceController({
         <div className="space-y-5 pb-12">
             <div className="flex flex-col gap-6 relative">
                 {introError ? (
-                    <Card className="ml-8 p-3 border-amber-500/20 bg-amber-500/5 text-amber-700 text-sm font-medium">
+                    <Card className="ml-8 border-amber-500/20 bg-amber-500/5 p-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                         {introError}
                     </Card>
                 ) : null}
@@ -305,7 +305,7 @@ export function LivePerformanceController({
                                         <div className="flex items-center gap-1"><Timer size={14} /> {next.act.durationMinutes || next.act.duration_minutes || 0}m</div>
                                         <div className="flex items-center gap-1 border-l border-border pl-3"><Clock size={14} /> {next.act.setupTimeMinutes || next.act.setup_time_minutes || 0}m Setup</div>
                                         {next.act.arrivalStatus === 'Ready' && (
-                                            <div className="flex items-center gap-1 text-emerald-600 border-l border-border pl-3">
+                                            <div className="flex items-center gap-1 border-l border-border pl-3 text-emerald-700 dark:text-emerald-300">
                                                 <CheckCircle2 size={12} /> READY
                                             </div>
                                         )}
@@ -405,11 +405,11 @@ export function LivePerformanceController({
 
 function ConsoleSignal({ label, value, tone, icon: Icon }: any) {
     const toneClasses = tone === 'good'
-        ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
+        ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
         : tone === 'warning'
-            ? 'border-amber-500/20 bg-amber-500/5 text-amber-300'
+            ? 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-300'
             : tone === 'risk'
-                ? 'border-rose-500/20 bg-rose-500/5 text-rose-300'
+                ? 'border-rose-500/20 bg-rose-500/5 text-rose-700 dark:text-rose-300'
                 : 'border-border/50 bg-background/40 text-foreground';
 
     return (
