@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Building2,
-    Calendar,
     Check,
     ChevronDown,
     ChevronRight,
@@ -435,22 +434,17 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                                                 className="surface-panel w-full rounded-[1.25rem] px-4 py-2.5 text-left transition-colors hover:border-primary/35"
                                             >
                                                 <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                                                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                                            <Calendar className="h-4 w-4" />
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="block max-w-full truncate whitespace-nowrap text-base font-black leading-tight text-foreground">{event.name}</p>
-                                                            <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground sm:text-sm">
-                                                                <span className="min-w-0 flex-1 truncate leading-5">{formatDateRange(event.start_date, event.end_date)}</span>
-                                                                {event.status !== 'past' ? (
-                                                                    <span
-                                                                        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${statusBadgeClasses(event.status)}`}
-                                                                    >
-                                                                        {event.status}
-                                                                    </span>
-                                                                ) : null}
-                                                            </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="block max-w-full truncate whitespace-nowrap text-base font-black leading-tight text-foreground">{event.name}</p>
+                                                        <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground sm:text-sm">
+                                                            <span className="min-w-0 flex-1 truncate leading-5">{formatDateRange(event.start_date, event.end_date)}</span>
+                                                            {event.status !== 'past' ? (
+                                                                <span
+                                                                    className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${statusBadgeClasses(event.status)}`}
+                                                                >
+                                                                    {event.status}
+                                                                </span>
+                                                            ) : null}
                                                         </div>
                                                     </div>
                                                     {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
