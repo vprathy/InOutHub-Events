@@ -836,9 +836,16 @@ export default function PerformanceRequestsPage() {
                                                     </span>
                                                 </div>
                                                 <div className="mt-1 flex items-center justify-between gap-2">
-                                                    <p className="min-w-0 truncate text-[12px] text-muted-foreground">
-                                                        {titleLabel}{request.performanceType ? ` • ${request.performanceType}` : ''} • {displayDate}
-                                                    </p>
+                                                    <div className="min-w-0 flex flex-1 items-center gap-1.5 text-[12px]">
+                                                        {request.performanceType ? (
+                                                            <span className="shrink-0 font-semibold text-primary">
+                                                                {request.performanceType}
+                                                            </span>
+                                                        ) : null}
+                                                        <p className="min-w-0 truncate text-muted-foreground">
+                                                            {titleLabel} • {displayDate}
+                                                        </p>
+                                                    </div>
                                                     <div className="flex shrink-0 items-center gap-1">
                                                         {request.leadPhone ? (
                                                             <a
