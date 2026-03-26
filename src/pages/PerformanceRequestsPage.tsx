@@ -905,10 +905,18 @@ export default function PerformanceRequestsPage() {
                                         </div>
                                         {isExpanded ? (
                                             <div className="mt-3 border-t border-border/70 pt-3" onClick={(event) => event.stopPropagation()}>
-                                                <div className="flex flex-wrap gap-2">
+                                                <div
+                                                    className={`grid gap-2 ${
+                                                        request.requestStatus === 'approved' && request.conversionStatus !== 'converted'
+                                                            ? 'grid-cols-2'
+                                                            : request.conversionStatus !== 'converted' && request.requestStatus !== 'rejected'
+                                                                ? 'grid-cols-3'
+                                                                : 'grid-cols-1'
+                                                    }`}
+                                                >
                                                     {request.conversionStatus !== 'converted' ? (
                                                         <Button
-                                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                            className="min-h-11 w-full rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                                             onClick={() => {
                                                                 openCreateConfirmation(request);
                                                             }}
@@ -921,7 +929,7 @@ export default function PerformanceRequestsPage() {
                                                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
                                                         <Button
                                                             variant="outline"
-                                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                            className="min-h-11 w-full rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                                             onClick={() => void handleStatusAction('reject')}
                                                             disabled={setStatus.isPending || convertRequest.isPending}
                                                         >
@@ -932,7 +940,7 @@ export default function PerformanceRequestsPage() {
                                                     {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
                                                         <Button
                                                             variant="outline"
-                                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                            className="min-h-11 w-full rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                                             onClick={() => void handleMoveBackToPending()}
                                                             disabled={setStatus.isPending || convertRequest.isPending}
                                                         >
@@ -941,7 +949,7 @@ export default function PerformanceRequestsPage() {
                                                     ) : null}
                                                     <Button
                                                         variant="ghost"
-                                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                                        className="min-h-11 w-full rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                                         onClick={() => openRequest(request.id)}
                                                     >
                                                         <ArrowRight className="mr-1.5 h-4 w-4" />
