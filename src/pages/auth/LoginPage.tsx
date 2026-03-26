@@ -25,6 +25,29 @@ function isMobileLikeDevice() {
     return window.matchMedia?.('(max-width: 768px)').matches ?? false;
 }
 
+function getFriendlyAuthError(message: string, context: 'request' | 'verify') {
+    if (!message) {
+        return context === 'verify'
+            ? 'We could not verify that code. Request a new one or try another sign-in option.'
+            : 'We could not send the sign-in code right now. Try again in a moment.';
+    }
+
+    if (context === 'verify') {
+        if (/expired|invalid|token/i.test(message)) {
+            return 'That code is no longer valid. Request a new code and try again.';
+        }
+        if (/load failed|network|fetch/i.test(message)) {
+            return 'Verification could not complete because the network request failed. Check the connection and try again.';
+        }
+    }
+
+    if (context === 'request' && /load failed|network|fetch/i.test(message)) {
+        return 'We could not send the email code because the network request failed. Check the connection and try again.';
+    }
+
+    return message;
+}
+
 export default function LoginPage() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -99,7 +122,7 @@ export default function LoginPage() {
             setErrorMessage(
                 error.message === 'Signups not allowed for otp'
                     ? 'This email has pending access, but first-time email sign-in is blocked. Retry in a moment or use Google with the same email.'
-                    : error.message || 'Could not send email code.',
+                    : getFriendlyAuthError(error.message || 'Could not send email code.', 'request'),
             );
             return;
         }
@@ -125,7 +148,7 @@ export default function LoginPage() {
 
         if (error) {
             setStatus('error');
-            setErrorMessage(error.message || 'Could not verify email code.');
+            setErrorMessage(getFriendlyAuthError(error.message || 'Could not verify email code.', 'verify'));
             return;
         }
 

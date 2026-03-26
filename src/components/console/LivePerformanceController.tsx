@@ -156,31 +156,7 @@ export function LivePerformanceController({
     }
 
     return (
-        <div className="space-y-6 pb-12">
-            <div className="rounded-[1.5rem] border border-border/60 bg-card/50 p-3">
-                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Live Status</p>
-                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-                    <ConsoleSignal
-                        label="Execution Pace"
-                        value={isOvertime ? `Running Over +${overtimeMinutes}m` : driftMinutes > 5 ? `Delayed +${driftMinutes}m` : 'On Track'}
-                        tone={isOvertime ? 'risk' : driftMinutes > 5 ? 'warning' : 'good'}
-                        icon={isOvertime || driftMinutes > 5 ? AlertCircle : CheckCircle2}
-                    />
-                    <ConsoleSignal
-                        label="Network"
-                        value={isOnline ? 'Live Network' : 'Offline Mode'}
-                        tone={isOnline ? 'good' : 'risk'}
-                        icon={isOnline ? Wifi : WifiOff}
-                    />
-                    <ConsoleSignal
-                        label="Current Time"
-                        value={formatNowInEventTime()}
-                        tone="default"
-                        icon={Clock}
-                    />
-                </div>
-            </div>
-
+        <div className="space-y-5 pb-12">
             <div className="flex flex-col gap-6 relative">
                 {introError ? (
                     <Card className="ml-8 p-3 border-amber-500/20 bg-amber-500/5 text-amber-700 text-sm font-medium">
@@ -399,6 +375,30 @@ export function LivePerformanceController({
                     )}
                 </AnimatePresence>
             </div>
+
+            <div className="rounded-[1.25rem] border border-border/60 bg-card/50 p-3">
+                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Live Status</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                    <ConsoleSignal
+                        label="Pace"
+                        value={isOvertime ? `+${overtimeMinutes}m` : driftMinutes > 5 ? `+${driftMinutes}m` : 'On Track'}
+                        tone={isOvertime ? 'risk' : driftMinutes > 5 ? 'warning' : 'good'}
+                        icon={isOvertime || driftMinutes > 5 ? AlertCircle : CheckCircle2}
+                    />
+                    <ConsoleSignal
+                        label="Network"
+                        value={isOnline ? 'Live' : 'Offline'}
+                        tone={isOnline ? 'good' : 'risk'}
+                        icon={isOnline ? Wifi : WifiOff}
+                    />
+                    <ConsoleSignal
+                        label="Time"
+                        value={formatNowInEventTime()}
+                        tone="default"
+                        icon={Clock}
+                    />
+                </div>
+            </div>
         </div>
     );
 }
@@ -413,14 +413,14 @@ function ConsoleSignal({ label, value, tone, icon: Icon }: any) {
                 : 'border-border/50 bg-background/40 text-foreground';
 
     return (
-        <div className={`rounded-2xl border px-3 py-3 ${toneClasses}`}>
-            <div className="flex items-center gap-2">
-                <div className="rounded-xl bg-black/10 p-2">
-                    <Icon size={16} />
+        <div className={`rounded-xl border px-2.5 py-2.5 ${toneClasses}`}>
+            <div className="flex items-center gap-1.5">
+                <div className="rounded-lg bg-black/10 p-1.5">
+                    <Icon size={14} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
             </div>
-            <p className="mt-3 text-sm font-black tracking-tight">{value}</p>
+            <p className="mt-2 text-[11px] font-black tracking-tight sm:text-sm">{value}</p>
         </div>
     );
 }

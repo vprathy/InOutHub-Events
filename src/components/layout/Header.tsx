@@ -193,7 +193,7 @@ export function Header() {
                     <div className="flex min-w-0 sm:hidden">
                         <button
                             onClick={() => navigate(eventId ? '/select-event' : '/select-org')}
-                            className="flex min-h-[40px] max-w-[160px] items-center gap-2 rounded-xl px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="flex min-h-[40px] max-w-[190px] items-center gap-1.5 rounded-xl px-2 py-2 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                             {selectionNames.eventName ? (
                                 <Calendar className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -210,7 +210,7 @@ export function Header() {
                         <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                         <button
                             onClick={() => navigate('/select-org')}
-                            className="flex min-h-[44px] max-w-[88px] items-center space-x-1 rounded-xl px-2 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:max-w-none sm:space-x-2 sm:px-3"
+                            className="flex min-h-[44px] max-w-[112px] items-center space-x-1 rounded-xl px-2 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:max-w-[160px] sm:space-x-2 sm:px-3"
                         >
                             <Landmark className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">{selectionNames.orgName}</span>
@@ -221,7 +221,7 @@ export function Header() {
                                 <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                                 <button
                                     onClick={() => navigate('/select-event')}
-                                    className="flex min-h-[44px] max-w-[112px] items-center space-x-1 rounded-xl px-2 py-2 text-primary transition-colors hover:bg-muted sm:max-w-none sm:space-x-2 sm:px-3"
+                                    className="flex min-h-[44px] max-w-[132px] items-center space-x-1 rounded-xl px-2 py-2 text-primary transition-colors hover:bg-muted sm:max-w-[200px] sm:space-x-2 sm:px-3"
                                 >
                                     <Calendar className="w-3.5 h-3.5 shrink-0" />
                                     <span className="truncate">{selectionNames.eventName}</span>

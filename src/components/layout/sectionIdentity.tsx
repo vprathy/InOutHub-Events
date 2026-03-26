@@ -285,7 +285,7 @@ export function SectionIdentityStrip() {
 
     return (
         <div className={`sticky top-14 z-40 border-b py-1 backdrop-blur-xl sm:top-16 sm:py-1.5 ${section.shellClassName}`}>
-            <div className="mx-auto flex w-full min-w-0 max-w-screen-xl items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="mx-auto flex w-full min-w-0 max-w-screen-xl items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6">
                 <button
                     type="button"
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -293,11 +293,11 @@ export function SectionIdentityStrip() {
                     aria-label={`Scroll to top of ${section.label}`}
                 >
                     <div className="min-w-0">
-                        <p className="truncate text-[24px] font-black leading-tight tracking-tight text-foreground">
+                        <p className="truncate text-[20px] font-black leading-tight tracking-tight text-foreground sm:text-[24px]">
                             {section.label}
                         </p>
                         {section.subtitle ? (
-                            <p className="mt-0.5 truncate text-sm font-semibold leading-tight text-muted-foreground">
+                            <p className="mt-0.5 truncate text-[12px] font-semibold leading-tight text-muted-foreground sm:text-sm">
                                 {section.subtitle}
                             </p>
                         ) : null}
@@ -309,7 +309,7 @@ export function SectionIdentityStrip() {
                             <button
                                 type="button"
                                 onClick={openParticipantEdit}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:text-sm"
                                 aria-label="Edit this profile"
                             >
                                 <Edit className="h-4 w-4 text-primary" />
@@ -319,7 +319,7 @@ export function SectionIdentityStrip() {
                             <button
                                 type="button"
                                 onClick={openSources}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-sm font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:text-sm"
                                 aria-label="Open import data"
                             >
                                 <Database className="h-4 w-4 text-primary" />
@@ -333,7 +333,7 @@ export function SectionIdentityStrip() {
                             <button
                                 type="button"
                                 onClick={() => openPerformanceAction('prepare-intros')}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-xs font-bold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:text-xs sm:tracking-[0.14em]"
                                 aria-label="Prepare intros"
                             >
                                 <Music className="h-4 w-4 text-primary" />
@@ -369,7 +369,7 @@ export function SectionIdentityStrip() {
                                 <button
                                     type="button"
                                     onClick={() => void syncPerformanceRequestSource()}
-                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                    className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:tracking-[0.16em]"
                                     aria-label="Sync source"
                                 >
                                     <RefreshCw className={`h-4 w-4 text-primary ${syncSheet.isPending ? 'animate-spin' : ''}`} />
@@ -387,7 +387,7 @@ export function SectionIdentityStrip() {
                             <button
                                 type="button"
                                 onClick={openSources}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85"
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:tracking-[0.16em]"
                                 aria-label="Open import data"
                             >
                                 <Database className="h-4 w-4 text-primary" />

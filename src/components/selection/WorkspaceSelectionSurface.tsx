@@ -441,7 +441,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                     <button
                         key={event.id}
                         onClick={() => handleEventSelect(event.id, event.timezone)}
-                        className="surface-panel w-full rounded-[1.35rem] px-5 py-4 text-left transition-colors hover:border-primary/35"
+                        className="surface-panel w-full rounded-[1.35rem] px-4 py-3.5 text-left transition-colors hover:border-primary/35"
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-1 min-w-0 items-start gap-3">
@@ -450,7 +450,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="block max-w-full truncate whitespace-nowrap text-base font-black leading-tight text-foreground">{event.name}</p>
-                                    <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                                    <div className="mt-1 flex items-center gap-2 text-[13px] text-muted-foreground sm:text-sm">
                                         <span className="truncate">{formatDateRange(event.start_date, event.end_date)}</span>
                                         {event.status !== 'past' ? (
                                             <span
@@ -567,10 +567,10 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
             {(isSuperAdmin || (stage === 'organization' && onboardingCapabilities.canCreateFirstOrganization) || (stage === 'event' && canEditOrganization)) ? (
                 <button
                     onClick={() => (stage === 'organization' ? setIsCreateOrgOpen(true) : setIsCreateEventOpen(true))}
-                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
+                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
                     aria-label={stage === 'organization' ? 'Create organization' : 'Create event'}
                 >
-                    <Plus className="h-5 w-5 stroke-[2.75]" />
+                    <Plus className="h-4.5 w-4.5 stroke-[2.75]" />
                 </button>
             ) : null}
 

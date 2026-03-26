@@ -78,7 +78,7 @@ Phase 2 roadmap links:
 - [ ] Add a runbook or internal tooling for super-admin bootstrap and audit.
 - [x] Capture customer-side intake workspace errors with support codes for internal review.
 - [ ] Consider scoped support access or impersonation instead of long-term global super-admin dependence.
-- [ ] Reconcile `import-participants` JWT gateway posture so live deploy configuration matches repo truth; current live workaround used `--no-verify-jwt` and needs an explicit permanent decision.
+- [x] Reconcile `import-participants` JWT gateway posture so live deploy configuration matches repo truth; `supabase/config.toml` now sets `verify_jwt = false` for this function, and the function enforces authenticated event-admin access in code via `auth.getUser()` plus RBAC.
 
 ### Growth & Proof
 - [ ] Use the first tenant onboarding cycle to prove mapping review / confirm / lock against a second real source shape.

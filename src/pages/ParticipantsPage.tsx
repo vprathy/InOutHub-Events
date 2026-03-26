@@ -346,11 +346,11 @@ export default function ParticipantsPage() {
                 <button
                     type="button"
                     onClick={() => setIsAddGuideOpen(true)}
-                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full border border-primary/30 bg-primary px-4 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
+                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-12 items-center gap-1.5 rounded-full border border-primary/30 bg-primary px-3.5 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
                     aria-label="Add person"
                 >
-                    <Plus className="h-5 w-5 stroke-[2.75]" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em]">Add Person</span>
+                    <Plus className="h-4.5 w-4.5 stroke-[2.75]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em]">Add Person</span>
                 </button>
             ) : null}
 

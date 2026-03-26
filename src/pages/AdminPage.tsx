@@ -5,7 +5,6 @@ import { useSelection } from '@/context/SelectionContext';
 import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
-import { InlineInfoTip } from '@/components/ui/InlineInfoTip';
 import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
 
 export default function AdminPage() {
@@ -56,24 +55,6 @@ export default function AdminPage() {
                     This workspace is still under pilot review. Access invites, large imports, and premium AI/media actions stay limited until internal approval is complete.
                 </div>
             ) : null}
-
-            <div className="surface-panel surface-section-admin rounded-[1.35rem] p-4 sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div className="space-y-1.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Admin Module</p>
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-black tracking-tight text-foreground">Choose the admin workflow you need.</h2>
-                            <InlineInfoTip
-                                label="Admin help"
-                                body="Access manages staffing and roles. Requirements manages readiness checks. Import Data manages source mapping and refresh. Performance Requests stages imported requests before they become live performances."
-                            />
-                        </div>
-                    </div>
-                    <div className="rounded-full border border-border/70 bg-background px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                        {isSuperAdmin ? 'Admin' : currentOrgRole === 'Owner' || currentOrgRole === 'Admin' ? 'Org Admin' : 'Event Admin'}
-                    </div>
-                </div>
-            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
                 <button

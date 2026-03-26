@@ -135,6 +135,11 @@ type ImportSyncResult = {
     usedFields?: Array<{ field: string; header: string }>;
 };
 
+type SourceTrustStep = {
+    label: string;
+    complete: boolean;
+};
+
 function formatIntakeTargetLabel(target: 'participants' | 'performance_requests') {
     return target === 'performance_requests' ? 'Performance Requests' : 'Participants';
 }
@@ -384,6 +389,45 @@ export function ImportParticipantsModal({
         setDraftMapping(source.config?.lockedMapping || source.config?.inferredMapping || {});
         setUiMode('mapping_review');
     };
+
+    const sourcesNeedingReview = sources.filter((source) => source.config.reviewRequired || source.config.mappingMode !== 'locked');
+    const lockedSources = sources.filter((source) => !source.config.reviewRequired && source.config.mappingMode === 'locked');
+    const trustedSyncedSources = lockedSources.filter((source) => !!source.lastSyncedAt);
+    const lockedUnsyncedSource = lockedSources.find((source) => !source.lastSyncedAt) || null;
+    const nextReviewSource = sourcesNeedingReview[0] || null;
+    const trustSteps: SourceTrustStep[] = [
+        { label: 'Connect source', complete: sources.length > 0 },
+        { label: 'Confirm mapping', complete: sources.length > 0 && sourcesNeedingReview.length === 0 },
+        { label: 'Run trusted sync', complete: trustedSyncedSources.length > 0 },
+    ];
+
+    let sourceTrustTitle = 'Connect your first source';
+    let sourceTrustBody = 'Start by linking a Google Sheet or uploading a spreadsheet so this event has an intake source to trust.';
+    let sourceTrustActionLabel = 'Add Source';
+    let sourceTrustAction: (() => void) | null = () => setUiMode('add_source_select');
+    let sourceTrustToneClassName = 'border-primary/20 bg-primary/5';
+
+    if (nextReviewSource) {
+        sourceTrustTitle = 'Review mapping before trust is granted';
+        sourceTrustBody = `${nextReviewSource.name} still needs mapping confirmation or drift review before it can become a trusted repeat sync.`;
+        sourceTrustActionLabel = 'Review Mapping';
+        sourceTrustAction = () => openMappingReview(nextReviewSource);
+        sourceTrustToneClassName = 'border-amber-400/30 bg-amber-500/5';
+    } else if (lockedUnsyncedSource) {
+        sourceTrustTitle = 'Run the first trusted sync';
+        sourceTrustBody = `${lockedUnsyncedSource.name} is locked and ready. Run the first sync so this source becomes a reusable event intake lane.`;
+        sourceTrustActionLabel = lockedUnsyncedSource.type === 'google_sheet' ? 'Sync Source' : 'Confirm Import';
+        sourceTrustAction = lockedUnsyncedSource.type === 'google_sheet'
+            ? () => { void handleSyncSingleSource(lockedUnsyncedSource); }
+            : () => setUiMode('upload_spreadsheet');
+        sourceTrustToneClassName = 'border-blue-400/30 bg-blue-500/5';
+    } else if (trustedSyncedSources.length > 0) {
+        sourceTrustTitle = 'Trusted sync is active';
+        sourceTrustBody = `${trustedSyncedSources.length} source${trustedSyncedSources.length > 1 ? 's are' : ' is'} already locked and synced. Additional sources can follow the same trust path without engineering help.`;
+        sourceTrustActionLabel = 'Add Another Source';
+        sourceTrustAction = () => setUiMode('add_source_select');
+        sourceTrustToneClassName = 'border-emerald-400/30 bg-emerald-500/5';
+    }
 
     const handleLinkSheet = async () => {
         const parsedSheetId = extractSheetId(urlInput || spreadsheetId);
@@ -822,6 +866,36 @@ export function ImportParticipantsModal({
                         </div>
                     ) : uiMode === 'dashboard' ? (
                         <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-1">
+                            <div className={`rounded-[1.25rem] border p-4 text-left ${sourceTrustToneClassName}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">First Trusted Sync</p>
+                                        <p className="mt-1 text-sm font-bold text-foreground">{sourceTrustTitle}</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">{sourceTrustBody}</p>
+                                    </div>
+                                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                                </div>
+                                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                    {trustSteps.map((step) => (
+                                        <div key={step.label} className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{step.label}</p>
+                                            <p className={`mt-1 text-xs font-bold ${step.complete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                                {step.complete ? 'Complete' : 'Pending'}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {sourceTrustAction ? (
+                                    <div className="mt-4">
+                                        <Button
+                                            onClick={sourceTrustAction}
+                                            className="h-11 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                                        >
+                                            {sourceTrustActionLabel}
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </div>
                             {lastSyncSummary ? (
                                 <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 p-4 text-left">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Latest Sync Summary</p>

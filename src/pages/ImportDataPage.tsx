@@ -8,8 +8,9 @@ import { useCurrentEventRole } from '@/hooks/useCurrentEventRole';
 import { useCurrentOrgRole } from '@/hooks/useCurrentOrgRole';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 import { useEventSources } from '@/hooks/useEventSources';
-import { OperationalMetricCard } from '@/components/ui/OperationalCards';
+import { OperationalEmptyResponse, OperationalMetricCard, OperationalResponseCard } from '@/components/ui/OperationalCards';
 import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
+import { useImportRuns } from '@/hooks/useParticipants';
 
 export default function ImportDataPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +19,7 @@ export default function ImportDataPage() {
     const { data: currentOrgRole, isLoading: isLoadingOrgRole } = useCurrentOrgRole(organizationId || null);
     const { data: isSuperAdmin = false, isLoading: isLoadingSuperAdmin } = useIsSuperAdmin();
     const { sources } = useEventSources(eventId || '');
+    const { data: importRuns = [] } = useImportRuns(eventId || '');
     const [isMethodsOpen, setIsMethodsOpen] = useState(false);
     const onboardingCapabilities = useOnboardingCapabilities(organizationId || null, eventId || null);
 
@@ -30,8 +32,63 @@ export default function ImportDataPage() {
     const sourceStats = useMemo(() => {
         const total = sources.length;
         const withMappingGaps = sources.filter((source) => source.config.reviewRequired || (source.config.mappingGaps?.length || 0) > 0).length;
-        return { total, withMappingGaps };
+        const locked = sources.filter((source) => source.config.mappingMode === 'locked' && !source.config.reviewRequired).length;
+        const trustedSynced = sources.filter((source) => source.config.mappingMode === 'locked' && !source.config.reviewRequired && !!source.lastSyncedAt).length;
+        return { total, withMappingGaps, locked, trustedSynced };
     }, [sources]);
+    const recentOperationalRun = useMemo(
+        () => importRuns.find((run) => run.status === 'failed' || run.status === 'blocked' || run.status === 'running' || run.status === 'succeeded'),
+        [importRuns],
+    );
+    const onboardingResponse = useMemo(() => {
+        if (sourceStats.total === 0) {
+            return {
+                label: 'First Trusted Sync',
+                detail: 'Connect a source for this event. Review mapping once, then lock and reuse it for repeat sync.',
+                tone: 'info' as const,
+                count: 'Step 1',
+            };
+        }
+
+        if (sourceStats.withMappingGaps > 0) {
+            return {
+                label: 'Mapping Review Needed',
+                detail: `${sourceStats.withMappingGaps} source${sourceStats.withMappingGaps === 1 ? '' : 's'} still need review before they can be treated as trusted repeat-sync sources.`,
+                tone: 'warning' as const,
+                count: `Step 2`,
+            };
+        }
+
+        if (sourceStats.locked > sourceStats.trustedSynced) {
+            const remaining = sourceStats.locked - sourceStats.trustedSynced;
+            return {
+                label: 'Run First Trusted Sync',
+                detail: `${remaining} locked source${remaining === 1 ? '' : 's'} still need an initial confirmed sync before onboarding is repeatable for this event.`,
+                tone: 'info' as const,
+                count: 'Step 3',
+            };
+        }
+
+        if (recentOperationalRun?.status === 'blocked' || recentOperationalRun?.status === 'failed') {
+            return {
+                label: 'Sync Needs Attention',
+                detail: `The latest import run ended ${recentOperationalRun.status}. Resolve that source issue before treating onboarding as stable.`,
+                tone: 'critical' as const,
+                count: recentOperationalRun.status,
+            };
+        }
+
+        if (recentOperationalRun?.status === 'running') {
+            return {
+                label: 'Sync In Progress',
+                detail: 'A source sync is running now. Stay on this workspace until the current import finishes cleanly.',
+                tone: 'info' as const,
+                count: 'Live',
+            };
+        }
+
+        return null;
+    }, [recentOperationalRun, sourceStats]);
     const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';
 
     if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
@@ -83,24 +140,53 @@ export default function ImportDataPage() {
                     tone={sourceStats.withMappingGaps > 0 ? 'warning' : 'good'}
                     className="min-h-[80px]"
                 />
+                <OperationalMetricCard
+                    label="Locked Sources"
+                    value={sourceStats.locked}
+                    icon={Link2}
+                    tone={sourceStats.locked > 0 ? 'good' : 'default'}
+                    className="min-h-[80px]"
+                />
+                <OperationalMetricCard
+                    label="Trusted Sync Ready"
+                    value={sourceStats.trustedSynced}
+                    icon={FileSpreadsheet}
+                    tone={sourceStats.trustedSynced > 0 ? 'good' : 'info'}
+                    className="min-h-[80px]"
+                />
             </div>
 
-            <div className="space-y-4">
+            {importsLocked ? null : onboardingResponse ? (
+                <OperationalResponseCard
+                    label={onboardingResponse.label}
+                    detail={onboardingResponse.detail}
+                    tone={onboardingResponse.tone}
+                    count={onboardingResponse.count}
+                    className="w-full"
+                />
+            ) : (
+                <OperationalEmptyResponse
+                    title="Trusted Sync Ready"
+                    detail="This event has at least one locked source with a completed trusted sync. You can reuse it for repeat refreshes unless drift appears."
+                />
+            )}
+
+            <div className="space-y-3">
                 <button
                     type="button"
                     onClick={() => setIsMethodsOpen((current) => !current)}
-                    className="surface-panel w-full rounded-[1.5rem] p-4 text-left sm:p-5"
+                    className="surface-panel w-full rounded-[1.35rem] p-3.5 text-left sm:p-4"
                 >
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Import Methods</p>
-                            <p className="mt-1 text-sm font-semibold text-foreground">This workspace is event-specific. Use it to bring participant or performance-request data into this event only.</p>
+                            <p className="mt-1 text-[13px] font-semibold text-foreground sm:text-sm">This workspace is event-specific. Bring participant or performance-request data into this event only.</p>
                         </div>
                         <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${isMethodsOpen ? 'rotate-180' : ''}`} />
                     </div>
                     {isMethodsOpen ? (
-                        <div className="mt-4 space-y-3">
-                            <div className="rounded-[1.25rem] border border-border/70 bg-background/80 p-4">
+                        <div className="mt-3 space-y-2.5">
+                            <div className="rounded-[1.1rem] border border-border/70 bg-background/80 p-3.5">
                                 <div className="flex items-start gap-3">
                                     <div className="rounded-2xl border border-border/70 bg-accent/15 p-3 text-primary">
                                         <Link2 className="h-5 w-5" />
@@ -111,7 +197,7 @@ export default function ImportDataPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="rounded-[1.25rem] border border-border/70 bg-background/80 p-4">
+                            <div className="rounded-[1.1rem] border border-border/70 bg-background/80 p-3.5">
                                 <div className="flex items-start gap-3">
                                     <div className="rounded-2xl border border-border/70 bg-accent/15 p-3 text-primary">
                                         <FileSpreadsheet className="h-5 w-5" />

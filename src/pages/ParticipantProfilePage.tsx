@@ -376,7 +376,7 @@ export function ParticipantProfilePage() {
                         <div className="flex flex-wrap gap-2 sm:flex-col">
                             <a
                                 href={`tel:${participant.guardianPhone}`}
-                                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-3.5 text-[9px] font-black uppercase tracking-[0.14em] text-primary-foreground"
                             >
                                 <Phone className="mr-1.5 h-3.5 w-3.5" />
                                 Call Guardian
@@ -430,7 +430,7 @@ export function ParticipantProfilePage() {
                                         {fulfillment && fulfillment.status !== 'approved' ? (
                                             <Button
                                                 size="sm"
-                                                className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase bg-emerald-500 hover:bg-emerald-600 text-white"
+                                                className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em] bg-emerald-500 text-white hover:bg-emerald-600"
                                                 onClick={() => updateAssetStatus.mutate({ assetId: fulfillment.id, status: 'approved' })}
                                                 disabled={updateAssetStatus.isPending}
                                             >
@@ -440,7 +440,7 @@ export function ParticipantProfilePage() {
                                         <Button
                                             size="sm"
                                             variant={fulfillment ? 'ghost' : 'default'}
-                                            className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest"
+                                            className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                             onClick={() => openUploadModal({
                                                 templateId: template.id,
                                                 replaceAssetId: fulfillment?.id || null,
@@ -463,7 +463,7 @@ export function ParticipantProfilePage() {
                                 <div>
                                     <Button
                                         variant="outline"
-                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                                         onClick={() => openUploadModal({
                                             type: assetType,
                                             title: `Upload ${row.label}`,
@@ -567,10 +567,10 @@ export function ParticipantProfilePage() {
                 <div className="rounded-2xl border border-border/40 bg-card/80 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                            <h1 className="truncate text-xl font-black tracking-tight text-foreground">
+                            <h1 className="truncate text-lg font-black tracking-tight text-foreground sm:text-xl">
                                 {participant.firstName} {participant.lastName}
                             </h1>
-                            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                            <p className="mt-0.5 truncate text-[13px] text-muted-foreground sm:text-sm">
                                 {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
                                 {' • '}
                                 {participant.isMinor ? 'Minor' : 'Adult'}
@@ -588,7 +588,7 @@ export function ParticipantProfilePage() {
                             ]}
                         />
                     </div>
-                    <div className="space-y-3 border-t border-border/40 pt-2">
+                    <div className="space-y-2.5 border-t border-border/40 pt-2">
                         <div className="flex items-start gap-2">
                             <span className={`shrink-0 pt-0.5 text-[11px] font-black uppercase tracking-[0.18em] ${
                                 readinessTone === 'critical'
@@ -600,14 +600,14 @@ export function ParticipantProfilePage() {
                                 {readinessLabel}
                             </span>
                             <span className="shrink-0 pt-0.5 text-muted-foreground/40">·</span>
-                            <p className="min-w-0 text-sm text-muted-foreground">{readinessDetail}</p>
+                            <p className="min-w-0 text-[13px] leading-5 text-muted-foreground sm:text-sm">{readinessDetail}</p>
                         </div>
                         {participant.isMinor && (participant.guardianPhone || participant.operationalContacts?.length) ? (
                             <div className="flex flex-wrap gap-2">
                                 {capabilities.canViewGuardianPII && participant.guardianPhone ? (
                                     <a
                                         href={`tel:${participant.guardianPhone}`}
-                                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[10px] font-black uppercase tracking-[0.16em] text-primary-foreground"
+                                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-3.5 text-[9px] font-black uppercase tracking-[0.14em] text-primary-foreground"
                                     >
                                         <Phone className="mr-1.5 h-3.5 w-3.5" />
                                         Call Guardian
@@ -615,7 +615,7 @@ export function ParticipantProfilePage() {
                                 ) : (!capabilities.canViewGuardianPII && participant.operationalContacts?.length) ? (
                                     <Button
                                         variant="outline"
-                                        className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                                         onClick={() => {
                                             setActiveActionKey('guardian_contact_complete');
                                             requirementsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -630,14 +630,14 @@ export function ParticipantProfilePage() {
                     </div>
                 </div>
                 <div className="animate-in fade-in space-y-3 duration-300">
-                        <div ref={requirementsSectionRef} className="rounded-2xl border border-border/50 bg-card/80 p-4">
+                        <div ref={requirementsSectionRef} className="rounded-2xl border border-border/50 bg-card/80 p-3.5 sm:p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Action</h3>
                                 {canManageParticipantOps ? (
                                     <Button
                                         variant={showNoteForm ? 'ghost' : 'outline'}
                                         size="sm"
-                                        className="min-h-11 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                                        className="min-h-11 rounded-xl px-3 text-[9px] font-black uppercase tracking-[0.14em]"
                                         onClick={() => setShowNoteForm(!showNoteForm)}
                                     >
                                         {showNoteForm ? 'Cancel' : 'Add Note'}
@@ -653,7 +653,7 @@ export function ParticipantProfilePage() {
                                                 key={cat}
                                                 type="button"
                                                 onClick={() => setNoteCategory(cat)}
-                                                className={`min-h-11 px-1 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${noteCategory === cat ? 'text-primary' : 'text-muted-foreground'}`}
+                                        className={`min-h-11 px-1 text-[10px] font-black uppercase tracking-[0.14em] transition-colors ${noteCategory === cat ? 'text-primary' : 'text-muted-foreground'}`}
                                             >
                                                 {cat === 'special_request' ? 'special request' : cat.replace('_', ' ')}
                                             </button>
@@ -669,7 +669,7 @@ export function ParticipantProfilePage() {
                                     <div className="flex justify-end">
                                         <Button
                                             type="submit"
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                                             disabled={addNote.isPending || !noteContent.trim()}
                                         >
                                             {addNote.isPending ? 'Saving...' : 'Save Note'}
@@ -697,7 +697,7 @@ export function ParticipantProfilePage() {
                                                     </span>
                                                 </div>
                                                 {!card.isOpen ? (
-                                                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.detail}</p>
+                                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{card.detail}</p>
                                                 ) : null}
                                             </div>
                                             <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${card.isOpen ? 'rotate-90' : ''}`} />
@@ -731,7 +731,7 @@ export function ParticipantProfilePage() {
                                 <div className="border-t border-border/50 pt-3 space-y-3">
                                     {canManageRoster ? (
                                         <Button
-                                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                                             onClick={() => setShowAssignModal(true)}
                                         >
                                             Assign to Performance

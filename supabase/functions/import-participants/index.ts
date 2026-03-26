@@ -507,11 +507,14 @@ Deno.serve(async (req) => {
     try {
         const authHeader = req.headers.get('Authorization')
         console.log('Authorization Header present:', !!authHeader)
+        if (!authHeader) {
+            throw new Error('Unauthorized: Missing Authorization header')
+        }
 
         const supabaseClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader! } } }
+            { global: { headers: { Authorization: authHeader } } }
         )
         runTrackingClient = supabaseClient
 

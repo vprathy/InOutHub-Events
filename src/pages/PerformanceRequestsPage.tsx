@@ -114,17 +114,21 @@ function RequestDetailPanel({
     const emailSubject = encodeURIComponent(`${eventName || 'InOutHub Event'} • ${request.title || 'Performance Request'}`);
 
     return (
-        <div className="space-y-4">
-            <div className="surface-panel rounded-[1.5rem] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-3">
+            <div className="surface-panel rounded-[1.35rem] p-3.5 sm:p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2.5">
                     <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Selected Request</p>
-                        <h2 className="mt-1 truncate text-xl font-black tracking-tight text-foreground">{primaryContact}</h2>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">{secondaryRequestLabel}</p>
+                        <h2 className="mt-1 truncate text-lg font-black tracking-tight text-foreground sm:text-xl">{primaryContact}</h2>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{secondaryRequestLabel}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
                             {request.requestDate ? `Requested ${formatListDate(request.requestDate)}` : `Imported ${formatDateTime(request.createdAt)}`}
-                            {request.sourceAnchor ? ` • Anchor ${request.sourceAnchor}` : ''}
                         </p>
+                        {request.sourceAnchor ? (
+                            <p className="mt-1 break-all text-[11px] leading-4 text-muted-foreground/90">
+                                Anchor: {request.sourceAnchor}
+                            </p>
+                        ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(request.requestStatus)}`}>
@@ -138,37 +142,37 @@ function RequestDetailPanel({
                     </div>
                 </div>
 
-                <div className="mt-4 rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5">
+                <div className="mt-3 rounded-[1.05rem] border border-border/70 bg-background/70 p-3">
                     <div className="flex flex-wrap gap-2">
                         {request.leadPhone ? (
                             <a
                                 href={`tel:${request.leadPhone}`}
-                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3.5 text-sm font-bold text-foreground"
+                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3 text-[13px] font-bold text-foreground"
                             >
-                                <Phone className="mr-2 h-4 w-4 text-primary" />
+                                <Phone className="mr-1.5 h-4 w-4 text-primary" />
                                 Call
                             </a>
                         ) : null}
                         {request.leadPhone ? (
                             <a
                                 href={`sms:${request.leadPhone}`}
-                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3.5 text-sm font-bold text-foreground"
+                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3 text-[13px] font-bold text-foreground"
                             >
-                                <MessageSquare className="mr-2 h-4 w-4 text-primary" />
+                                <MessageSquare className="mr-1.5 h-4 w-4 text-primary" />
                                 Text
                             </a>
                         ) : null}
                         {request.leadEmail ? (
                             <a
                                 href={`mailto:${request.leadEmail}?subject=${emailSubject}`}
-                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3.5 text-sm font-bold text-foreground"
+                                className="inline-flex min-h-11 items-center rounded-xl border border-border/70 bg-background px-3 text-[13px] font-bold text-foreground"
                             >
-                                <Mail className="mr-2 h-4 w-4 text-primary" />
+                                <Mail className="mr-1.5 h-4 w-4 text-primary" />
                                 Email
                             </a>
                         ) : null}
                     </div>
-                    <p className="mt-3 text-sm font-black text-foreground">
+                    <p className="mt-2.5 text-sm font-black leading-5 text-foreground">
                         {request.conversionStatus === 'converted'
                             ? 'This request is already live as a performance.'
                             : request.requestStatus === 'approved'
@@ -177,10 +181,10 @@ function RequestDetailPanel({
                     </p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                     {request.conversionStatus !== 'converted' ? (
                         <Button
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                             onClick={onCreatePerformance}
                             disabled={isWorking}
                         >
@@ -191,7 +195,7 @@ function RequestDetailPanel({
                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
                         <Button
                             variant="outline"
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                             onClick={onReject}
                             disabled={isWorking}
                         >
@@ -202,7 +206,7 @@ function RequestDetailPanel({
                     {request.requestStatus === 'approved' && request.conversionStatus !== 'converted' ? (
                         <Button
                             variant="outline"
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                             onClick={onMoveBackToPending}
                             disabled={isWorking}
                         >
@@ -212,7 +216,7 @@ function RequestDetailPanel({
                     {request.convertedActId ? (
                         <Button
                             variant="ghost"
-                            className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                            className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
                             onClick={onOpenPerformance}
                         >
                             Open Performance
@@ -220,9 +224,9 @@ function RequestDetailPanel({
                     ) : null}
                 </div>
 
-                <div className="mt-4 rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
+                <div className="mt-3 rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Request Summary</p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
                         <div className="flex items-start justify-between gap-3 text-sm">
                             <span className="text-muted-foreground">Performance</span>
                             <span className="max-w-[60%] text-right font-bold text-foreground">{request.title || 'Untitled request'}</span>
@@ -255,7 +259,7 @@ function RequestDetailPanel({
                 </div>
             </div>
 
-            <details className="surface-panel rounded-[1.5rem] p-4 group">
+            <details className="surface-panel group rounded-[1.35rem] p-3.5 sm:p-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Notes</p>
@@ -263,12 +267,12 @@ function RequestDetailPanel({
                     </div>
                     <ArrowRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
                 </summary>
-                <div className="mt-4 rounded-[1.2rem] border border-border/70 bg-background/70 p-4 text-sm leading-6 text-foreground/85">
+                <div className="mt-3 rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5 text-sm leading-6 text-foreground/85">
                     {request.notes || 'No intake notes were provided with this request.'}
                 </div>
             </details>
 
-            <details className="surface-panel rounded-[1.5rem] p-4 group">
+            <details className="surface-panel group rounded-[1.35rem] p-3.5 sm:p-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Imported Intake</p>
@@ -276,7 +280,7 @@ function RequestDetailPanel({
                     </div>
                     <ArrowRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
                 </summary>
-                <div className="mt-4 space-y-3 rounded-[1.2rem] border border-border/70 bg-background/70 p-4 text-sm">
+                <div className="mt-3 space-y-2.5 rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5 text-sm">
                     {(request.importInsights || []).map((insight: any) => (
                         <div key={`${insight.label}-${insight.sourceKey || insight.value}`} className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -293,7 +297,7 @@ function RequestDetailPanel({
                 </div>
             </details>
 
-            <details className="surface-panel rounded-[1.5rem] p-4 group">
+            <details className="surface-panel group rounded-[1.35rem] p-3.5 sm:p-4">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Timeline</p>
@@ -306,9 +310,9 @@ function RequestDetailPanel({
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                 ) : timeline.data && timeline.data.length > 0 ? (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-2.5">
                         {timeline.data.map((event) => (
-                            <div key={event.id} className="rounded-[1.2rem] border border-border/70 bg-background/70 p-4">
+                            <div key={event.id} className="rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <p className="text-sm font-black text-foreground">{formatActionLabel(event.action)}</p>
                                     <p className="text-xs text-muted-foreground">{formatDateTime(event.performedAt)}</p>
@@ -323,7 +327,7 @@ function RequestDetailPanel({
                         ))}
                     </div>
                 ) : (
-                    <div className="mt-4 rounded-[1.2rem] border border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
+                    <div className="mt-3 rounded-[1.1rem] border border-border/70 bg-background/70 p-3.5 text-sm text-muted-foreground">
                         No intake timeline events yet for this request.
                     </div>
                 )}
@@ -355,7 +359,7 @@ export default function PerformanceRequestsPage() {
     const [loadSupportCode, setLoadSupportCode] = useState<string | null>(null);
     const [actionSupportCode, setActionSupportCode] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeSegment, setActiveSegment] = useState<'pending' | 'approved' | 'converted' | 'rejected' | 'all'>('pending');
+    const [activeSegment, setActiveSegment] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
     const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
     const pageSize = 25;
     const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
@@ -451,9 +455,38 @@ export default function PerformanceRequestsPage() {
     const segmentOptions = [
         { key: 'pending', label: 'Pending', count: stats.pending },
         { key: 'approved', label: 'Approved', count: stats.approved },
-        { key: 'converted', label: 'Converted', count: stats.converted },
         { key: 'rejected', label: 'Rejected', count: stats.rejected },
         { key: 'all', label: 'All', count: stats.total },
+    ] as const;
+    const workflowOptions = [
+        {
+            key: 'pending',
+            label: 'Pending',
+            count: stats.pending,
+            activeClasses: 'border-orange-500/20 bg-orange-500/8 text-orange-700',
+            idleClasses: 'border-orange-500/10 bg-orange-500/5 text-orange-700/85',
+        },
+        {
+            key: 'approved',
+            label: 'Approved',
+            count: stats.approved,
+            activeClasses: 'border-sky-500/20 bg-sky-500/8 text-sky-700',
+            idleClasses: 'border-sky-500/10 bg-sky-500/5 text-sky-700/85',
+        },
+        {
+            key: 'rejected',
+            label: 'Rejected',
+            count: stats.rejected,
+            activeClasses: 'border-border bg-background text-foreground',
+            idleClasses: 'border-border/70 bg-background/75 text-muted-foreground',
+        },
+        {
+            key: 'all',
+            label: 'All',
+            count: stats.total,
+            activeClasses: 'border-primary/20 bg-primary/8 text-primary',
+            idleClasses: 'border-primary/10 bg-primary/5 text-primary/85',
+        },
     ] as const;
 
     useEffect(() => {
@@ -590,70 +623,34 @@ export default function PerformanceRequestsPage() {
 
     return (
         <div className="space-y-5 pb-12">
-            <div className="surface-panel rounded-[1.35rem] p-4">
+            <div className="surface-panel rounded-[1.25rem] p-3.5">
                 <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Workflow</p>
-                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-                        {[
-                            {
-                                key: 'pending',
-                                label: 'Pending',
-                                count: stats.pending,
-                                activeClasses: 'border-orange-500/20 bg-orange-500/8 text-orange-700',
-                                idleClasses: 'border-orange-500/10 bg-orange-500/5 text-orange-700/85',
-                            },
-                            {
-                                key: 'approved',
-                                label: 'Approved',
-                                count: stats.approved,
-                                activeClasses: 'border-sky-500/20 bg-sky-500/8 text-sky-700',
-                                idleClasses: 'border-sky-500/10 bg-sky-500/5 text-sky-700/85',
-                            },
-                            {
-                                key: 'converted',
-                                label: 'Converted',
-                                count: stats.converted,
-                                activeClasses: 'border-emerald-500/20 bg-emerald-500/8 text-emerald-700',
-                                idleClasses: 'border-emerald-500/10 bg-emerald-500/5 text-emerald-700/85',
-                            },
-                            {
-                                key: 'rejected',
-                                label: 'Rejected',
-                                count: stats.rejected,
-                                activeClasses: 'border-border bg-background text-foreground',
-                                idleClasses: 'border-border/70 bg-background/75 text-muted-foreground',
-                            },
-                            {
-                                key: 'all',
-                                label: 'All',
-                                count: stats.total,
-                                activeClasses: 'border-primary/20 bg-primary/8 text-primary',
-                                idleClasses: 'border-primary/10 bg-primary/5 text-primary/85',
-                            },
-                        ].map((item) => {
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                        {workflowOptions.map((item) => {
                             const isActive = activeSegment === item.key;
 
                             return (
                                 <button
                                     key={item.key}
                                     type="button"
-                                    className={`min-h-[56px] rounded-[0.95rem] border px-1.5 py-2 text-center transition-colors ${
+                                    className={`min-h-[52px] rounded-[0.95rem] border px-1.5 py-1.5 text-center transition-colors ${
                                         isActive ? `${item.activeClasses} shadow-[0_0_0_1px_rgba(20,184,166,0.10)]` : item.idleClasses
                                     }`}
-                                    onClick={() => setActiveSegment(item.key as typeof activeSegment)}
+                                    onClick={() => setActiveSegment(item.key)}
                                 >
-                                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] sm:text-[10px]">
+                                    <span className="block text-[8px] font-black uppercase tracking-[0.1em] sm:text-[10px]">
                                         {item.label}
                                     </span>
-                                    <span className="mt-1 block text-lg font-black leading-none text-foreground sm:text-xl">
+                                    <span className="mt-1 block text-base font-black leading-none text-foreground sm:text-xl">
                                         {item.count}
                                     </span>
                                 </button>
                             );
                         })}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        Work the <span className="font-bold text-foreground">Pending</span> queue first. Approved requests are ready to convert. Converted ones are already live performances.
+                    <p className="text-xs text-muted-foreground sm:text-sm">
+                        Work the <span className="font-bold text-foreground">Pending</span> queue first. Approved requests are ready to create performances. Use <span className="font-bold text-foreground">All</span> for full intake review.
                     </p>
                 </div>
             </div>
@@ -822,10 +819,10 @@ export default function PerformanceRequestsPage() {
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5">
                                                     <p className="min-w-0 flex-1 truncate text-[15px] font-black text-foreground">{primaryName}</p>
                                                     {request.performanceType ? (
-                                                        <span className="shrink-0 truncate text-[12px] font-semibold text-primary">
+                                                        <span className="hidden shrink-0 truncate text-[12px] font-semibold text-primary sm:inline">
                                                             {request.performanceType}
                                                         </span>
                                                     ) : null}
@@ -836,16 +833,16 @@ export default function PerformanceRequestsPage() {
                                                         {lifecycle}
                                                     </span>
                                                 </div>
-                                                <div className="mt-1 flex items-center justify-between gap-3">
+                                                <div className="mt-1 flex items-center justify-between gap-2">
                                                     <p className="min-w-0 truncate text-[12px] text-muted-foreground">
                                                         {titleLabel} • {displayDate}
                                                     </p>
-                                                    <div className="flex shrink-0 items-center gap-1.5">
+                                                    <div className="flex shrink-0 items-center gap-1">
                                                         {request.leadPhone ? (
                                                             <a
                                                                 href={`tel:${request.leadPhone}`}
                                                                 onClick={(event) => event.stopPropagation()}
-                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background sm:min-h-11 sm:min-w-11 sm:rounded-xl"
                                                                 aria-label={`Call ${primaryName}`}
                                                                 title="Call requestor"
                                                             >
@@ -856,7 +853,7 @@ export default function PerformanceRequestsPage() {
                                                             <a
                                                                 href={`sms:${request.leadPhone}`}
                                                                 onClick={(event) => event.stopPropagation()}
-                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background sm:min-h-11 sm:min-w-11 sm:rounded-xl"
                                                                 aria-label={`Text ${primaryName}`}
                                                                 title="Text requestor"
                                                             >
@@ -867,14 +864,14 @@ export default function PerformanceRequestsPage() {
                                                             <a
                                                                 href={`mailto:${request.leadEmail}?subject=${emailSubject}`}
                                                                 onClick={(event) => event.stopPropagation()}
-                                                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background"
+                                                                className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border/70 bg-background/85 text-foreground transition-colors hover:border-primary/20 hover:bg-background sm:min-h-11 sm:min-w-11 sm:rounded-xl"
                                                                 aria-label={`Email ${primaryName}`}
                                                                 title="Email requestor"
                                                             >
                                                                 <Mail className="h-4 w-4 text-primary" />
                                                             </a>
                                                         ) : null}
-                                                        <div className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                                                        <div className="flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary sm:min-h-11 sm:min-w-11 sm:rounded-xl">
                                                             <ArrowRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                                         </div>
                                                     </div>

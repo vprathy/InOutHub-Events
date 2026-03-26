@@ -290,8 +290,8 @@ export default function LineupPage() {
                 actions={
                     <div className="grid gap-2 sm:flex sm:flex-row md:w-auto">
                         {selectedStageId && (
-                            <Button onClick={() => setIsAddModalOpen(true)} disabled={!capabilities.canManageLineup} className="h-11 w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start md:self-auto px-6 sm:w-auto">
-                                <Plus size={18} /> Add Performance
+                            <Button onClick={() => setIsAddModalOpen(true)} disabled={!capabilities.canManageLineup} className="h-10 w-full gap-1.5 self-start px-4 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto">
+                                <Plus size={16} /> Add Performance
                             </Button>
                         )}
                     </div>
@@ -337,7 +337,7 @@ export default function LineupPage() {
                             variant="outline"
                             onClick={() => setIsStageModalOpen(true)}
                             disabled={!capabilities.canManageLineup}
-                            className="min-h-11 gap-2 rounded-2xl border-border px-4 text-[11px] font-black uppercase tracking-[0.18em] text-foreground"
+                            className="min-h-10 gap-1.5 rounded-xl border-border px-3 text-[10px] font-black uppercase tracking-[0.12em] text-foreground sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"
                         >
                             <Settings2 size={16} />
                             Manage
@@ -346,7 +346,7 @@ export default function LineupPage() {
                             variant="outline"
                             onClick={() => selectedStageId && setIsAddModalOpen(true)}
                             disabled={!selectedStageId || !capabilities.canManageLineup}
-                            className="min-h-11 gap-2 rounded-2xl border-primary/20 bg-primary/10 px-4 text-[11px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/15"
+                            className="min-h-10 gap-1.5 rounded-xl border-primary/20 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-primary hover:bg-primary/15 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"
                         >
                             Add To Flow
                             <ArrowUpRight size={16} />

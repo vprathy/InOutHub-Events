@@ -1,4 +1,4 @@
-import { MonitorPlay, LayoutGrid, Loader2, ShieldAlert } from 'lucide-react';
+import { MonitorPlay, LayoutGrid, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSelection } from '@/context/SelectionContext';
 import { useStagesQuery } from '@/hooks/useStages';
@@ -82,21 +82,17 @@ export default function StageConsolePage() {
             <PageHeader
                 title="Live Console"
                 subtitle="Run the show, keep the next cue visible, and protect the live position."
-                status={criticalRisks > 0 ? (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 animate-in fade-in slide-in-from-top-2">
-                        <ShieldAlert size={16} className="text-rose-600" />
-                        <span className="text-sm font-bold">{criticalRisks} Operational {criticalRisks === 1 ? 'Risk' : 'Risks'} Detected</span>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 text-[10px] uppercase font-black px-3 hover:bg-rose-100 text-rose-800"
-                            onClick={() => navigate('/show-flow')}
-                        >
-                            Fix in Show Flow
-                        </Button>
-                    </div>
-                ) : null}
             />
+
+            {criticalRisks > 0 ? (
+                <OperationalResponseCard
+                    label="Operational Risks"
+                    detail={`${criticalRisks} ${criticalRisks === 1 ? 'issue needs' : 'issues need'} show-flow cleanup before the console is treated as stable.`}
+                    count={criticalRisks}
+                    tone="critical"
+                    onClick={() => navigate('/show-flow')}
+                />
+            ) : null}
 
             {selectedStageId && !isLoading && currentLineupPointerMissing ? (
                 <OperationalResponseCard
