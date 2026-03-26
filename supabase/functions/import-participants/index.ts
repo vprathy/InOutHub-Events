@@ -681,17 +681,17 @@ Deno.serve(async (req) => {
         }
 
         const reviewRequired = blockingIssues.length > 0
-            || confidence !== 'high'
-            || warnings.length > 0
             || driftSummary.length > 0
-            || matchedSource?.config?.mappingMode !== 'locked'
+            || (matchedSource?.config?.mappingMode !== 'locked' && (
+                confidence !== 'high' || warnings.length > 0
+            ))
 
         const sourceState: 'inferred' | 'locked' | 'drifted' | 'blocked' =
             blockingIssues.length > 0
                 ? 'blocked'
                 : driftSummary.length > 0
                     ? 'drifted'
-                    : matchedSource?.config?.mappingMode === 'locked' && !reviewRequired
+                    : (matchedSource?.config?.mappingMode === 'locked' && driftSummary.length === 0)
                         ? 'locked'
                         : 'inferred'
 
@@ -1103,37 +1103,13 @@ Deno.serve(async (req) => {
 
         const currentByAnchor = new Map((currentRows || []).map((row) => [row.source_anchor_value, row]))
 
-        if (importRunId) {
-            const importedParticipantIds = (currentRows || []).map((row) => row.id)
-            if (importedParticipantIds.length > 0) {
-                const { error: lineageError } = await supabaseClient
-                    .from('participants')
-                    .update({ last_import_run_id: importRunId })
-                    .in('id', importedParticipantIds)
 
-                if (lineageError) throw lineageError
-            }
-
-            const newParticipantIds = newAnchors
-                .map((anchor) => currentByAnchor.get(anchor)?.id)
-                .filter(Boolean)
-
-            if (newParticipantIds.length > 0) {
-                const { error: createLineageError } = await supabaseClient
-                    .from('participants')
-                    .update({ created_by_import_run_id: importRunId })
-                    .in('id', newParticipantIds)
-
-                if (createLineageError) throw createLineageError
-            }
-        }
 
         if (missingAnchors.length > 0) {
             await supabaseClient
                 .from('participants')
                 .update({
-                    status: 'missing_from_source',
-                    ...(importRunId ? { last_import_run_id: importRunId } : {})
+                    status: 'missing_from_source'
                 })
                 .eq('event_id', eventId)
                 .eq('source_instance', sourceReference)
