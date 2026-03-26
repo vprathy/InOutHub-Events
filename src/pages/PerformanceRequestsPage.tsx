@@ -899,9 +899,6 @@ export default function PerformanceRequestsPage() {
                                                                 <Mail className="h-4 w-4 text-primary" />
                                                             </a>
                                                         ) : null}
-                                                        <div className="flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary sm:min-h-11 sm:min-w-11 sm:rounded-xl">
-                                                            <ArrowRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
