@@ -537,7 +537,7 @@ export default function DashboardPage() {
                         ? `Running ${driftMinutes} minute${driftMinutes === 1 ? '' : 's'} past the scheduled start.`
                         : stageState?.status === 'Paused'
                             ? 'The live run is paused.'
-                            : stageState?.status === 'Active'
+                        : stageState?.status === 'Active'
                                 ? 'Stage is live and moving.'
                                 : 'Stage is ready to run when you start the console.';
 
