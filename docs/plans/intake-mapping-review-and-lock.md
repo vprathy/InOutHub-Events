@@ -46,6 +46,62 @@ This batch should not:
 - move the actual import execution back into the browser
 - create a separate intake engine for uploads vs Google Sheets
 - introduce destructive rollback flows
+- hardcode one tenant's business vocabulary into the shared intake schema
+- turn intake into a payment, membership, or billing product
+
+## Multi-Tenant Product Rules
+
+The intake model must remain multi-tenant.
+
+That means:
+- preserve imported source attributes generically, even when one tenant uses labels like `member` / `non-member`
+- store tenant-specific meaning in source or event configuration, not in shared core fields
+- support lightweight event-level calculations or reconciliation outputs without making them part of the core domain
+
+Examples that should stay configuration-driven instead of schema-driven:
+- member vs non-member
+- solo vs duo vs group
+- internal vs external
+- premium vs standard
+
+The reusable platform capability is:
+- preserve source fields
+- let operators interpret them for the current event
+- optionally calculate derived values from them
+
+Not:
+- encode one tenant's pricing or membership model into product truth
+
+## Preserve, Enrich, Return
+
+Imported data should not get trapped inside InOutHub.
+
+The generic pattern is:
+1. Preserve
+- keep source linkage
+- keep raw imported attributes
+- keep the approved mapping contract
+
+2. Enrich
+- allow operators to add operational meaning such as:
+  - mapped classification
+  - participant count
+  - expected fee
+  - reconciliation notes
+  - created performance linkage
+
+3. Return
+- support export first
+- support source writeback later
+- let admins take enriched operational data back into their broader workflow
+
+## Device-Fit Rule
+
+The intake workspace should remain device-fit:
+- phone/mobile: review, approve, create, sync checks, quick operational actions
+- tablet/desktop: advanced mapping adjustment, formulas, reconciliation, export, and later writeback configuration
+
+Do not force dense admin configuration work into the mobile surface by default.
 
 ## Operator Outcomes
 

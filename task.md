@@ -84,6 +84,9 @@ Phase 2 roadmap links:
 - [ ] Use the first tenant onboarding cycle to prove mapping review / confirm / lock against a second real source shape.
 - [ ] Add the first readiness insight set to the roadmap before broad onboarding: blocked performances, missing participant follow-up, intro/media readiness, unresolved contact or special-request gaps, and later execution drift.
 - [ ] Position operational resilience as a product pillar in internal materials: live refresh recovery, execution continuity, and safe RBAC under pressure.
+- [ ] Keep intake multi-tenant: preserve imported attributes generically, allow event-level interpretation/calculation, and avoid tenant-specific business fields in core schema.
+- [ ] Ensure enriched intake data can return to admins through export first and source writeback later, instead of getting trapped inside the app.
+- [ ] Keep advanced intake mapping, formulas, reconciliation, and writeback controls tablet/desktop-first unless a mobile operator need is explicit.
 
 ### UI System Cleanup
 - [ ] Finish the card/pill density overhaul across Dashboard, Lineup, Participants, and profiles.
