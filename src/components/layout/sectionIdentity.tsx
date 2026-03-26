@@ -320,10 +320,10 @@ export function SectionIdentityStrip() {
                                 type="button"
                                 onClick={openSources}
                                 className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[11px] font-bold text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:text-sm"
-                                aria-label="Open import data"
+                                aria-label="Open sync workspace"
                             >
                                 <Database className="h-4 w-4 text-primary" />
-                                <span>Import Data</span>
+                                <span>Sync</span>
                             </button>
                         ) : null}
                     </div>
@@ -370,10 +370,10 @@ export function SectionIdentityStrip() {
                                     type="button"
                                     onClick={() => void syncPerformanceRequestSource()}
                                     className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:tracking-[0.16em]"
-                                    aria-label="Sync source"
+                                    aria-label="Sync"
                                 >
                                     <RefreshCw className={`h-4 w-4 text-primary ${syncSheet.isPending ? 'animate-spin' : ''}`} />
-                                    <span>Sync Source</span>
+                                    <span>Sync</span>
                                 </button>
                                 <span className="hidden text-xs text-muted-foreground sm:inline">
                                     {syncSheet.isPending
@@ -388,10 +388,10 @@ export function SectionIdentityStrip() {
                                 type="button"
                                 onClick={openSources}
                                 className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:tracking-[0.16em]"
-                                aria-label="Open import data"
+                                aria-label="Open sync workspace"
                             >
                                 <Database className="h-4 w-4 text-primary" />
-                                <span>Import Data</span>
+                                <span>Sync</span>
                             </button>
                         ) : null}
                     </div>
