@@ -62,8 +62,8 @@ function getConversionStatusTone(status: string) {
 }
 
 function getLifecycleDotClasses(stage: string) {
-    if (stage === 'approved' || stage === 'converted') return 'bg-emerald-500';
-    if (stage === 'rejected') return 'bg-destructive';
+    if (stage === 'approved' || stage === 'converted') return 'bg-sky-500';
+    if (stage === 'rejected') return 'bg-foreground/45';
     return 'bg-orange-500';
 }
 
@@ -182,8 +182,8 @@ function RequestDetailPanel({
                         {request.conversionStatus === 'converted'
                             ? 'This request is already live as a performance.'
                             : request.requestStatus === 'approved'
-                                ? 'Create the performance now, or move it back to pending if approval was premature.'
-                                : 'Create the performance now. Approval will be handled automatically as part of that step.'}
+                                ? 'Create now, or move it back to pending if approval was premature.'
+                                : 'Create now. Approval will be handled automatically as part of that step.'}
                     </p>
                 </div>
 
@@ -195,7 +195,7 @@ function RequestDetailPanel({
                             disabled={isWorking}
                         >
                             <ArrowRight className="mr-1.5 h-4 w-4" />
-                            Create Performance
+                            Create
                         </Button>
                     ) : null}
                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
@@ -362,6 +362,7 @@ export default function PerformanceRequestsPage() {
     const { data: importRuns = [] } = useImportRuns(eventId || '');
 
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+    const [confirmCreateRequest, setConfirmCreateRequest] = useState<any | null>(null);
     const [loadSupportCode, setLoadSupportCode] = useState<string | null>(null);
     const [actionSupportCode, setActionSupportCode] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -614,6 +615,25 @@ export default function PerformanceRequestsPage() {
         await handleCreatePerformance();
     };
 
+    const openCreateConfirmation = (request: any) => {
+        setSelectedRequestId(request.id);
+        setConfirmCreateRequest(request);
+    };
+
+    const handleConfirmedCreate = async () => {
+        if (!confirmCreateRequest) return;
+        const targetRequest = confirmCreateRequest;
+        setConfirmCreateRequest(null);
+        setSelectedRequestId(targetRequest.id);
+
+        if (targetRequest.requestStatus === 'approved') {
+            await handleCreatePerformance();
+            return;
+        }
+
+        await handleApproveAndCreatePerformance();
+    };
+
     const openRequest = (requestId: string) => {
         pendingScrollRequestRef.current = requestId;
         setSelectedRequestId(requestId);
@@ -656,7 +676,7 @@ export default function PerformanceRequestsPage() {
                         })}
                     </div>
                     <p className="text-xs text-muted-foreground sm:text-sm">
-                        Work the <span className="font-bold text-foreground">Pending</span> queue first. Approved requests are ready to create performances. Use <span className="font-bold text-foreground">All</span> for full intake review.
+                        Work the <span className="font-bold text-foreground">Pending</span> queue first. Approved requests are ready to create. Use <span className="font-bold text-foreground">All</span> for full intake review.
                     </p>
                 </div>
             </div>
@@ -830,9 +850,8 @@ export default function PerformanceRequestsPage() {
                                                     <span className="shrink-0 text-[12px] font-semibold text-muted-foreground">
                                                         {request.durationEstimateMinutes}m
                                                     </span>
-                                                    <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                                                    <span className="inline-flex shrink-0 items-center" aria-label={lifecycle} title={lifecycle}>
                                                         <span className={`h-2 w-2 rounded-full ${getLifecycleDotClasses(getLifecycleStage(request.requestStatus, request.conversionStatus))}`} />
-                                                        {lifecycle}
                                                     </span>
                                                 </div>
                                                 <div className="mt-1 flex items-center justify-between gap-2">
@@ -894,15 +913,12 @@ export default function PerformanceRequestsPage() {
                                                         <Button
                                                             className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
                                                             onClick={() => {
-                                                                setSelectedRequestId(request.id);
-                                                                void (request.requestStatus === 'approved'
-                                                                    ? handleCreatePerformance()
-                                                                    : handleApproveAndCreatePerformance());
+                                                                openCreateConfirmation(request);
                                                             }}
                                                             disabled={setStatus.isPending || convertRequest.isPending}
                                                         >
                                                             <ArrowRight className="mr-1.5 h-4 w-4" />
-                                                            Create Performance
+                                                            Create
                                                         </Button>
                                                     ) : null}
                                                     {request.requestStatus !== 'rejected' && request.conversionStatus !== 'converted' ? (
@@ -975,7 +991,7 @@ export default function PerformanceRequestsPage() {
                             <RequestDetailPanel
                                 request={selectedRequest}
                                 eventName={eventName || null}
-                                onCreatePerformance={() => void (selectedRequest.requestStatus === 'approved' ? handleCreatePerformance() : handleApproveAndCreatePerformance())}
+                                onCreatePerformance={() => openCreateConfirmation(selectedRequest)}
                                 onReject={() => void handleStatusAction('reject')}
                                 onMoveBackToPending={() => void handleMoveBackToPending()}
                                 onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
@@ -998,13 +1014,51 @@ export default function PerformanceRequestsPage() {
                     <RequestDetailPanel
                         request={selectedRequest}
                         eventName={eventName || null}
-                        onCreatePerformance={() => void (selectedRequest.requestStatus === 'approved' ? handleCreatePerformance() : handleApproveAndCreatePerformance())}
+                        onCreatePerformance={() => openCreateConfirmation(selectedRequest)}
                         onReject={() => void handleStatusAction('reject')}
                         onMoveBackToPending={() => void handleMoveBackToPending()}
                         onOpenPerformance={() => navigate(`/performances/${selectedRequest.convertedActId}`)}
                         timeline={timeline}
                         isWorking={setStatus.isPending || convertRequest.isPending}
                     />
+                ) : null}
+            </Modal>
+
+            <Modal
+                isOpen={!!confirmCreateRequest}
+                onClose={() => setConfirmCreateRequest(null)}
+                title="Create Performance?"
+            >
+                {confirmCreateRequest ? (
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <p className="text-sm font-black text-foreground">
+                                {confirmCreateRequest.title || 'Untitled request'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {confirmCreateRequest.requestStatus === 'approved'
+                                    ? 'This will create a live performance for scheduling, readiness, and console.'
+                                    : 'This will approve the request and create a live performance for scheduling, readiness, and console.'}
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                variant="outline"
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={() => setConfirmCreateRequest(null)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                onClick={() => void handleConfirmedCreate()}
+                                disabled={setStatus.isPending || convertRequest.isPending}
+                            >
+                                <ArrowRight className="mr-1.5 h-4 w-4" />
+                                Create
+                            </Button>
+                        </div>
+                    </div>
                 ) : null}
             </Modal>
         </div>
