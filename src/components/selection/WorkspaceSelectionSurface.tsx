@@ -94,8 +94,8 @@ function eventStatusOrder(status: EventRecord['status']) {
 }
 
 function statusBadgeClasses(status: EventRecord['status']) {
-    if (status === 'live') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600';
-    if (status === 'upcoming') return 'border-sky-500/30 bg-sky-500/10 text-sky-600';
+    if (status === 'live') return 'border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300';
+    if (status === 'upcoming') return 'border-sky-500/20 bg-sky-500/8 text-sky-700 dark:text-sky-300';
     return 'border-border/70 bg-muted/60 text-muted-foreground';
 }
 
@@ -374,7 +374,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                                             {org.roleLabel}
                                         </p>
                                         {org.reviewStatus === 'pending_review' ? (
-                                            <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+                                            <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/8 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">
                                                 Pilot Review
                                             </span>
                                         ) : null}
@@ -445,7 +445,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                                                                 <span className="min-w-0 flex-1 truncate leading-5">{formatDateRange(event.start_date, event.end_date)}</span>
                                                                 {event.status !== 'past' ? (
                                                                     <span
-                                                                        className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] ${statusBadgeClasses(event.status)}`}
+                                                                        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${statusBadgeClasses(event.status)}`}
                                                                     >
                                                                         {event.status}
                                                                     </span>
