@@ -239,35 +239,6 @@ export default function DashboardPage() {
         },
         enabled: !!eventId,
     });
-    if (!eventId) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-                <div className="p-4 rounded-3xl bg-primary/10 text-primary">
-                    <LayoutDashboard className="w-12 h-12" />
-                </div>
-                <h1 className="text-2xl font-bold">Welcome to InOutHub</h1>
-                <p className="text-muted-foreground max-w-xs">Please select an event to see your operations dashboard.</p>
-                <button
-                    onClick={() => navigate('/select-org')}
-                    className="h-12 px-8 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
-                >
-                    Select Workspace
-                </button>
-            </div>
-        );
-    }
-
-    if (isLoading) {
-        return <div className="animate-pulse space-y-6">
-            <div className="h-20 bg-muted rounded-3xl w-1/3" />
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, index) => (
-                    <div key={index} className="h-28 bg-muted rounded-[1.5rem]" />
-                ))}
-            </div>
-        </div>;
-    }
-
     const todayKey = getTodayKey();
     const startKey = toDateKey(eventTiming?.start_date);
     const endKey = toDateKey(eventTiming?.end_date || eventTiming?.start_date, true);
@@ -386,15 +357,15 @@ export default function DashboardPage() {
     const intakeBacklogItems = pendingRequestCount > 0
         ? [{
             id: 'pending-performance-requests',
-            label: 'Performance Requests',
-            detail: `${pendingRequestCount} request${pendingRequestCount === 1 ? '' : 's'} still need review before they become live performances.`,
+            label: 'Request Review',
+            detail: `${pendingRequestCount} performance request${pendingRequestCount === 1 ? '' : 's'} still need intake review before they can move into readiness.`,
             count: pendingRequestCount,
-            tone: dashboardPhase === 'pre_show' ? 'info' as OperationalTone : 'warning' as OperationalTone,
+            tone: 'info' as OperationalTone,
             onClick: () => navigate('/admin/performance-requests'),
         }]
         : [];
-    const actsAtRiskCount = blockedPerformanceItems.length + atRiskActItems.length + (dashboardPhase === 'pre_show' ? 0 : notArrivedItems.length);
-    const urgentAdminCount = urgentImportItems.length + (dashboardPhase === 'pre_show' ? 0 : pendingRequestCount);
+    const actsAtRiskCount = blockedPerformanceItems.length + atRiskActItems.length + notArrivedItems.length;
+    const urgentAdminCount = urgentImportItems.length;
     const metrics = [
         {
             key: 'guardian_gaps',
@@ -426,13 +397,15 @@ export default function DashboardPage() {
         {
             key: 'admin_alerts',
             label: 'Admin Alerts',
-            infoBody: 'Import failures or urgent intake backlog that need admin follow-through.',
+            infoBody: 'Import failures or blocked admin issues that need immediate follow-through.',
             value: urgentAdminCount,
             icon: ClipboardList,
             tone: urgentAdminCount > 0 ? 'critical' as OperationalTone : 'good' as OperationalTone,
-            onClick: () => navigate(urgentImportItems.length > 0 ? '/admin/import-data' : '/admin/performance-requests'),
+            onClick: () => navigate('/admin/import-data'),
         },
-    ].filter((metric) => dashboardAudience !== 'member' || metric.key !== 'admin_alerts');
+    ]
+        .filter((metric) => dashboardAudience !== 'member' || metric.key !== 'admin_alerts')
+        .filter((metric) => metric.key !== 'admin_alerts' || urgentAdminCount > 0);
 
     const openSpecialRequestProfile = (participantId: string) => {
         sessionStorage.setItem(
@@ -460,13 +433,23 @@ export default function DashboardPage() {
             key: 'missing_requirements',
             label: 'Missing Requirements',
             tone: 'warning' as OperationalTone,
-            summary: 'Participant and act follow-up still needs work.',
+            summary: 'Requirements and approvals still need follow-up.',
             audience: ['admin', 'ops'] as DashboardAudience[],
             items: [
-                ...needPlacementItems,
                 ...approvalItems,
                 ...introReviewItems,
                 ...identityPendingItems,
+            ],
+        },
+        {
+            key: 'setup_gaps',
+            label: 'Setup Gaps',
+            tone: 'info' as OperationalTone,
+            summary: 'Assignments and intake work still need setup before the show is ready.',
+            audience: ['admin', 'ops'] as DashboardAudience[],
+            items: [
+                ...needPlacementItems,
+                ...(dashboardPhase === 'pre_show' ? intakeBacklogItems : []),
             ],
         },
         {
@@ -488,12 +471,9 @@ export default function DashboardPage() {
             key: 'urgent_admin',
             label: 'Urgent Admin',
             tone: 'critical' as OperationalTone,
-            summary: 'Imports or request intake need admin attention.',
+            summary: 'Import failures need admin attention before sources are trusted again.',
             audience: ['admin'] as DashboardAudience[],
-            items: [
-                ...urgentImportItems,
-                ...intakeBacklogItems,
-            ],
+            items: urgentImportItems,
         },
     ] as const;
 
@@ -547,11 +527,42 @@ export default function DashboardPage() {
         setExpandedCategory(categoryCards[0].key);
     }, [categoryCards, expandedCategory]);
 
+    if (!eventId) {
+        return (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4 text-center">
+                <div className="rounded-3xl bg-primary/10 p-4 text-primary">
+                    <LayoutDashboard className="h-12 w-12" />
+                </div>
+                <h1 className="text-2xl font-bold">Welcome to InOutHub</h1>
+                <p className="max-w-xs text-muted-foreground">Please select an event to see your operations dashboard.</p>
+                <button
+                    onClick={() => navigate('/select-org')}
+                    className="h-12 rounded-2xl bg-primary px-8 font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-105"
+                >
+                    Select Workspace
+                </button>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="animate-pulse space-y-6">
+                <div className="h-20 w-1/3 rounded-3xl bg-muted" />
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, index) => (
+                        <div key={index} className="h-28 rounded-[1.5rem] bg-muted" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-5 pt-3 pb-12 sm:pt-4">
-            <div className="surface-panel surface-section-dashboard rounded-[1.35rem] p-3">
+        <div className="space-y-4 pt-3 pb-12 sm:pt-4">
+            <div className="surface-panel surface-section-dashboard rounded-[1.3rem] p-2.5">
                 <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Readiness Snapshot</p>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {metrics.map((metric) => (
                         <OperationalMetricCard
                             key={metric.label}
@@ -567,7 +578,7 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            <div className={`surface-panel rounded-[1.3rem] border p-3.5 ${stagePulseToneClassName}`}>
+            <div className={`surface-panel rounded-[1.3rem] border p-3 ${stagePulseToneClassName}`}>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current Stage Status</p>
@@ -588,7 +599,7 @@ export default function DashboardPage() {
                         <MonitorPlay className="h-4 w-4" />
                     </button>
                 </div>
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Now</p>
                         <p className="mt-1 truncate text-sm font-bold text-foreground">{current?.act.name || 'No act live yet'}</p>
@@ -605,9 +616,8 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2 pt-0.5">
-                <div className="space-y-0.5 px-1">
+                <div className="px-1">
                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Response Queue</h2>
-                    <p className="truncate text-xs text-muted-foreground">Exceptions, follow-up, and urgent requests.</p>
                 </div>
                 {categoryCards.length > 0 ? (
                     <div className="space-y-2.5">
