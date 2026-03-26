@@ -61,6 +61,12 @@ function getConversionStatusTone(status: string) {
     return 'text-muted-foreground bg-muted/60 border-border';
 }
 
+function getLifecycleDotClasses(stage: string) {
+    if (stage === 'approved' || stage === 'converted') return 'bg-emerald-500';
+    if (stage === 'rejected') return 'bg-destructive';
+    return 'bg-orange-500';
+}
+
 function formatActionLabel(action: string) {
     return action.replace(/_/g, ' ');
 }
@@ -821,21 +827,17 @@ export default function PerformanceRequestsPage() {
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-1.5">
                                                     <p className="min-w-0 flex-1 truncate text-[15px] font-black text-foreground">{primaryName}</p>
-                                                    {request.performanceType ? (
-                                                        <span className="hidden shrink-0 truncate text-[12px] font-semibold text-primary sm:inline">
-                                                            {request.performanceType}
-                                                        </span>
-                                                    ) : null}
                                                     <span className="shrink-0 text-[12px] font-semibold text-muted-foreground">
                                                         {request.durationEstimateMinutes}m
                                                     </span>
-                                                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${getRequestStatusTone(request.requestStatus)}`}>
+                                                    <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">
+                                                        <span className={`h-2 w-2 rounded-full ${getLifecycleDotClasses(getLifecycleStage(request.requestStatus, request.conversionStatus))}`} />
                                                         {lifecycle}
                                                     </span>
                                                 </div>
                                                 <div className="mt-1 flex items-center justify-between gap-2">
                                                     <p className="min-w-0 truncate text-[12px] text-muted-foreground">
-                                                        {titleLabel} • {displayDate}
+                                                        {titleLabel}{request.performanceType ? ` • ${request.performanceType}` : ''} • {displayDate}
                                                     </p>
                                                     <div className="flex shrink-0 items-center gap-1">
                                                         {request.leadPhone ? (
