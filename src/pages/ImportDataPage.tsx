@@ -172,6 +172,20 @@ export default function ImportDataPage() {
             )}
 
             <div className="space-y-3">
+                {importsLocked ? null : (
+                    <ImportParticipantsModal
+                        eventId={eventId || ''}
+                        isOpen
+                        embedded
+                        initialMode={initialMode}
+                        onClose={() => {
+                            const nextParams = new URLSearchParams(searchParams);
+                            nextParams.delete('action');
+                            setSearchParams(nextParams, { replace: true });
+                        }}
+                    />
+                )}
+
                 <button
                     type="button"
                     onClick={() => setIsMethodsOpen((current) => !current)}
@@ -211,20 +225,6 @@ export default function ImportDataPage() {
                         </div>
                     ) : null}
                 </button>
-
-                {importsLocked ? null : (
-                    <ImportParticipantsModal
-                        eventId={eventId || ''}
-                        isOpen
-                        embedded
-                        initialMode={initialMode}
-                        onClose={() => {
-                            const nextParams = new URLSearchParams(searchParams);
-                            nextParams.delete('action');
-                            setSearchParams(nextParams, { replace: true });
-                        }}
-                    />
-                )}
             </div>
         </div>
     );

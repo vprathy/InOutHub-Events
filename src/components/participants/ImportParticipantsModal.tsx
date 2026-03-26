@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useImportParticipants, useSyncGoogleSheet, useImportRuns } from '@/hooks/useParticipants';
-import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, ArrowLeft, SlidersHorizontal, Clock } from 'lucide-react';
+import { X, RefreshCw, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Copy, ChevronDown, ChevronRight, Trash2, FileSpreadsheet, FileJson, ArrowLeft, SlidersHorizontal } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -711,6 +711,288 @@ export function ImportParticipantsModal({
                         ? 'Connect Google Sheet'
                         : 'Upload Spreadsheet';
 
+    const dashboardContent = (
+        <div className="space-y-4">
+            <section className={`rounded-[1.25rem] border p-4 text-left ${sourceTrustToneClassName}`}>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Source Trust Status</p>
+                        <p className="mt-1 text-sm font-bold text-foreground">{sourceTrustTitle}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{sourceTrustBody}</p>
+                    </div>
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {trustSteps.map((step) => (
+                        <div key={step.label} className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{step.label}</p>
+                            <p className={`mt-1 text-xs font-bold ${step.complete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                                {step.complete ? 'Complete' : 'Pending'}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+                {sourceTrustAction ? (
+                    <div className="mt-4">
+                        <Button
+                            onClick={sourceTrustAction}
+                            className="h-11 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                        >
+                            {sourceTrustActionLabel}
+                        </Button>
+                    </div>
+                ) : null}
+            </section>
+
+            <details open className="surface-panel group rounded-[1.35rem] p-3.5 sm:p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Connected Sources</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Manage trusted imports for this event</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="mt-4 space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Participant Imports</h3>
+                            {participantSources.length > 1 ? (
+                                <button onClick={handleSyncAll} className="text-[10px] font-bold uppercase tracking-widest text-teal-500 transition-colors hover:text-teal-400">
+                                    Refresh All
+                                </button>
+                            ) : null}
+                        </div>
+                        <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
+                            {participantSources.length > 0 ? participantSources.map((source, index) => (
+                                <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < participantSources.length - 1 ? 'border-b border-border/70' : ''}`}>
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
+                                        {source.type === 'google_sheet' ? <FileSpreadsheet className="h-5 w-5 text-teal-500" /> : <FileJson className="h-5 w-5 text-blue-500" />}
+                                    </div>
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
+                                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                            <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
+                                            {source.lastSyncedAt ? (
+                                                <>
+                                                    <span>•</span>
+                                                    <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                                </>
+                                            ) : null}
+                                            <span>•</span>
+                                            <span>
+                                                {source.config.reviewRequired
+                                                    ? 'Needs review'
+                                                    : source.config.mappingMode === 'locked'
+                                                        ? 'Locked'
+                                                        : source.config.mappingGaps?.length
+                                                            ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
+                                                            : 'Mapped'}
+                                            </span>
+                                        </div>
+                                        {(() => {
+                                            const latestRun = latestRunBySource.get(source.id);
+                                            return latestRun ? (
+                                                <p className="mt-1 text-[10px] text-muted-foreground">
+                                                    {latestRun.status === 'succeeded'
+                                                        ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
+                                                        : latestRun.status === 'running'
+                                                            ? 'Sync in progress'
+                                                            : latestRun.error_message || 'Latest sync needs attention'}
+                                                </p>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {source.type === 'google_sheet' ? (
+                                            <button
+                                                onClick={() => handleSyncSingleSource(source)}
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                                                aria-label={`Refresh ${source.name}`}
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </button>
+                                        ) : null}
+                                        <ActionMenu options={[
+                                            { label: 'Review Mapping', icon: <SlidersHorizontal className="h-4 w-4" />, onClick: () => openMappingReview(source) },
+                                            { label: 'Remove Source', icon: <Trash2 className="h-4 w-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
+                                        ]} />
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                    No participant imports connected yet.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Performance Request Imports</h3>
+                        </div>
+                        <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
+                            {performanceRequestSources.length > 0 ? performanceRequestSources.map((source, index) => (
+                                <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < performanceRequestSources.length - 1 ? 'border-b border-border/70' : ''}`}>
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
+                                        {source.type === 'google_sheet' ? <FileSpreadsheet className="h-5 w-5 text-teal-500" /> : <FileJson className="h-5 w-5 text-blue-500" />}
+                                    </div>
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
+                                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                            <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
+                                            {source.lastSyncedAt ? (
+                                                <>
+                                                    <span>•</span>
+                                                    <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                                </>
+                                            ) : null}
+                                            <span>•</span>
+                                            <span>
+                                                {source.config.reviewRequired
+                                                    ? 'Needs review'
+                                                    : source.config.mappingMode === 'locked'
+                                                        ? 'Locked'
+                                                        : source.config.mappingGaps?.length
+                                                            ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
+                                                            : 'Mapped'}
+                                            </span>
+                                        </div>
+                                        {(() => {
+                                            const latestRun = latestRunBySource.get(source.id);
+                                            return latestRun ? (
+                                                <p className="mt-1 text-[10px] text-muted-foreground">
+                                                    {latestRun.status === 'succeeded'
+                                                        ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
+                                                        : latestRun.status === 'running'
+                                                            ? 'Sync in progress'
+                                                            : latestRun.error_message || 'Latest sync needs attention'}
+                                                </p>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {source.type === 'google_sheet' ? (
+                                            <button
+                                                onClick={() => handleSyncSingleSource(source)}
+                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+                                                aria-label={`Refresh ${source.name}`}
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </button>
+                                        ) : null}
+                                        <ActionMenu options={[
+                                            { label: 'Review Mapping', icon: <SlidersHorizontal className="h-4 w-4" />, onClick: () => openMappingReview(source) },
+                                            { label: 'Remove Source', icon: <Trash2 className="h-4 w-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
+                                        ]} />
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                    No performance request imports connected yet.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details className="surface-panel group rounded-[1.35rem] p-3.5 sm:p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Recent Sync Activity</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Latest import outcomes and troubleshooting history</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="mt-4 space-y-4">
+                    {lastSyncSummary ? (
+                        <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 p-4 text-left">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Latest Sync Summary</p>
+                            <p className="mt-1 text-sm font-bold text-foreground">
+                                {lastSyncSummary.sourceName}: {lastSyncSummary.stats.new} new, {lastSyncSummary.stats.updated} updated, {lastSyncSummary.stats.missing} missing.
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)} • Detected target {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence {lastSyncSummary.confidence || 'n/a'}
+                            </p>
+                            <details className="mt-3">
+                                <summary className="cursor-pointer text-xs font-bold text-emerald-700">View what was used</summary>
+                                {(() => {
+                                    const mappedFields = summarizeMappedFields(lastSyncSummary.mapping);
+                                    const usedHeaderCount = new Set(mappedFields.map((item) => item.header)).size;
+                                    const ignoredHeaderCount = Math.max(lastSyncSummary.headers.length - usedHeaderCount, 0);
+                                    return (
+                                        <div className="mt-3 space-y-3">
+                                            {mappedFields.length > 0 ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {mappedFields.slice(0, 6).map((item) => (
+                                                        <span key={`${item.label}-${item.header}`} className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-foreground/80">
+                                                            {item.label}: {item.header}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                            {lastSyncSummary.headers.length > 0 ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Used {usedHeaderCount} of {lastSyncSummary.headers.length} columns. {ignoredHeaderCount} extra columns were preserved in raw payload for later review.
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    );
+                                })()}
+                            </details>
+                        </div>
+                    ) : null}
+
+                    <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70 divide-y divide-border/70">
+                        {importRuns && importRuns.length > 0 ? importRuns.map((run) => {
+                            const isStale = isImportRunStale(run);
+                            const stats = (typeof run.stats === 'object' && run.stats && !Array.isArray(run.stats) ? run.stats : {}) as { new?: number; updated?: number; missing?: number };
+                            return (
+                                <div key={run.id} className="p-3 text-left">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <span className={`h-2 w-2 rounded-full ${
+                                                run.status === 'succeeded' ? 'bg-emerald-500' :
+                                                run.status === 'running' ? (isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse') :
+                                                run.status === 'rolled_back' ? 'bg-gray-400' :
+                                                'bg-red-500'
+                                            }`} />
+                                            <span className="text-xs font-bold text-foreground capitalize">
+                                                {run.source_name || (run.import_target === 'performance_requests' ? 'Performance Request Sync' : 'Participant Sync')}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] font-medium text-muted-foreground">
+                                            {new Date(run.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {run.status === 'running' ? (isStale ? 'Stale / Timed Out' : 'Syncing...') :
+                                                    run.status === 'succeeded' ? `${stats.new || 0} new, ${stats.updated || 0} updated` :
+                                                    run.status === 'rolled_back' ? 'Changes rolled back' :
+                                                    run.error_message || 'Sync failed'}
+                                            </p>
+                                            {run.status === 'blocked' && run.blocking_issues && (run.blocking_issues as string[]).length > 0 && (
+                                                <p className="mt-0.5 text-[9px] font-medium leading-tight text-amber-600">
+                                                    Stopped: {(run.blocking_issues as string[])[0]}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                No recent sync activity.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </details>
+        </div>
+    );
+
     const content = (
         <>
             <div className={`flex items-center justify-between border-b border-border/50 ${embedded ? 'px-5 py-4' : 'px-6 py-5'}`}>
@@ -865,270 +1147,7 @@ export function ImportParticipantsModal({
                             </p>
                         </div>
                     ) : uiMode === 'dashboard' ? (
-                        <div className="space-y-8 max-h-[70vh] overflow-y-auto pr-1">
-                            <div className={`rounded-[1.25rem] border p-4 text-left ${sourceTrustToneClassName}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">First Trusted Sync</p>
-                                        <p className="mt-1 text-sm font-bold text-foreground">{sourceTrustTitle}</p>
-                                        <p className="mt-1 text-xs text-muted-foreground">{sourceTrustBody}</p>
-                                    </div>
-                                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                                </div>
-                                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                    {trustSteps.map((step) => (
-                                        <div key={step.label} className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{step.label}</p>
-                                            <p className={`mt-1 text-xs font-bold ${step.complete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-                                                {step.complete ? 'Complete' : 'Pending'}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                                {sourceTrustAction ? (
-                                    <div className="mt-4">
-                                        <Button
-                                            onClick={sourceTrustAction}
-                                            className="h-11 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
-                                        >
-                                            {sourceTrustActionLabel}
-                                        </Button>
-                                    </div>
-                                ) : null}
-                            </div>
-                            {lastSyncSummary ? (
-                                <div className="rounded-[1.25rem] border border-emerald-500/20 bg-emerald-500/5 p-4 text-left">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">Latest Sync Summary</p>
-                                    <p className="mt-1 text-sm font-bold text-foreground">
-                                        {lastSyncSummary.sourceName}: {lastSyncSummary.stats.new} new, {lastSyncSummary.stats.updated} updated, {lastSyncSummary.stats.missing} missing.
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        Imported as {formatIntakeTargetLabel(lastSyncSummary.intakeTarget)} • Detected target {lastSyncSummary.probableTarget || lastSyncSummary.intakeTarget} • Confidence {lastSyncSummary.confidence || 'n/a'}
-                                    </p>
-                                    <details className="mt-3">
-                                        <summary className="cursor-pointer text-xs font-bold text-emerald-700">View what was used</summary>
-                                        {(() => {
-                                            const mappedFields = summarizeMappedFields(lastSyncSummary.mapping);
-                                            const usedHeaderCount = new Set(mappedFields.map((item) => item.header)).size;
-                                            const ignoredHeaderCount = Math.max(lastSyncSummary.headers.length - usedHeaderCount, 0);
-                                            return (
-                                                <div className="mt-3 space-y-3">
-                                                    {mappedFields.length > 0 ? (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {mappedFields.slice(0, 6).map((item) => (
-                                                                <span key={`${item.label}-${item.header}`} className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] font-bold text-foreground/80">
-                                                                    {item.label}: {item.header}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    ) : null}
-                                                    {lastSyncSummary.headers.length > 0 ? (
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Used {usedHeaderCount} of {lastSyncSummary.headers.length} columns. {ignoredHeaderCount} extra columns were preserved in raw payload for later review.
-                                                        </p>
-                                                    ) : null}
-                                                </div>
-                                            );
-                                        })()}
-                                    </details>
-                                </div>
-                            ) : null}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Participant Imports</h3>
-                                    {participantSources.length > 1 ? (
-                                        <button onClick={handleSyncAll} className="text-[10px] font-bold text-teal-500 hover:text-teal-400 uppercase tracking-widest transition-colors">
-                                            Refresh All Imports
-                                        </button>
-                                    ) : null}
-                                </div>
-                                <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
-                                    {participantSources.length > 0 ? participantSources.map((source, index) => (
-                                        <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < participantSources.length - 1 ? 'border-b border-border/70' : ''}`}>
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
-                                                {source.type === 'google_sheet' ? <FileSpreadsheet className="w-5 h-5 text-teal-500" /> : <FileJson className="w-5 h-5 text-blue-500" />}
-                                            </div>
-                                            <div className="min-w-0 flex-1 text-left">
-                                                <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
-                                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
-                                                    <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
-                                                    {source.lastSyncedAt ? (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                                                        </>
-                                                    ) : null}
-                                                    <span>•</span>
-                                                    <span>
-                                                        {source.config.reviewRequired
-                                                            ? 'Needs review'
-                                                            : source.config.mappingMode === 'locked'
-                                                                ? 'Locked'
-                                                                : source.config.mappingGaps?.length
-                                                                    ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
-                                                                    : 'Mapped'}
-                                                    </span>
-                                                </div>
-                                                {(() => {
-                                                    const latestRun = latestRunBySource.get(source.id);
-                                                    return latestRun ? (
-                                                    <p className="mt-1 text-[10px] text-muted-foreground">
-                                                        {latestRun.status === 'succeeded'
-                                                            ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
-                                                            : latestRun.status === 'running'
-                                                                ? 'Sync in progress'
-                                                                : latestRun.error_message || 'Latest sync needs attention'}
-                                                    </p>
-                                                    ) : null;
-                                                })()}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                {source.type === 'google_sheet' ? (
-                                                    <button
-                                                        onClick={() => handleSyncSingleSource(source)}
-                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
-                                                        aria-label={`Refresh ${source.name}`}
-                                                    >
-                                                        <RefreshCw className="w-4 h-4" />
-                                                    </button>
-                                                ) : null}
-                                                <ActionMenu options={[
-                                                    { label: 'Review Mapping', icon: <SlidersHorizontal className="w-4 h-4" />, onClick: () => openMappingReview(source) },
-                                                    { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
-                                                ]} />
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                            No participant imports connected yet.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Performance Request Imports</h3>
-                                </div>
-                                <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
-                                    {performanceRequestSources.length > 0 ? performanceRequestSources.map((source, index) => (
-                                        <div key={source.id} className={`flex min-h-[60px] items-center gap-3 px-3 ${index < performanceRequestSources.length - 1 ? 'border-b border-border/70' : ''}`}>
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/20">
-                                                {source.type === 'google_sheet' ? <FileSpreadsheet className="w-5 h-5 text-teal-500" /> : <FileJson className="w-5 h-5 text-blue-500" />}
-                                            </div>
-                                            <div className="min-w-0 flex-1 text-left">
-                                                <p className="truncate text-sm font-bold text-foreground">{source.name}</p>
-                                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
-                                                    <span>{source.type === 'csv' ? 'Spreadsheet' : 'Google Sheet'}</span>
-                                                    {source.lastSyncedAt ? (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span>{new Date(source.lastSyncedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                                                        </>
-                                                    ) : null}
-                                                    <span>•</span>
-                                                    <span>
-                                                        {source.config.reviewRequired
-                                                            ? 'Needs review'
-                                                            : source.config.mappingMode === 'locked'
-                                                                ? 'Locked'
-                                                                : source.config.mappingGaps?.length
-                                                                    ? `${source.config.mappingGaps.length} gap${source.config.mappingGaps.length > 1 ? 's' : ''}`
-                                                                    : 'Mapped'}
-                                                    </span>
-                                                </div>
-                                                {(() => {
-                                                    const latestRun = latestRunBySource.get(source.id);
-                                                    return latestRun ? (
-                                                    <p className="mt-1 text-[10px] text-muted-foreground">
-                                                        {latestRun.status === 'succeeded'
-                                                            ? `${latestRun.stats?.new || 0} new, ${latestRun.stats?.updated || 0} updated on latest sync`
-                                                            : latestRun.status === 'running'
-                                                                ? 'Sync in progress'
-                                                                : latestRun.error_message || 'Latest sync needs attention'}
-                                                    </p>
-                                                    ) : null;
-                                                })()}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                {source.type === 'google_sheet' ? (
-                                                    <button
-                                                        onClick={() => handleSyncSingleSource(source)}
-                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
-                                                        aria-label={`Refresh ${source.name}`}
-                                                    >
-                                                        <RefreshCw className="w-4 h-4" />
-                                                    </button>
-                                                ) : null}
-                                                <ActionMenu options={[
-                                                    { label: 'Review Mapping', icon: <SlidersHorizontal className="w-4 h-4" />, onClick: () => openMappingReview(source) },
-                                                    { label: 'Remove Source', icon: <Trash2 className="w-4 h-4" />, variant: 'danger', onClick: () => removeSource(source.id) }
-                                                ]} />
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                            No performance request imports connected yet.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Clock className="w-3 h-3 text-muted-foreground" />
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Recent Sync Activity</h3>
-                                    </div>
-                                </div>
-                                <div className="overflow-hidden rounded-[1.25rem] border border-border/70 bg-background/70 divide-y divide-border/70">
-                                    {importRuns && importRuns.length > 0 ? importRuns.map((run) => {
-                                        const isStale = isImportRunStale(run);
-                                        const stats = (typeof run.stats === 'object' && run.stats && !Array.isArray(run.stats) ? run.stats : {}) as { new?: number; updated?: number; missing?: number };
-                                        return (
-                                            <div key={run.id} className="p-3 text-left">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className={`h-2 w-2 rounded-full ${
-                                                            run.status === 'succeeded' ? 'bg-emerald-500' :
-                                                            run.status === 'running' ? (isStale ? 'bg-amber-500' : 'bg-blue-500 animate-pulse') :
-                                                            run.status === 'rolled_back' ? 'bg-gray-400' :
-                                                            'bg-red-500'
-                                                        }`} />
-                                                        <span className="text-xs font-bold text-foreground capitalize">
-                                                            {run.source_name || (run.import_target === 'performance_requests' ? 'Performance Request Sync' : 'Participant Sync')}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-[10px] font-medium text-muted-foreground">
-                                                        {new Date(run.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                                    </span>
-                                                </div>
-                                                <div className="mt-1 flex items-center justify-between">
-                                                    <div className="flex flex-col">
-                                                        <p className="text-[10px] text-muted-foreground">
-                                                            {run.status === 'running' ? (isStale ? 'Stale / Timed Out' : 'Syncing...') : 
-                                                             run.status === 'succeeded' ? `${stats.new || 0} new, ${stats.updated || 0} updated` : 
-                                                             run.status === 'rolled_back' ? 'Changes rolled back' :
-                                                             run.error_message || 'Sync failed'}
-                                                        </p>
-                                                        {run.status === 'blocked' && run.blocking_issues && (run.blocking_issues as string[]).length > 0 && (
-                                                            <p className="text-[9px] text-amber-600 font-medium leading-tight mt-0.5">
-                                                                Stopped: {(run.blocking_issues as string[])[0]}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }) : (
-                                        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                            No recent sync activity.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                        </div>
+                        dashboardContent
                     ) : uiMode === 'mapping_review' ? (
                         <div className="space-y-5 animate-in slide-in-from-right-4 duration-300 text-left">
                             <div className="space-y-1">
@@ -1360,6 +1379,10 @@ export function ImportParticipantsModal({
             </div>
         </>
     );
+
+    if (embedded && uiMode === 'dashboard' && status === 'idle') {
+        return dashboardContent;
+    }
 
     if (embedded) {
         return (
