@@ -197,10 +197,10 @@ export default function DashboardPage() {
                 <h1 className="text-2xl font-bold">Welcome to InOutHub</h1>
                 <p className="text-muted-foreground max-w-xs">Please select an event to see your operations dashboard.</p>
                 <button
-                    onClick={() => navigate('/select-event')}
+                    onClick={() => navigate('/select-org')}
                     className="h-12 px-8 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
                 >
-                    Select Event
+                    Select Workspace
                 </button>
             </div>
         );

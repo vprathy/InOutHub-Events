@@ -4,6 +4,8 @@ import {
     Building2,
     Calendar,
     Check,
+    ChevronDown,
+    ChevronRight,
     Loader2,
     MoreVertical,
     Plus,
@@ -108,6 +110,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
     const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
     const [isLoadingEvents, setIsLoadingEvents] = useState(false);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null);
     const [searchOpen, setSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreateOrgOpen, setIsCreateOrgOpen] = useState(false);
@@ -122,13 +125,10 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
     }, []);
 
     useEffect(() => {
-        if (stage !== 'event') return;
-        if (!organizationId) {
-            navigate('/select-org', { replace: true, state: location.state });
-            return;
-        }
+        if (!organizationId) return;
+        setExpandedOrgId(organizationId);
         void fetchEvents(organizationId);
-    }, [stage, organizationId, navigate, location.state]);
+    }, [organizationId]);
 
     useEffect(() => {
         if (stage === 'organization' && !organizationId && onboarding.suggestedOrganizationId) {
@@ -240,15 +240,21 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
     );
 
     const handleOrgSelect = (orgId: string) => {
-        setOrganizationId(orgId);
-        setEventId(null);
-        navigate('/select-event', { state: location.state });
-    };
+        const nextExpanded = expandedOrgId === orgId ? null : orgId;
+        setExpandedOrgId(nextExpanded);
 
-    const handleChangeOrg = () => {
-        setEventId(null);
-        setOrganizationId(null);
-        navigate('/select-org', { replace: true, state: location.state });
+        if (nextExpanded) {
+            if (organizationId !== orgId) {
+                setOrganizationId(orgId);
+                setEventId(null);
+            }
+            void fetchEvents(orgId);
+            return;
+        }
+
+        if (organizationId === orgId) {
+            setEventId(null);
+        }
     };
 
     const openOrgEditor = (org: EditableOrganization) => {
@@ -348,141 +354,133 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
         return (
             <div className="space-y-3">
                 {filteredOrgs.map((org) => (
-                    <button
+                    <div
                         key={org.id}
-                        onClick={() => handleOrgSelect(org.id)}
-                        className="surface-panel flex min-h-[72px] w-full items-center justify-between gap-3 rounded-[1.5rem] border-border/60 px-5 py-4 text-left transition-colors hover:border-primary/35"
+                        className={`surface-panel overflow-hidden rounded-[1.5rem] border-border/60 transition-colors ${expandedOrgId === org.id ? 'border-primary/35' : 'hover:border-primary/35'}`}
                     >
-                        <div className="flex flex-1 min-w-0 items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                <Building2 className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="block max-w-full truncate whitespace-nowrap text-[1.1rem] font-black leading-tight text-foreground">{org.name}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                                        {org.roleLabel}
-                                    </p>
-                                    {org.reviewStatus === 'pending_review' ? (
-                                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700">
-                                            Pilot Review
-                                        </span>
-                                    ) : null}
-                                </div>
-                            </div>
-                        </div>
-                        {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
+                        <div className="flex items-center gap-3 px-5 py-3.5">
                             <button
                                 type="button"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    openOrgEditor({ id: org.id, name: org.name, reviewStatus: org.reviewStatus });
-                                }}
-                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                aria-label={`Edit ${org.name}`}
+                                onClick={() => handleOrgSelect(org.id)}
+                                className="flex min-h-[44px] flex-1 min-w-0 items-center gap-3 text-left"
                             >
-                                <MoreVertical className="h-4 w-4" />
-                            </button>
-                        ) : null}
-                    </button>
-                ))}
-            </div>
-        );
-    };
-
-    const renderEvents = () => {
-        if (isLoadingEvents) {
-            return (
-                <div className="surface-panel flex justify-center rounded-[1.5rem] py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            );
-        }
-
-        if (events.length === 0) {
-            if (onboarding.mode === 'event_onboarding') {
-                return (
-                    <div className="surface-panel rounded-[1.5rem] p-6 sm:p-7">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">First Event</p>
-                        <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">Create your first event</h2>
-                        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                            {canEditOrganization
-                                ? 'Add the first event for this organization to unlock the dashboard, roster, performances, and show flow workspace.'
-                                : 'This organization has no events yet. An administrator needs to create the first event.'}
-                        </p>
-                        {canEditOrganization ? (
-                            <div className="mt-5">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCreateEventOpen(true)}
-                                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
-                                >
-                                    Create First Event
-                                </button>
-                            </div>
-                        ) : null}
-                    </div>
-                );
-            }
-
-            return (
-                <div className="surface-panel rounded-[1.5rem] p-6 text-center">
-                    <p className="text-sm font-bold text-foreground">No events yet in this organization.</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        {isSuperAdmin ? 'Create an event to continue into the app.' : 'Ask an administrator to add event access, then refresh.'}
-                    </p>
-                </div>
-            );
-        }
-
-        return (
-            <div className="space-y-3">
-                {events.map((event) => (
-                    <button
-                        key={event.id}
-                        onClick={() => handleEventSelect(event.id, event.timezone)}
-                        className="surface-panel w-full rounded-[1.35rem] px-4 py-3.5 text-left transition-colors hover:border-primary/35"
-                    >
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-1 min-w-0 items-start gap-3">
-                                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                    <Calendar className="h-4 w-4" />
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                    <Building2 className="h-4 w-4" />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="block max-w-full truncate whitespace-nowrap text-base font-black leading-tight text-foreground">{event.name}</p>
-                                    <div className="mt-1 flex items-center gap-2 text-[13px] text-muted-foreground sm:text-sm">
-                                        <span className="truncate">{formatDateRange(event.start_date, event.end_date)}</span>
-                                        {event.status !== 'past' ? (
-                                            <span
-                                                className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] ${statusBadgeClasses(event.status)}`}
-                                            >
-                                                {event.status}
+                                <div className="min-w-0 flex-1">
+                                    <p className="block max-w-full truncate whitespace-nowrap text-[1.05rem] font-black leading-tight text-foreground">{org.name}</p>
+                                    <div className="mt-1 flex min-w-0 items-center gap-2">
+                                        <p className="truncate text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                                            {org.roleLabel}
+                                        </p>
+                                        {org.reviewStatus === 'pending_review' ? (
+                                            <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
+                                                Pilot Review
                                             </span>
                                         ) : null}
                                     </div>
                                 </div>
-                            </div>
-                            {canEditOrganization ? (
+                                <div className="flex items-center gap-2 text-primary">
+                                    {organizationId === org.id ? <Check className="h-4 w-4 shrink-0" /> : null}
+                                    {expandedOrgId === org.id ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                                </div>
+                            </button>
+                            {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
                                 <button
                                     type="button"
-                                    onClick={(clickEvent) => {
-                                        clickEvent.stopPropagation();
-                                        openEventEditor({
-                                            id: event.id,
-                                            name: event.name,
-                                            start_date: event.start_date,
-                                            end_date: event.end_date,
-                                            timezone: event.timezone,
-                                        });
-                                    }}
+                                    onClick={() => openOrgEditor({ id: org.id, name: org.name, reviewStatus: org.reviewStatus })}
                                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                    aria-label={`Edit ${event.name}`}
+                                    aria-label={`Edit ${org.name}`}
                                 >
                                     <MoreVertical className="h-4 w-4" />
                                 </button>
                             ) : null}
                         </div>
-                    </button>
+
+                        {expandedOrgId === org.id ? (
+                            <div className="border-t border-border/50 px-4 pb-4 pt-3">
+                                {isLoadingEvents && organizationId === org.id ? (
+                                    <div className="flex justify-center rounded-[1.25rem] py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                    </div>
+                                ) : events.length === 0 ? (
+                                    <div className="rounded-[1.25rem] border border-border/70 bg-background/60 p-4">
+                                        <p className="text-sm font-bold text-foreground">No events yet in this organization.</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin'
+                                                ? 'Create the first event to open this workspace.'
+                                                : 'An administrator needs to create the first event.'}
+                                        </p>
+                                        {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
+                                            <div className="mt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setOrganizationId(org.id);
+                                                        setIsCreateEventOpen(true);
+                                                    }}
+                                                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground"
+                                                >
+                                                    Create Event
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {events.map((event) => (
+                                            <button
+                                                key={event.id}
+                                                onClick={() => handleEventSelect(event.id, event.timezone)}
+                                                className="surface-panel w-full rounded-[1.25rem] px-4 py-2.5 text-left transition-colors hover:border-primary/35"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                                                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                            <Calendar className="h-4 w-4" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="block max-w-full truncate whitespace-nowrap text-base font-black leading-tight text-foreground">{event.name}</p>
+                                                            <div className="mt-1 flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground sm:text-sm">
+                                                                <span className="min-w-0 flex-1 truncate leading-5">{formatDateRange(event.start_date, event.end_date)}</span>
+                                                                {event.status !== 'past' ? (
+                                                                    <span
+                                                                        className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] ${statusBadgeClasses(event.status)}`}
+                                                                    >
+                                                                        {event.status}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {isSuperAdmin || org.roleLabel === 'Owner' || org.roleLabel === 'Admin' ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(clickEvent) => {
+                                                                clickEvent.stopPropagation();
+                                                                setOrganizationId(org.id);
+                                                                openEventEditor({
+                                                                    id: event.id,
+                                                                    name: event.name,
+                                                                    start_date: event.start_date,
+                                                                    end_date: event.end_date,
+                                                                    timezone: event.timezone,
+                                                                });
+                                                            }}
+                                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                                            aria-label={`Edit ${event.name}`}
+                                                        >
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </button>
+                                                    ) : null}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
                 ))}
             </div>
         );
@@ -494,16 +492,12 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                 <div className="flex items-start justify-between gap-3 pt-1">
                     <div className="space-y-1">
                         <h1 className="text-[2rem] font-black tracking-tight text-foreground">
-                            {stage === 'event' ? 'Choose Event' : 'Select Workspace'}
+                            Select Workspace
                         </h1>
-                        {stage === 'organization' ? (
-                            <p className="text-sm text-muted-foreground">Choose your organization</p>
-                        ) : onboarding.mode === 'event_onboarding' ? (
-                            <p className="text-sm text-muted-foreground">Create the first event for this organization</p>
-                        ) : null}
+                        <p className="text-sm text-muted-foreground">Choose organization and event</p>
                     </div>
 
-                    {stage === 'organization' && onboarding.mode === 'org_selection' ? (
+                    {onboarding.mode === 'org_selection' ? (
                         <button
                             onClick={() => setSearchOpen((open) => !open)}
                             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -514,7 +508,7 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                     ) : null}
                 </div>
 
-                {stage === 'organization' && onboarding.mode === 'org_selection' && searchOpen ? (
+                {onboarding.mode === 'org_selection' && searchOpen ? (
                     <div className="surface-panel flex items-center gap-3 rounded-[1.2rem] px-4 py-3">
                         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <input
@@ -537,38 +531,20 @@ export function WorkspaceSelectionSurface({ stage }: WorkspaceSelectionSurfacePr
                     </div>
                 ) : null}
 
-                {stage === 'event' && selectedOrg ? (
-                    <button
-                        onClick={handleChangeOrg}
-                        className="surface-panel w-full rounded-[1.5rem] border-primary/35 px-4 py-3 text-left transition-colors hover:border-primary/50"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex flex-1 min-w-0 items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <Building2 className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="block max-w-full truncate whitespace-nowrap text-[1.05rem] font-black leading-tight text-foreground">{selectedOrg.name}</p>
-                                    <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-muted-foreground">
-                                        {selectedOrg.roleLabel}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-primary">
-                                <Check className="h-4 w-4 shrink-0" />
-                            </div>
-                        </div>
-                    </button>
-                ) : null}
-
-                {stage === 'organization' ? renderOrgList() : renderEvents()}
+                {renderOrgList()}
             </div>
 
-            {(isSuperAdmin || (stage === 'organization' && onboardingCapabilities.canCreateFirstOrganization) || (stage === 'event' && canEditOrganization)) ? (
+            {(selectedOrg && canEditOrganization) || (!selectedOrg && (isSuperAdmin || onboardingCapabilities.canCreateFirstOrganization)) ? (
                 <button
-                    onClick={() => (stage === 'organization' ? setIsCreateOrgOpen(true) : setIsCreateEventOpen(true))}
+                    onClick={() => {
+                        if (selectedOrg && canEditOrganization) {
+                            setIsCreateEventOpen(true);
+                            return;
+                        }
+                        setIsCreateOrgOpen(true);
+                    }}
                     className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
-                    aria-label={stage === 'organization' ? 'Create organization' : 'Create event'}
+                    aria-label={selectedOrg && canEditOrganization ? 'Create event' : 'Create organization'}
                 >
                     <Plus className="h-4.5 w-4.5 stroke-[2.75]" />
                 </button>

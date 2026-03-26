@@ -44,12 +44,19 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
         }
     }, [isOpen, initialData]);
 
+    useEffect(() => {
+        if (!startDate) return;
+        if (!endDate || endDate < startDate) {
+            setEndDate(startDate);
+        }
+    }, [startDate, endDate]);
+
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !organizationId) return;
-        if (startDate && startDate < todayDate) {
+        if (!initialData && startDate && startDate < todayDate) {
             setError('Start date cannot be in the past.');
             return;
         }
@@ -134,11 +141,15 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                                 <input
                                     type="date"
                                     value={startDate}
-                                    min={todayDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    min={initialData ? undefined : todayDate}
+                                    onChange={(e) => {
+                                        setStartDate(e.target.value);
+                                        setError('');
+                                    }}
                                     className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                 />
                             </div>
+                            <p className="text-xs text-muted-foreground">Uses your phone&apos;s native calendar picker.</p>
                         </div>
 
                         <div className="space-y-2">
@@ -149,10 +160,18 @@ export function CreateEventModal({ organizationId, isOpen, onClose, onSuccess, i
                                     type="date"
                                     value={endDate}
                                     min={startDate || todayDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setEndDate(e.target.value);
+                                        setError('');
+                                    }}
                                     className="w-full pl-10 pr-4 py-3 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                                 />
                             </div>
+                            {startDate && endDate && endDate < startDate ? (
+                                <p className="text-xs font-medium text-destructive">End date must be the same as or later than the start date.</p>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">End date defaults to the start date unless this is a multi-day event.</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">

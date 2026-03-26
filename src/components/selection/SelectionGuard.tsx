@@ -17,7 +17,7 @@ export function SelectionGuard({ children }: SelectionGuardProps) {
         !!(organizationId || onboarding.suggestedOrganizationId)
         && !eventId
         && !!onboarding.suggestedEvent?.id
-        && location.pathname !== '/select-event';
+        && location.pathname !== '/select-org';
 
     useEffect(() => {
         if (shouldAutoSelectOrg && onboarding.suggestedOrganizationId) {
@@ -49,8 +49,8 @@ export function SelectionGuard({ children }: SelectionGuardProps) {
         return <Navigate to="/select-org" state={{ from: location }} replace />;
     }
 
-    if (!eventId && location.pathname !== '/select-event') {
-        return <Navigate to="/select-event" state={{ from: location }} replace />;
+    if (!eventId && location.pathname !== '/select-org') {
+        return <Navigate to="/select-org" state={{ from: location }} replace />;
     }
 
     return <>{children}</>;
