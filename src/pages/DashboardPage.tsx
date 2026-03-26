@@ -73,6 +73,7 @@ export default function DashboardPage() {
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [returnFocus, setReturnFocus] = useState<{ category: string; itemId?: string } | null>(null);
     const [visibleItemCounts, setVisibleItemCounts] = useState<Record<string, number>>({});
+    const [hasAutoExpandedQueue, setHasAutoExpandedQueue] = useState(false);
     const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const categorySentinels = useRef<Record<string, HTMLDivElement | null>>({});
@@ -343,6 +344,9 @@ export default function DashboardPage() {
             tone: 'default' as OperationalTone,
             onClick: () => navigate(`/performances/${act.id}`),
         }));
+    const participantsWithFilesWaitingCount = operationalParticipants.filter(
+        (participant) => ((participant.assetStats?.missing || 0) + (participant.assetStats?.pending || 0)) > 0
+    ).length;
     const urgentImportItems = importRuns
         .filter((run: any) => run.status === 'blocked' || run.status === 'failed')
         .slice(0, 4)
@@ -378,11 +382,11 @@ export default function DashboardPage() {
         },
         {
             key: 'missing_requirements',
-            label: 'Missing Requirements',
-            infoBody: 'Participant requirements still missing or waiting for review.',
-            value: (radar?.assets.pending || 0) + (radar?.assets.missing || 0),
+            label: 'Files Waiting',
+            infoBody: 'Counts participants who still have missing or pending files and approvals.',
+            value: participantsWithFilesWaitingCount,
             icon: FileCheck,
-            tone: ((radar?.assets.pending || 0) + (radar?.assets.missing || 0)) > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            tone: participantsWithFilesWaitingCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
             onClick: () => navigate('/participants?filter=missing'),
         },
         {
@@ -406,6 +410,18 @@ export default function DashboardPage() {
     ]
         .filter((metric) => dashboardAudience !== 'member' || metric.key !== 'admin_alerts')
         .filter((metric) => metric.key !== 'admin_alerts' || urgentAdminCount > 0);
+    const scopeStats = [
+        {
+            label: 'Participants',
+            value: radar?.participants.total || 0,
+            onClick: () => navigate('/participants'),
+        },
+        {
+            label: 'Performances',
+            value: radar?.acts.total || 0,
+            onClick: () => navigate('/performances'),
+        },
+    ];
 
     const openSpecialRequestProfile = (participantId: string) => {
         sessionStorage.setItem(
@@ -524,8 +540,10 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!categoryCards.length) return;
         if (expandedCategory && categoryCards.some((category) => category.key === expandedCategory)) return;
+        if (hasAutoExpandedQueue) return;
         setExpandedCategory(categoryCards[0].key);
-    }, [categoryCards, expandedCategory]);
+        setHasAutoExpandedQueue(true);
+    }, [categoryCards, expandedCategory, hasAutoExpandedQueue]);
 
     if (!eventId) {
         return (
@@ -576,6 +594,20 @@ export default function DashboardPage() {
                         />
                     ))}
                 </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+                {scopeStats.map((stat) => (
+                    <button
+                        key={stat.label}
+                        type="button"
+                        onClick={stat.onClick}
+                        className="surface-panel rounded-[1.15rem] border px-3 py-2.5 text-left"
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{stat.label}</p>
+                        <p className="mt-1 text-lg font-black text-foreground">{stat.value}</p>
+                    </button>
+                ))}
             </div>
 
             <div className={`surface-panel rounded-[1.3rem] border p-3 ${stagePulseToneClassName}`}>

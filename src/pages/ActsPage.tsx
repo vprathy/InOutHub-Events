@@ -90,7 +90,12 @@ export default function ActsPage() {
         stageReady: acts?.filter((act) => act.arrivalStatus === 'Ready').length || 0,
         musicMissing: acts?.filter((act) => !act.hasMusicTrack).length || 0,
     };
-    const attentionCount = acts?.filter((act) => act.participantCount === 0 || act.missingAssetCount > 0 || !act.hasMusicTrack).length || 0;
+    const attentionCount = acts?.filter((act) =>
+        act.readinessState === 'Blocked'
+        || act.readinessState === 'At Risk'
+        || act.arrivalStatus === 'Not Arrived'
+        || (act.openIssueCount || 0) > 0
+    ).length || 0;
     const readyCount = acts?.filter((act) => act.arrivalStatus === 'Ready' && act.participantCount > 0 && act.hasMusicTrack && act.missingAssetCount === 0).length || 0;
 
     const getReadinessScore = (act: NonNullable<typeof acts>[number]) => {
@@ -106,7 +111,12 @@ export default function ActsPage() {
         const matchesSearch = act.name.toLowerCase().includes(deferredSearchQuery.toLowerCase()) || (act.managerName || '').toLowerCase().includes(deferredSearchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
-        if (activeFilter === 'attention') return act.participantCount === 0 || act.missingAssetCount > 0 || !act.hasMusicTrack;
+        if (activeFilter === 'attention') {
+            return act.readinessState === 'Blocked'
+                || act.readinessState === 'At Risk'
+                || act.arrivalStatus === 'Not Arrived'
+                || (act.openIssueCount || 0) > 0;
+        }
         if (activeFilter === 'ready') return act.arrivalStatus === 'Ready' && act.participantCount > 0 && act.hasMusicTrack && act.missingAssetCount === 0;
         if (activeFilter === 'intro') return act.hasApprovedIntro;
         if (activeFilter === 'music_missing') return !act.hasMusicTrack;
@@ -174,7 +184,7 @@ export default function ActsPage() {
 
     const filterOptions = [
         { key: 'all' as const, label: 'All', count: stats.total, icon: Users },
-        { key: 'attention' as const, label: 'Needs Attention', count: attentionCount, icon: Music },
+        { key: 'attention' as const, label: 'Acts At Risk', count: attentionCount, icon: Music },
         { key: 'music_missing' as const, label: 'Music Missing', count: stats.musicMissing, icon: Music },
         { key: 'needs_cast' as const, label: 'Needs Cast', count: stats.needsCast, icon: Users },
         { key: 'prep_gaps' as const, label: 'Prep Gaps', count: stats.docs, icon: Clock3 },
@@ -193,8 +203,8 @@ export default function ActsPage() {
         },
         {
             key: 'attention',
-            label: 'Need Attention',
-            infoBody: 'Counts performances with missing cast, missing music, or incomplete prep items that still block readiness.',
+            label: 'Acts At Risk',
+            infoBody: 'Counts blocked, at-risk, or not-arrived performances that could disrupt readiness or execution.',
             value: attentionCount,
             icon: Clock3,
             tone: attentionCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
