@@ -26,6 +26,7 @@ Working rule:
 - [ ] Define the first readiness insight set so Dashboard can explain participant/performance prep risk, blocked work, and unresolved readiness instead of only linking to tools.
 - [ ] Define the tenant onboarding automation flow from source connection to first trusted sync, including success metrics for time-to-first-value.
 - [ ] Document the operational resilience pillars for product and pitch use: refresh recovery, live-pointer recovery, protected live window, and role-safe execution.
+- [ ] Apply the device-fit surface split so mobile stays operator-first while advanced admin density moves to tablet/desktop-first surfaces.
 
 ### Performance Intake & Staging
 - [x] **Backend/Supabase:** Performance Request Staging model (Table, RLS, Audit).
@@ -53,6 +54,7 @@ Phase 2 roadmap links:
 - intake and review roadmap status: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/intake-and-review-unification.md)
 - onboarding go / no-go rubric: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/new-tenant-onboarding-go-no-go-rubric.md)
 - operator screen organization: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/operator-screen-organization-framework.md)
+- device-fit surface matrix: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/device-fit-surface-matrix.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/device-fit-surface-matrix.md)
 
 ### Intro System Final Checks
 - [ ] Verify approved intro playback timing and cinematic polish.

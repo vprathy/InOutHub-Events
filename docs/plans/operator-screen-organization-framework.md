@@ -130,6 +130,17 @@ If a screen needs more than that on first view, the structure is too dense.
 - dense metadata should never crowd the thumb path
 - tablet layouts may widen into two columns, but must still preserve one dominant reading order
 
+### 8A. Device-Fit Disclosure Rules
+- Use the same workflow across devices; change disclosure depth, not the underlying job.
+- Mobile should show the essential operator path first.
+- Tablet may expose richer review and admin context when it improves throughput.
+- Desktop may expose dense setup, audit, and configuration tooling by default.
+- If a workflow is needed urgently on phone, it must remain reachable even if secondary details are hidden or collapsed.
+- Do not create separate product language per device. The customer-facing story should remain: same workflow, right amount of detail for the screen size.
+
+Reference:
+- device-fit matrix: [/Users/vinay/dev/InOutHub-Events-main/docs/plans/device-fit-surface-matrix.md](/Users/vinay/dev/InOutHub-Events-main/docs/plans/device-fit-surface-matrix.md)
+
 ### 9. Labeling Rules
 Use task language, not database language.
 
@@ -205,6 +216,8 @@ When auditing a screen, ask:
 5. Is the first visible action obvious?
 6. Can a mobile operator use it one-handed without hunting?
 7. Is any section duplicating what another section already says?
+8. Is the mobile view showing only the essential operator surface, with dense admin detail collapsed or moved to larger breakpoints?
+9. If tablet/desktop show more detail, does the workflow still read as the same product rather than a different app?
 
 ## Current Application
 This framework should govern:
