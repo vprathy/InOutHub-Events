@@ -12,7 +12,6 @@ import {
 import { useActsQuery } from '@/hooks/useActs';
 import {
     Shield,
-    History as HistoryIcon,
     Info,
     AlertCircle,
     Phone,
@@ -25,13 +24,12 @@ import {
     Trash2,
     Mail,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { EditParticipantModal } from '@/components/participants/EditParticipantModal';
-import { ActionMenu } from '@/components/ui/ActionMenu';
 import { buildParticipantRequirementRows, getRequirementStatusMeta, type RequirementRow } from '@/lib/requirementsPrototype';
 import { AssetPreviewModal } from '@/components/ui/AssetPreviewModal';
 import { useSelection } from '@/context/SelectionContext';
@@ -101,7 +99,6 @@ export function ParticipantProfilePage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
-    const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [uploadTarget, setUploadTarget] = useState<{ templateId?: string | null; replaceAssetId?: string | null; type: 'waiver' | 'photo' | 'intro_media' | 'other'; title: string } | null>(null);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadName, setUploadName] = useState('');
@@ -199,18 +196,6 @@ export function ParticipantProfilePage() {
     const editRequested = searchParams.get('action') === 'edit-profile';
     const requirementRows = safeParticipant ? buildParticipantRequirementRows(safeParticipant) : [];
     const unresolvedRequirementRows = requirementRows.filter((row) => !['approved', 'auto_complete'].includes(row.status));
-    const nextRequirementRow = unresolvedRequirementRows[0] || requirementRows[0] || null;
-
-    useEffect(() => {
-        const defaultKey = openSpecialRequestNotes.length > 0
-            ? 'special-request'
-            : nextRequirementRow?.key || requirementRows[0]?.key || null;
-
-        setActiveActionKey((current) => {
-            if (!defaultKey) return null;
-            return current ?? defaultKey;
-        });
-    }, [openSpecialRequestNotes.length, nextRequirementRow?.key, requirementRows]);
 
     if (isLoading) {
         return (
@@ -238,27 +223,24 @@ export function ParticipantProfilePage() {
     const readinessLabel = inactiveRecord
         ? getParticipantStatusLabel(participant.status)
         : unresolvedRequirementRows.some((row) => row.status === 'missing' || row.status === 'rejected')
-            ? 'Blocked'
+            ? 'Requirements Missing'
             : unresolvedRequirementRows.length > 0 || openSpecialRequestNotes.length > 0 || unresolvedNoteCount > 0
                 ? 'Needs Review'
                 : 'Cleared';
-    const readinessTone = inactiveRecord
-        ? participant.status === 'withdrawn'
-            ? 'critical'
-            : 'warning'
-        : readinessLabel === 'Blocked'
-            ? 'critical'
-            : readinessLabel === 'Needs Review'
-                ? 'warning'
-                : 'good';
-    const readinessDetail = inactiveRecord
-        ? 'This person is not active in the current event roster.'
-        : readinessLabel === 'Blocked'
-            ? `${unresolvedRequirementRows.length} blocker${unresolvedRequirementRows.length === 1 ? '' : 's'} need action now.`
-            : readinessLabel === 'Needs Review'
-                ? `${Math.max(unresolvedRequirementRows.length, openSpecialRequestNotes.length, unresolvedNoteCount)} item${Math.max(unresolvedRequirementRows.length, openSpecialRequestNotes.length, unresolvedNoteCount) === 1 ? '' : 's'} still need review.`
-                : 'No immediate participant blockers are open.';
-
+    const recordStatusLabel = participant.status === 'active' || !participant.status
+        ? 'Active Record'
+        : getParticipantStatusLabel(participant.status);
+    const roleSummary = participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew' : 'Participant';
+    const assignmentSummary = assignedActCount === 0
+        ? 'Unassigned'
+        : assignedActCount === 1
+            ? (participant.acts?.[0]?.name || 'Assigned')
+            : `${participant.acts?.[0]?.name || 'Assigned'} +${assignedActCount - 1}`;
+    const requirementsSummary = unresolvedRequirementRows.length > 0
+        ? `${unresolvedRequirementRows.length} requirement${unresolvedRequirementRows.length === 1 ? '' : 's'} missing`
+        : readinessLabel === 'Needs Review'
+            ? 'Needs review'
+            : 'Ready';
     const closeEditProfile = () => {
         const nextParams = new URLSearchParams(searchParams);
         if (nextParams.get('action') === 'edit-profile') {
@@ -565,68 +547,51 @@ export function ParticipantProfilePage() {
 
             <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 space-y-3 px-4 pb-12 duration-500 md:px-0">
                 <div className="rounded-2xl border border-border/40 bg-card/80 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
                             <h1 className="truncate text-lg font-black tracking-tight text-foreground sm:text-xl">
                                 {participant.firstName} {participant.lastName}
                             </h1>
-                            <p className="mt-0.5 truncate text-[13px] text-muted-foreground sm:text-sm">
-                                {(participant.acts?.some((act) => act.role && act.role !== 'Performer') ? 'Crew / Support' : 'Participant')}
-                                {' • '}
-                                {participant.isMinor ? 'Minor' : 'Adult'}
-                                {' • '}
-                                {assignedActCount === 0 ? 'Unassigned' : `${assignedActCount} act${assignedActCount === 1 ? '' : 's'}`}
-                            </p>
                         </div>
-                        <ActionMenu
-                            options={[
-                                {
-                                    label: 'View Record History',
-                                    onClick: () => setShowHistoryModal(true),
-                                    icon: <HistoryIcon className="h-4 w-4" />,
-                                },
-                            ]}
-                        />
-                    </div>
-                    <div className="space-y-2.5 border-t border-border/40 pt-2">
-                        <div className="flex items-start gap-2">
-                            <span className={`shrink-0 pt-0.5 text-[11px] font-black uppercase tracking-[0.18em] ${
-                                readinessTone === 'critical'
-                                    ? 'text-destructive'
-                                    : readinessTone === 'warning'
-                                        ? 'text-orange-600'
-                                        : 'text-emerald-600'
+                        {canManageParticipantRecords ? (
+                            <select
+                                value={participant.status || 'active'}
+                                onChange={(e) => updateStatus.mutate(e.target.value as any)}
+                                className={`h-8 shrink-0 rounded-lg border px-2.5 text-[10px] font-black uppercase tracking-[0.14em] outline-none transition-all ${
+                                    participant.status === 'withdrawn'
+                                        ? 'border-destructive/20 bg-destructive/10 text-destructive'
+                                        : participant.status === 'missing_from_source'
+                                            ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
+                                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+                                }`}
+                            >
+                                <option value="active">Active</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="refunded">Refunded</option>
+                                <option value="missing_from_source">Missing From Source</option>
+                            </select>
+                        ) : (
+                            <p className={`shrink-0 truncate text-[10px] font-black uppercase tracking-[0.16em] ${
+                                participant.status === 'active' || !participant.status
+                                    ? 'text-emerald-600'
+                                    : participant.status === 'withdrawn'
+                                        ? 'text-destructive'
+                                        : 'text-orange-600'
                             }`}>
-                                {readinessLabel}
-                            </span>
-                            <span className="shrink-0 pt-0.5 text-muted-foreground/40">·</span>
-                            <p className="min-w-0 text-[13px] leading-5 text-muted-foreground sm:text-sm">{readinessDetail}</p>
-                        </div>
-                        {participant.isMinor && (participant.guardianPhone || participant.operationalContacts?.length) ? (
-                            <div className="flex flex-wrap gap-2">
-                                {capabilities.canViewGuardianPII && participant.guardianPhone ? (
-                                    <a
-                                        href={`tel:${participant.guardianPhone}`}
-                                        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-3.5 text-[9px] font-black uppercase tracking-[0.14em] text-primary-foreground"
-                                    >
-                                        <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                        Call Guardian
-                                    </a>
-                                ) : (!capabilities.canViewGuardianPII && participant.operationalContacts?.length) ? (
-                                    <Button
-                                        variant="outline"
-                                        className="min-h-11 rounded-xl px-3.5 text-[9px] font-black uppercase tracking-[0.14em]"
-                                        onClick={() => {
-                                            setActiveActionKey('guardian_contact_complete');
-                                            requirementsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-                                        }}
-                                    >
-                                        <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                        View Operational Contacts
-                                    </Button>
-                                ) : null}
-                            </div>
-                        ) : null}
+                                {recordStatusLabel}
+                            </p>
+                        )}
+                    </div>
+                    <div className="mt-1.5">
+                        <p className="truncate text-[13px] text-muted-foreground sm:text-sm">
+                            {roleSummary}
+                            {participant.isMinor ? ' • Minor' : ''}
+                            {' • '}
+                            {assignmentSummary}
+                            {' • '}
+                            {requirementsSummary}
+                        </p>
                     </div>
                 </div>
                 <div className="animate-in fade-in space-y-3 duration-300">
@@ -697,7 +662,7 @@ export function ParticipantProfilePage() {
                                                     </span>
                                                 </div>
                                                 {!card.isOpen ? (
-                                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{card.detail}</p>
+                                                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{card.detail}</p>
                                                 ) : null}
                                             </div>
                                             <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${card.isOpen ? 'rotate-90' : ''}`} />
@@ -816,31 +781,6 @@ export function ParticipantProfilePage() {
                                     </div>
                                 </summary>
                                 <div className="border-t border-border/50 pt-3 space-y-3">
-                                    <div className="space-y-3 border-b border-border/50 pb-3">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Record Status</p>
-                                        {canManageParticipantRecords ? (
-                                            <select
-                                                value={participant.status || 'active'}
-                                                onChange={(e) => updateStatus.mutate(e.target.value as any)}
-                                                className={`mt-3 min-h-11 w-full rounded-xl border px-3 text-[10px] font-black uppercase tracking-[0.18em] outline-none transition-all ${participant.status === 'withdrawn'
-                                                    ? 'border-destructive/20 bg-destructive/10 text-destructive'
-                                                    : participant.status === 'missing_from_source'
-                                                        ? 'border-orange-500/20 bg-orange-500/10 text-orange-600'
-                                                        : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
-                                                    }`}
-                                            >
-                                                <option value="active">Active</option>
-                                                <option value="withdrawn">Withdrawn</option>
-                                                <option value="inactive">Inactive</option>
-                                                <option value="refunded">Refunded</option>
-                                                <option value="missing_from_source">Missing From Source</option>
-                                            </select>
-                                        ) : (
-                                            <div className="mt-3 flex min-h-11 items-center rounded-xl bg-background px-3">
-                                                <p className="text-sm font-black text-foreground">{getParticipantStatusLabel(participant.status)}</p>
-                                            </div>
-                                        )}
-                                    </div>
                                     <div className="divide-y divide-border/50">
                                         <div className="flex min-h-11 items-center justify-between py-2">
                                             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Email</span>
@@ -951,6 +891,22 @@ export function ParticipantProfilePage() {
                                     </div>
                                 </details>
                             ) : null}
+
+                            <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
+                                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-foreground">Record History</p>
+                                        <p className="text-xs text-muted-foreground">Source traceability and audit trail</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                                    </div>
+                                </summary>
+                                <div className="border-t border-border/50 pt-3">
+                                    <ParticipantHistoryContent participant={participant} />
+                                </div>
+                            </details>
                         </div>
                     </div>
 
@@ -1087,16 +1043,6 @@ export function ParticipantProfilePage() {
                 </div>
             </Modal>
 
-            <Modal
-                isOpen={showHistoryModal}
-                onClose={() => setShowHistoryModal(false)}
-                title="Record History"
-            >
-                <div className="max-h-[72vh] overflow-y-auto pr-1">
-                    <ParticipantHistoryContent participant={participant} />
-                </div>
-            </Modal>
-
             <AssetPreviewModal
                 isOpen={!!selectedAssetUrl}
                 onClose={() => setSelectedAssetUrl(null)}
@@ -1173,7 +1119,7 @@ function ParticipantHistoryContent({ participant }: { participant: any }) {
                 <div className="flex items-start justify-between">
                     <div className="space-y-1">
                         <h3 className="flex items-center text-sm font-black uppercase tracking-widest text-muted-foreground">
-                            <HistoryIcon className="w-4 h-4 mr-2 text-primary" />
+                            <Info className="w-4 h-4 mr-2 text-primary" />
                             Operational Accountability
                         </h3>
                         <p className="text-[10px] font-medium uppercase tracking-tighter text-muted-foreground">Human-readable history of record changes</p>
