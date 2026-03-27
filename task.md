@@ -33,6 +33,7 @@ Working rule:
 - [x] **Intake Review:** Implement UI for Review -> Approve/Reject flow.
 - [x] **Operational Conversion:** Implement logic for Approved Request -> Operational Act.
 - [x] **History:** Intake Audit Timeline visibility for operators.
+- [x] **Imported Contacts Preservation:** Generic imported request contacts now persist through request -> act conversion via `acts.metadata.imported_contacts`; this migration was already applied in live Supabase, so any rollback must use a follow-up rollback migration, not a code revert alone.
 
 ### UX Guardrails
 - [ ] Do not redesign while wiring; keep implementation aligned to the agreed surface model.
