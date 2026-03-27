@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, Settings2, Loader2, PencilLine } from 'lucide-react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, Loader2, PencilLine } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useCreateStage, useStagesQuery, useUpdateStage } from '@/hooks/useStages';
 import {
@@ -298,7 +298,7 @@ export default function LineupPage() {
     }
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4 pb-24">
             <PageHeader
                 title="Show Flow"
                 subtitle="Set the running order, review conflicts, and keep the future queue clean."
@@ -309,6 +309,93 @@ export default function LineupPage() {
                     Show Flow is view-only for your current access level. EventAdmin is required to add stages, change order, or remove performances.
                 </div>
             ) : null}
+
+            <div className="sticky top-0 z-20 space-y-0">
+                <div className="px-1">
+                    <div className="flex items-end gap-2">
+                        <div className="min-w-0 flex-1 overflow-x-auto pb-0.5">
+                            <div className="inline-flex min-w-full items-end rounded-t-[0.95rem] border border-b-0 border-border/70 bg-background/35 px-1 pt-1">
+                                {isLoadingStages ? (
+                                    <div className="h-9 w-36 animate-pulse rounded-t-[0.78rem] bg-muted" />
+                                ) : stages && stages.length > 0 ? (
+                                    stages.map((stage) => {
+                                        const isActive = selectedStageId === stage.id;
+
+                                        return (
+                                            <button
+                                                key={stage.id}
+                                                type="button"
+                                                onClick={() => setSelectedStageId(stage.id)}
+                                                className={`min-h-9 shrink-0 rounded-t-[0.78rem] border border-transparent px-4 text-center text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                                    isActive
+                                                        ? 'border-border/70 border-b-card bg-card text-foreground shadow-sm'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                {stage.name}
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <span className="px-4 pb-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                                        No stages yet
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        {capabilities.canManageLineup ? (
+                            <button
+                                type="button"
+                                onClick={() => setIsStageModalOpen(true)}
+                                className="inline-flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-[0.95rem] border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/40"
+                                aria-label="Add stage"
+                            >
+                                <Plus className="h-5 w-5" />
+                            </button>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] rounded-tl-none p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <h2 className="truncate text-lg font-black tracking-tight text-foreground">
+                                {selectedStage?.name || 'Select a stage'}
+                            </h2>
+                            <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${stageStatusToneClass}`}>
+                                {stageStatusLabel}
+                            </span>
+                        </div>
+                        <InlineInfoTip
+                            align="right"
+                            label="Stage flow"
+                            body="Switch stages here, add a new stage with the plus button, and tune the running order below for the selected stage."
+                        />
+                    </div>
+                    {lineup && lineup.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" compact />
+                            <OperationalMetricCard label="Run Minutes" value={totalDuration} icon={Sparkles} tone="info" compact />
+                            <OperationalMetricCard label="Stage Ready" value={readyCount} icon={Sparkles} tone="good" compact />
+                            <OperationalMetricCard
+                                label={criticalRisks > 0 ? 'Needs Review' : 'Estimated End'}
+                                value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
+                                icon={Calendar}
+                                tone={criticalRisks > 0 ? 'critical' : 'default'}
+                                compact
+                            />
+                        </div>
+                    ) : selectedStageId ? (
+                        <div className="rounded-2xl border border-dashed border-border/70 bg-background/30 px-4 py-4 text-sm text-muted-foreground">
+                            No performances are scheduled on this stage yet.
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-dashed border-border/70 bg-background/30 px-4 py-4 text-sm text-muted-foreground">
+                            Choose a stage to load its metrics and running order.
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {criticalRisks > 0 ? (
                 <OperationalResponseCard
@@ -326,101 +413,23 @@ export default function LineupPage() {
                 />
             )}
 
-            <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] p-3">
-                <div className="grid gap-3 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-start">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stage Workspace</p>
-                            <InlineInfoTip
-                                label="Stage flow"
-                                body="Choose the stage you want to tune. Add performances, rename stages, and adjust the running order from here."
-                            />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-lg font-black tracking-tight text-foreground">
-                                {selectedStage?.name || 'Select a stage'}
-                            </h2>
-                            <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${stageStatusToneClass}`}>
-                                {stageStatusLabel}
-                            </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            {selectedStageId
-                                ? 'Metrics and queue below are scoped to this stage.'
-                                : 'Choose a stage to tune the running order.'}
-                        </p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsStageModalOpen(true)}
-                            disabled={!capabilities.canManageLineup}
-                            className="min-h-10 gap-1.5 rounded-xl border-border px-3 text-[10px] font-black uppercase tracking-[0.12em] text-foreground sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"
-                        >
-                            <Settings2 size={16} />
-                            Manage
-                        </Button>
-                    </div>
+            <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 px-1">
+                    <span className="text-sm font-medium text-muted-foreground">
+                        {isLiveRun ? 'Current and near-future slots stay locked while the stage is live.' : 'Drag the numbered rail on the left to reorder future items.'}
+                    </span>
+                    <InlineInfoTip
+                        align="right"
+                        label={isLiveRun ? 'Live reorder rules' : 'Reorder lineup'}
+                        body={
+                            isLiveRun
+                                ? `Only the future queue can be reordered while the show is live. Acts within the next ${coordinationLeadMinutes} minutes stay locked for backstage coordination.`
+                                : 'Drag from the numbered rail on the left edge of a card to reorder this stage lineup.'
+                        }
+                    />
                 </div>
-                <div className="flex flex-wrap gap-2 pb-1">
-                    {isLoadingStages ? (
-                        <div className="h-10 w-32 bg-muted animate-pulse rounded-md" />
-                    ) : (
-                        stages?.map(stage => (
-                            <Button
-                                key={stage.id}
-                                variant={selectedStageId === stage.id ? 'default' : 'outline'}
-                                onClick={() => setSelectedStageId(stage.id)}
-                                className={`h-11 shrink-0 rounded-2xl ${selectedStageId === stage.id ? 'shadow-lg shadow-primary/20' : 'border-border text-muted-foreground hover:text-foreground'}`}
-                            >
-                                <LayoutGrid size={16} className="mr-2" />
-                                {stage.name}
-                            </Button>
-                        ))
-                    )}
-                </div>
-                {lineup && lineup.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" compact />
-                        <OperationalMetricCard label="Run Minutes" value={totalDuration} icon={Sparkles} tone="info" compact />
-                        <OperationalMetricCard label="Stage Ready" value={readyCount} icon={Sparkles} tone="good" compact />
-                        <OperationalMetricCard
-                            label={criticalRisks > 0 ? 'Needs Review' : 'Estimated End'}
-                            value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
-                            icon={Calendar}
-                            tone={criticalRisks > 0 ? 'critical' : 'default'}
-                            compact
-                        />
-                    </div>
-                ) : null}
-            </div>
-
-            {/* Lineup List */}
-                <div className="space-y-3">
-                    <div className="grid gap-2 px-1 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stage Queue</p>
-                            <h2 className="text-lg font-black tracking-tight text-foreground">
-                                {selectedStage?.name || 'Selected Stage'}
-                            </h2>
-                        </div>
-                        <div className="flex items-center justify-start gap-2 lg:justify-end">
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {isLiveRun ? 'Live reorder rules active' : 'Drag to reorder'}
-                            </span>
-                            <InlineInfoTip
-                                align="right"
-                                label={isLiveRun ? 'Live reorder rules' : 'Reorder lineup'}
-                                body={
-                                    isLiveRun
-                                        ? `Only the future queue can be reordered while the show is live. Acts within the next ${coordinationLeadMinutes} minutes stay locked for backstage coordination.`
-                                        : 'Drag from the numbered handle to reorder this stage lineup.'
-                                }
-                            />
-                        </div>
-                    </div>
-                    {selectedStageId ? (
-                        isLoadingLineup ? (
+                {selectedStageId ? (
+                    isLoadingLineup ? (
                         <div className="space-y-3">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-24 bg-muted animate-pulse rounded-xl border border-border" />

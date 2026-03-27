@@ -31,7 +31,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
             ? 'Arrived'
             : slot.act.arrivalStatus === 'Backstage'
                 ? 'Backstage'
-                : 'Needs Follow-Up';
+                : 'Not Ready';
     const readinessTone = slot.act.arrivalStatus === 'Ready'
         ? 'surface-good'
         : slot.act.arrivalStatus === 'Arrived' || slot.act.arrivalStatus === 'Backstage'
@@ -47,9 +47,17 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                 {/* Drag Handle - Tactile Grip area */}
                 <button
                     type="button"
-                    onPointerDown={lockedReason ? undefined : onDragStart}
+                    onPointerDownCapture={
+                        lockedReason || !onDragStart
+                            ? undefined
+                            : (event) => {
+                                event.preventDefault();
+                                onDragStart(event);
+                            }
+                    }
                     disabled={Boolean(lockedReason)}
-                    className={`flex w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary touch-none ${lockedReason ? 'cursor-not-allowed opacity-45' : 'cursor-grab active:cursor-grabbing'}`}
+                    className={`flex min-h-[112px] w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary select-none touch-none ${lockedReason ? 'cursor-not-allowed opacity-45' : 'cursor-grab active:cursor-grabbing'}`}
+                    style={{ touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                     aria-label={`Reorder performance ${orderIndex}`}
                 >
                     <span className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground/80">{orderIndex}</span>
@@ -58,8 +66,9 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                 <div className="flex-1 p-4 lg:p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-primary">
-                                #{orderIndex}
+                            <span className="flex items-center rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-black text-primary">
+                                <Clock size={14} className="mr-1.5" />
+                                {formatEventTime(slot.scheduledStartTime, undefined, true)}
                             </span>
                             <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${readinessTone}`}>
                                 {readinessLabel}
@@ -72,13 +81,9 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                         </div>
                     </div>
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                            <div className="space-y-4 flex-1">
+                            <div className="space-y-3 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center bg-primary/10 text-primary px-2.5 py-1 rounded-lg text-sm font-black">
-                                        <Clock size={14} className="mr-1.5" />
-                                        {formatEventTime(slot.scheduledStartTime, undefined, true)}
-                                </div>
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 border-border shadow-none">
+                                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 border-border shadow-none">
                                     {duration}m Performance
                                 </Badge>
                                 {setupTime > 0 && (
@@ -94,7 +99,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                 </h3>
                                 <p className="text-sm text-muted-foreground">
                                     {slot.act.participants?.length || 0} performers
-                                    {setupTime > 0 ? ` • ${setupTime} minute setup buffer` : ' • no extra setup buffer'}
+                                    {setupTime > 0 ? ` • ${setupTime} minute setup` : ''}
                                 </p>
                             </div>
                         </div>
