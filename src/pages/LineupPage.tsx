@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, ArrowUpRight, Settings2, Loader2, PencilLine } from 'lucide-react';
+import { ListOrdered, Plus, LayoutGrid, Calendar, Sparkles, Settings2, Loader2, PencilLine } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useCreateStage, useStagesQuery, useUpdateStage } from '@/hooks/useStages';
 import {
@@ -302,15 +302,6 @@ export default function LineupPage() {
             <PageHeader
                 title="Show Flow"
                 subtitle="Set the running order, review conflicts, and keep the future queue clean."
-                actions={
-                    <div className="grid gap-2 sm:flex sm:flex-row md:w-auto">
-                        {selectedStageId && (
-                            <Button onClick={() => setIsAddModalOpen(true)} disabled={!capabilities.canManageLineup} className="h-10 w-full gap-1.5 self-start px-4 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto">
-                                <Plus size={16} /> Add Performance
-                            </Button>
-                        )}
-                    </div>
-                }
             />
 
             {!capabilities.canManageLineup ? (
@@ -359,7 +350,7 @@ export default function LineupPage() {
                                 : 'Choose a stage to tune the running order.'}
                         </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsStageModalOpen(true)}
@@ -368,15 +359,6 @@ export default function LineupPage() {
                         >
                             <Settings2 size={16} />
                             Manage
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => selectedStageId && setIsAddModalOpen(true)}
-                            disabled={!selectedStageId || !capabilities.canManageLineup}
-                            className="min-h-10 gap-1.5 rounded-xl border-primary/20 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-primary hover:bg-primary/15 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"
-                        >
-                            Add To Flow
-                            <ArrowUpRight size={16} />
                         </Button>
                     </div>
                 </div>
@@ -555,6 +537,16 @@ export default function LineupPage() {
                 onAdd={handleAddAct}
                 eventId={eventId}
             />
+
+            {selectedStageId && capabilities.canManageLineup ? (
+                <Button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-12 items-center gap-1.5 rounded-full border border-primary/30 bg-primary px-3.5 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
+                >
+                    <Plus size={18} className="shrink-0" />
+                    Add Performance
+                </Button>
+            ) : null}
 
             <Modal
                 isOpen={isStageModalOpen}
