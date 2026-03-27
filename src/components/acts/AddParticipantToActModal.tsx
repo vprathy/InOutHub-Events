@@ -29,6 +29,10 @@ function normalizePhone(value?: string | null) {
     return (value || '').replace(/\D/g, '');
 }
 
+function normalizeEmail(value?: string | null) {
+    return (value || '').trim().toLowerCase();
+}
+
 function normalizeRole(value: string | undefined, fallback: string) {
     const candidate = (value || '').trim().toLowerCase();
     const direct = VALID_ROLES.find((role) => role.toLowerCase() === candidate);
@@ -87,6 +91,91 @@ function parseImportRows(rows: Record<string, unknown>[]) {
             };
         })
         .filter((row) => row.firstName || row.lastName);
+}
+
+type IdentityCandidate = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    isMinor?: boolean;
+    guardianPhone?: string | null;
+    email?: string | null;
+};
+
+type IdentityInput = {
+    firstName: string;
+    lastName: string;
+    isMinor?: boolean;
+    phone?: string | null;
+    email?: string | null;
+};
+
+type IdentityResolution =
+    | { outcome: 'match'; participant: IdentityCandidate; reason: 'email' | 'phone_and_name' }
+    | { outcome: 'review'; reason: 'name_only' | 'ambiguous_email' | 'ambiguous_phone' };
+
+function resolveParticipantIdentity(
+    candidates: IdentityCandidate[],
+    input: IdentityInput,
+): IdentityResolution | null {
+    const normalizedName = `${normalizeName(input.firstName)}:${normalizeName(input.lastName)}`;
+    const normalizedPhone = normalizePhone(input.phone);
+    const normalizedEmail = normalizeEmail(input.email);
+    const isMinorInput = !!input.isMinor;
+
+    const sameName = candidates.filter((participant) => {
+        const participantName = `${normalizeName(participant.firstName)}:${normalizeName(participant.lastName)}`;
+        return participantName === normalizedName;
+    });
+
+    if (normalizedEmail && !isMinorInput) {
+        const emailMatches = candidates.filter((participant) => normalizeEmail(participant.email) === normalizedEmail);
+        if (emailMatches.length === 1) {
+            return { outcome: 'match', participant: emailMatches[0], reason: 'email' };
+        }
+        if (emailMatches.length > 1) {
+            const sameNameEmailMatch = emailMatches.find((participant) => {
+                const participantName = `${normalizeName(participant.firstName)}:${normalizeName(participant.lastName)}`;
+                return participantName === normalizedName;
+            });
+            if (sameNameEmailMatch) {
+                return { outcome: 'match', participant: sameNameEmailMatch, reason: 'email' };
+            }
+            return { outcome: 'review', reason: 'ambiguous_email' };
+        }
+    }
+
+    if (normalizedPhone && normalizedName !== ':') {
+        const phoneAndNameMatches = candidates.filter((participant) => {
+            const participantName = `${normalizeName(participant.firstName)}:${normalizeName(participant.lastName)}`;
+            return participantName === normalizedName && normalizePhone(participant.guardianPhone) === normalizedPhone;
+        });
+        if (phoneAndNameMatches.length === 1) {
+            return { outcome: 'match', participant: phoneAndNameMatches[0], reason: 'phone_and_name' };
+        }
+        if (phoneAndNameMatches.length > 1) {
+            return { outcome: 'review', reason: 'ambiguous_phone' };
+        }
+    }
+
+    if (normalizedEmail && isMinorInput) {
+        const sameNameEmailMatches = candidates.filter((participant) => {
+            const participantName = `${normalizeName(participant.firstName)}:${normalizeName(participant.lastName)}`;
+            return participantName === normalizedName && normalizeEmail(participant.email) === normalizedEmail;
+        });
+        if (sameNameEmailMatches.length === 1) {
+            return { outcome: 'match', participant: sameNameEmailMatches[0], reason: 'email' };
+        }
+        if (sameNameEmailMatches.length > 1) {
+            return { outcome: 'review', reason: 'ambiguous_email' };
+        }
+    }
+
+    if (sameName.length === 1) {
+        return { outcome: 'review', reason: 'name_only' };
+    }
+
+    return null;
 }
 
 export function AddParticipantToActModal({
@@ -153,6 +242,33 @@ export function AddParticipantToActModal({
     const handleQuickCreate = async () => {
         if (!quickFirstName.trim() || !quickLastName.trim()) return;
         try {
+            const identityResolution = resolveParticipantIdentity((participants || []) as IdentityCandidate[], {
+                firstName: quickFirstName,
+                lastName: quickLastName,
+                isMinor: quickIsMinor,
+                phone: quickPhone || null,
+                email: quickEmail || null,
+            });
+
+            if (identityResolution?.outcome === 'match') {
+                await addParticipant.mutateAsync({ participantId: identityResolution.participant.id, role: selectedRole });
+                setImportNotice({
+                    tone: 'success',
+                    message: `${identityResolution.participant.firstName} ${identityResolution.participant.lastName} already exists in this event. Matched by ${identityResolution.reason === 'email' ? 'email' : 'phone and name'} and added to ${actName}.`,
+                });
+                return;
+            }
+
+            if (identityResolution?.outcome === 'review') {
+                setImportNotice({
+                    tone: 'error',
+                    message: identityResolution.reason === 'name_only'
+                        ? 'A person with this same name already exists in the event. Review Existing Event People instead of creating a duplicate.'
+                        : 'A possible duplicate was found for this person. Review Existing Event People before creating another record.',
+                });
+                return;
+            }
+
             const created = await createParticipant.mutateAsync({
                 firstName: quickFirstName,
                 lastName: quickLastName,
@@ -220,20 +336,28 @@ export function AddParticipantToActModal({
             const knownParticipants = [...(participants || [])];
             let createdCount = 0;
             let matchedCount = 0;
+            let heldForReviewCount = 0;
+            const heldPreview: string[] = [];
 
             for (const row of importRows) {
                 const targetRole = normalizeRole(row.role, selectedRole);
-                const normalizedName = `${normalizeName(row.firstName)}:${normalizeName(row.lastName)}`;
-                const normalizedRowPhone = normalizePhone(row.phone);
-
-                let match = knownParticipants.find((participant) => {
-                    const participantName = `${normalizeName(participant.firstName)}:${normalizeName(participant.lastName)}`;
-                    const participantPhone = normalizePhone(participant.guardianPhone);
-                    if (normalizedRowPhone) {
-                        return participantName === normalizedName && participantPhone === normalizedRowPhone;
-                    }
-                    return participantName === normalizedName;
+                const identityResolution = resolveParticipantIdentity(knownParticipants as IdentityCandidate[], {
+                    firstName: row.firstName,
+                    lastName: row.lastName,
+                    isMinor: row.isMinor,
+                    phone: row.guardianPhone || row.phone || null,
+                    email: row.email || null,
                 });
+
+                let match = identityResolution?.outcome === 'match' ? identityResolution.participant : null;
+
+                if (identityResolution?.outcome === 'review') {
+                    heldForReviewCount += 1;
+                    if (heldPreview.length < 3) {
+                        heldPreview.push(`${row.firstName} ${row.lastName}`.trim());
+                    }
+                    continue;
+                }
 
                 if (!match) {
                     const created = await createParticipant.mutateAsync({
@@ -251,7 +375,9 @@ export function AddParticipantToActModal({
                         eventId,
                         firstName: created.first_name,
                         lastName: created.last_name,
+                        isMinor: row.isMinor,
                         guardianPhone: created.guardian_phone,
+                        email: row.email || null,
                         status: created.status || 'active',
                     } as any;
                     knownParticipants.push(match as any);
@@ -271,7 +397,9 @@ export function AddParticipantToActModal({
             setImportFile(null);
             setImportNotice({
                 tone: 'success',
-                message: `${importRows.length} team rows processed. ${createdCount} created, ${matchedCount} matched, all assigned to ${actName}.`,
+                message: heldForReviewCount > 0
+                    ? `${importRows.length} rows processed. ${createdCount} created, ${matchedCount} matched, ${heldForReviewCount} held for duplicate review${heldPreview.length > 0 ? ` (${heldPreview.join(', ')})` : ''}.`
+                    : `${importRows.length} rows processed. ${createdCount} created, ${matchedCount} matched, all assigned to ${actName}.`,
             });
         } catch (error: any) {
             setImportNotice({
