@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import type { ActWithCounts, ArrivalStatus } from '@/types/domain';
+import type { ActWithCounts, ArrivalStatus, ActParticipantDetail } from '@/types/domain';
 import { useEffect } from 'react';
 import { deriveActReadinessSummary } from '@/lib/actReadiness';
 import { localInputToEventIso } from '@/lib/eventTime';
@@ -452,7 +452,8 @@ export function useActDetail(actId: string | null) {
                 setupTimeMinutes: row.setup_time_minutes,
                 arrivalStatus: row.arrival_status as ArrivalStatus,
                 notes: row.notes,
-                participants: (row.act_participants || []).map((ap: any) => ({
+                metadata: row.metadata,
+                participants: (row.act_participants || []).map((ap: any): ActParticipantDetail => ({
                     id: ap.id,
                     participantId: ap.participant.id,
                     firstName: ap.participant.first_name,

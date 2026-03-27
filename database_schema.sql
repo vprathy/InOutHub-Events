@@ -179,7 +179,11 @@ CREATE TABLE acts (
     duration_minutes INTEGER NOT NULL DEFAULT 5,
     setup_time_minutes INTEGER NOT NULL DEFAULT 2,
     arrival_status TEXT NOT NULL DEFAULT 'Not Arrived' CHECK (arrival_status IN ('Not Arrived', 'Arrived', 'Backstage', 'Ready')),
+    business_status TEXT CHECK (business_status IN ('Awaiting Roster', 'Needs Attention', 'Ready')),
     notes TEXT,
+    intake_source_type TEXT,
+    intake_source_id UUID,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

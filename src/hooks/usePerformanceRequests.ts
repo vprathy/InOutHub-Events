@@ -173,12 +173,51 @@ function buildImportInsights(row: PerformanceRequestRow) {
         || [leadFirstNameMatch?.sourceKey, leadLastNameMatch?.sourceKey].filter(Boolean).join(' + ')
         || null;
 
+    const roleBasedContacts = Object.entries(rawPayload)
+        .filter(([key]) => key.match(/\s+(name|email|phone|phone number|first name|last name)$/i))
+        .reduce((acc, [key, value]) => {
+            const roleMatch = key.match(/^(.*?)\s+(name|email|phone|phone number|first name|last name)$/i);
+            if (roleMatch && value) {
+                const roleRaw = roleMatch[1].trim();
+                // Avoid duplicating the primary requestor
+                if (['lead', 'requestor', 'requester'].includes(roleRaw.toLowerCase())) return acc;
+
+                const role = roleRaw.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+                if (!acc[role]) acc[role] = { name: null, email: null, phone: null, firstName: null, lastName: null, keys: [] };
+
+                acc[role].keys.push(key);
+                const field = roleMatch[2].toLowerCase();
+                const val = String(value).trim();
+
+                if (field.includes('name')) {
+                    if (field.includes('first')) acc[role].firstName = val;
+                    else if (field.includes('last')) acc[role].lastName = val;
+                    else acc[role].name = val;
+                } else if (field.includes('email')) {
+                    acc[role].email = val;
+                } else if (field.includes('phone')) {
+                    acc[role].phone = val;
+                }
+            }
+            return acc;
+        }, {} as Record<string, { name: string | null; email: string | null; phone: string | null; firstName: string | null; lastName: string | null; keys: string[] }>);
+
+    const extraInsights = Object.entries(roleBasedContacts).flatMap(([role, data]) => {
+        const items = [];
+        const combinedName = data.name || [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+        if (combinedName) items.push({ label: `${role} Name`, value: combinedName, sourceKey: data.keys.find(k => k.toLowerCase().includes('name')) });
+        if (data.email) items.push({ label: `${role} Email`, value: data.email, sourceKey: data.keys.find(k => k.toLowerCase().includes('email')) });
+        if (data.phone) items.push({ label: `${role} Phone`, value: data.phone, sourceKey: data.keys.find(k => k.toLowerCase().includes('phone')) });
+        return items;
+    });
+
     const importInsights = [
         { label: 'Request Title', value: title, sourceKey: findRawValue(rawPayload, REQUEST_SOURCE_ALIASES.title)?.sourceKey || null },
         performanceTypeMatch ? { label: 'Performance Type', value: performanceTypeMatch.value, sourceKey: performanceTypeMatch.sourceKey } : null,
         combinedLeadName ? { label: 'Requestor', value: combinedLeadName, sourceKey: combinedLeadSourceKey } : null,
         leadEmailMatch ? { label: 'Email', value: leadEmailMatch.value, sourceKey: leadEmailMatch.sourceKey } : null,
         leadPhoneMatch ? { label: 'Phone', value: leadPhoneMatch.value, sourceKey: leadPhoneMatch.sourceKey } : null,
+        ...extraInsights,
         requestDateMatch ? { label: 'Request Date', value: requestDateMatch.value, sourceKey: requestDateMatch.sourceKey } : null,
         {
             label: 'Duration',

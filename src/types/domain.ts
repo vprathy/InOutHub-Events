@@ -97,6 +97,7 @@ export interface Act {
     setupTimeMinutes: number;
     arrivalStatus: ArrivalStatus;
     notes: string | null;
+    metadata?: Json;
 }
 
 export interface ActDetails extends Act {
@@ -163,6 +164,8 @@ export interface ActParticipantDetail {
     role: PerformanceRole | string;
     guardianName?: string | null;
     guardianPhone?: string | null;
+    status?: string;
+    assets?: any[];
 }
 
 export interface ActAsset {

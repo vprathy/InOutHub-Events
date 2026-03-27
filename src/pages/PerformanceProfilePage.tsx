@@ -221,64 +221,80 @@ export function PerformanceProfilePage() {
             <div className="space-y-2">
                 <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Reference</p>
 
-                {importedRequest ? (
+                {(importedRequest || (act.metadata as any)?.imported_contacts?.length > 0) ? (
                     <div className="rounded-2xl border border-border/40 bg-card px-3 py-2">
                         <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl px-1">
                             <div className="min-w-0">
                                 <p className="text-sm font-bold text-foreground">Imported Request</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Converted from intake request • {importedRequest.title}
+                                    Converted from intake request {importedRequest ? `• ${importedRequest.title}` : ''}
                                 </p>
                             </div>
-                            <Button
-                                variant="outline"
-                                className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
-                                onClick={() => navigate('/admin/performance-requests')}
-                            >
-                                Review Queue
-                            </Button>
+                            {importedRequest && (
+                                <Button
+                                    variant="outline"
+                                    className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
+                                    onClick={() => navigate('/admin/performance-requests')}
+                                >
+                                    Review Queue
+                                </Button>
+                            )}
                         </div>
                         <div className="border-t border-border/50 pt-3">
                             <div className="grid gap-3 md:grid-cols-2">
-                                <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Requestor Contact</p>
-                                    <div className="mt-2 space-y-2 text-sm">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Requestor</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.leadName || 'Not captured'}</span>
-                                        </div>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Email</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.leadEmail || 'Not captured'}</span>
-                                        </div>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Phone</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.leadPhone || 'Not captured'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="rounded-xl border border-border/50 bg-background/70 p-3">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Imported Intake Detail</p>
-                                    <div className="mt-2 space-y-2 text-sm">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Duration</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.durationEstimateMinutes} minutes</span>
-                                        </div>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Music</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.musicSupplied ? 'Supplied' : 'Not supplied'}</span>
-                                        </div>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="text-muted-foreground">Roster</span>
-                                            <span className="text-right font-bold text-foreground">{importedRequest.rosterSupplied ? 'Supplied' : 'Not supplied'}</span>
+                                {((act.metadata as any)?.imported_contacts || (importedRequest ? [{
+                                    role: 'Requestor',
+                                    name: importedRequest.leadName,
+                                    email: importedRequest.leadEmail,
+                                    phone: importedRequest.leadPhone
+                                }] : [])).map((contact: any, idx: number) => (
+                                    <div key={`contact-${idx}`} className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{contact.role} Contact</p>
+                                        <div className="mt-2 space-y-2 text-sm">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <span className="text-muted-foreground">Name</span>
+                                                <span className="text-right font-bold text-foreground">{contact.name || 'Not captured'}</span>
+                                            </div>
+                                            {contact.email && (
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <span className="text-muted-foreground">Email</span>
+                                                    <span className="text-right font-bold text-foreground">{contact.email}</span>
+                                                </div>
+                                            )}
+                                            {contact.phone && (
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <span className="text-muted-foreground">Phone</span>
+                                                    <span className="text-right font-bold text-foreground">{contact.phone}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
+                                ))}
+
+                                {importedRequest && (
+                                    <div className="rounded-xl border border-border/50 bg-background/70 p-3">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Imported Intake Detail</p>
+                                        <div className="mt-2 space-y-2 text-sm">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <span className="text-muted-foreground">Duration</span>
+                                                <span className="text-right font-bold text-foreground">{importedRequest.durationEstimateMinutes} minutes</span>
+                                            </div>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <span className="text-muted-foreground">Music</span>
+                                                <span className="text-right font-bold text-foreground">{importedRequest.musicSupplied ? 'Supplied' : 'Not supplied'}</span>
+                                            </div>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <span className="text-muted-foreground">Roster</span>
+                                                <span className="text-right font-bold text-foreground">{importedRequest.rosterSupplied ? 'Supplied' : 'Not supplied'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            {importedRequest.notes ? (
+                            {(importedRequest?.notes || (act.metadata as any)?.notes) ? (
                                 <div className="mt-3 rounded-xl border border-border/50 bg-background/70 p-3">
                                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Imported Notes</p>
-                                    <p className="mt-2 text-sm leading-6 text-foreground/85">{importedRequest.notes}</p>
+                                    <p className="mt-2 text-sm leading-6 text-foreground/85">{importedRequest?.notes || (act.metadata as any)?.notes}</p>
                                 </div>
                             ) : null}
                         </div>
