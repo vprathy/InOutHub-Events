@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, Moon, Settings, UserRound } from 'lucide-react';
+import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, Moon, UserRound } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
 import { BrandMark } from '@/components/branding/BrandMark';
@@ -272,28 +272,6 @@ export function Header() {
                                     <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     <span className="flex-1">{themeActionLabel}</span>
                                 </button>
-                                <button
-                                    onClick={() => {
-                                        setIsProfileMenuOpen(false);
-                                        navigate('/admin');
-                                    }}
-                                    className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                                >
-                                    <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <span>Admin</span>
-                                </button>
-                                {!isSelectionRoute && canManageOrgAccess ? (
-                                    <button
-                                        onClick={() => {
-                                            setIsProfileMenuOpen(false);
-                                            setIsOrgAccessOpen(true);
-                                        }}
-                                        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                                    >
-                                        <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                        <span>Manage Org Access</span>
-                                    </button>
-                                ) : null}
                                 {!isSelectionRoute && canManageEventAccess && eventId && !canManageOrgAccess ? (
                                     <button
                                         onClick={() => {

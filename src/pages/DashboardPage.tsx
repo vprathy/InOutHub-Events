@@ -65,7 +65,6 @@ export default function DashboardPage() {
     const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
     const [returnFocus, setReturnFocus] = useState<{ category: string; itemId?: string } | null>(null);
     const [visibleItemCounts, setVisibleItemCounts] = useState<Record<string, number>>({});
-    const [hasAutoExpandedQueue, setHasAutoExpandedQueue] = useState(false);
     const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
     const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const categorySentinels = useRef<Record<string, HTMLDivElement | null>>({});
@@ -513,12 +512,10 @@ export default function DashboardPage() {
         .filter((category) => category.count > 0);
     categoryCardsRef.current = categoryCards;
     useEffect(() => {
-        if (!categoryCards.length) return;
-        if (expandedCategory && categoryCards.some((category) => category.key === expandedCategory)) return;
-        if (hasAutoExpandedQueue) return;
-        setExpandedCategory(categoryCards[0].key);
-        setHasAutoExpandedQueue(true);
-    }, [categoryCards, expandedCategory, hasAutoExpandedQueue]);
+        if (!expandedCategory) return;
+        if (categoryCards.some((category) => category.key === expandedCategory)) return;
+        setExpandedCategory(null);
+    }, [categoryCards, expandedCategory]);
 
     if (!eventId) {
         return (
