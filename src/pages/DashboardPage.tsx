@@ -240,8 +240,9 @@ export default function DashboardPage() {
 
     const hasIdentityCheckActive = participantRequirementPolicies.some((policy) => policy.code === 'identity_check');
     const operationalParticipants = participants.filter((participant) => isOperationalParticipantStatus(participant.status));
-    const needPlacementItems = operationalParticipants
-        .filter((participant) => !participant.actCount)
+    const unassignedParticipants = operationalParticipants
+        .filter((participant) => !participant.actCount);
+    const needPlacementItems = unassignedParticipants
         .slice(0, 6)
         .map((participant) => ({
             id: participant.id,
@@ -272,8 +273,9 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             onClick: () => navigate(`/participants/${participant.id}`),
         }));
-    const blockedPerformanceItems = acts
-        .filter((act) => act.readinessState === 'Blocked' || (act.openIssueCount || 0) > 0)
+    const blockedActs = acts
+        .filter((act) => act.readinessState === 'Blocked' || (act.openIssueCount || 0) > 0);
+    const blockedPerformanceItems = blockedActs
         .slice(0, 6)
         .map((act) => ({
             id: act.id,
@@ -282,9 +284,11 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             onClick: () => navigate(`/performances/${act.id}`),
         }));
+    const identityPendingParticipants = hasIdentityCheckActive
+        ? operationalParticipants.filter((participant) => !participant.identityVerified)
+        : [];
     const identityPendingItems = hasIdentityCheckActive
-        ? operationalParticipants
-            .filter((participant) => !participant.identityVerified)
+        ? identityPendingParticipants
             .slice(0, 6)
             .map((participant) => ({
                 id: participant.id,
@@ -294,8 +298,9 @@ export default function DashboardPage() {
                 onClick: () => navigate(`/participants/${participant.id}`),
             }))
         : [];
-    const notArrivedItems = acts
-        .filter((act) => act.arrivalStatus === 'Not Arrived')
+    const notArrivedActs = acts
+        .filter((act) => act.arrivalStatus === 'Not Arrived');
+    const notArrivedItems = notArrivedActs
         .slice(0, 6)
         .map((act) => ({
             id: act.id,
@@ -305,8 +310,9 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             onClick: () => navigate(`/performances/${act.id}`),
         }));
-    const atRiskActItems = acts
-        .filter((act) => act.readinessState === 'At Risk')
+    const atRiskActs = acts
+        .filter((act) => act.readinessState === 'At Risk');
+    const atRiskActItems = atRiskActs
         .slice(0, 6)
         .map((act) => ({
             id: act.id,
@@ -315,8 +321,9 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             onClick: () => navigate(`/performances/${act.id}`),
         }));
-    const introReviewItems = acts
-        .filter((act) => act.hasIntroRequirement && !act.hasApprovedIntro)
+    const introReviewActs = acts
+        .filter((act) => act.hasIntroRequirement && !act.hasApprovedIntro);
+    const introReviewItems = introReviewActs
         .slice(0, 6)
         .map((act) => ({
             id: act.id,
@@ -349,8 +356,8 @@ export default function DashboardPage() {
             onClick: () => navigate('/admin/performance-requests'),
         }]
         : [];
-    const actsAtRiskCount = blockedPerformanceItems.length + atRiskActItems.length + notArrivedItems.length;
-    const setupGapCount = needPlacementItems.length + (dashboardPhase === 'pre_show' ? pendingRequestCount : 0);
+    const actsAtRiskCount = blockedActs.length + atRiskActs.length + notArrivedActs.length;
+    const setupGapCount = unassignedParticipants.length + (dashboardPhase === 'pre_show' ? pendingRequestCount : 0);
     const metrics = (dashboardPhase === 'pre_show'
         ? [
             {
@@ -436,6 +443,7 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             summary: 'Blocking issues need immediate follow-up.',
             audience: ['admin', 'ops'] as DashboardAudience[],
+            count: guardianGapItems.length + blockedActs.length + (dashboardPhase === 'pre_show' ? 0 : notArrivedActs.length) + atRiskActs.length,
             items: [
                 ...guardianGapItems,
                 ...blockedPerformanceItems,
@@ -449,6 +457,7 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             summary: 'Requirements and approvals still need follow-up.',
             audience: ['admin', 'ops'] as DashboardAudience[],
+            count: approvalItems.length + introReviewActs.length + identityPendingParticipants.length,
             items: [
                 ...approvalItems,
                 ...introReviewItems,
@@ -461,6 +470,7 @@ export default function DashboardPage() {
             tone: 'info' as OperationalTone,
             summary: 'Assignments and intake work still need setup before the show is ready.',
             audience: ['admin', 'ops'] as DashboardAudience[],
+            count: setupGapCount,
             items: [
                 ...needPlacementItems,
                 ...(dashboardPhase === 'pre_show' ? intakeBacklogItems : []),
@@ -472,6 +482,7 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             summary: 'Special requests still need review.',
             audience: ['admin', 'ops'] as DashboardAudience[],
+            count: radar?.needsResponse.specialRequestReview || 0,
             items: specialRequestItems.map((item) => ({
                 id: item.id,
                 label: item.name,
@@ -487,6 +498,7 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             summary: 'Import failures need admin attention before sources are trusted again.',
             audience: ['admin'] as DashboardAudience[],
+            count: urgentImportItems.length,
             items: urgentImportItems,
         },
     ] as const;
@@ -501,11 +513,11 @@ export default function DashboardPage() {
             return {
                 ...category,
                 items,
-                count: category.key === 'special_requests'
-                    ? radar?.needsResponse.specialRequestReview || 0
-                    : items.some((item) => getQueueItemCount(item) !== undefined)
+                count: category.count ?? (
+                    items.some((item) => getQueueItemCount(item) !== undefined)
                         ? items.reduce((sum, item) => sum + (getQueueItemCount(item) || 0), 0)
-                        : items.length,
+                        : items.length
+                ),
                 summary: category.summary,
             };
         })
