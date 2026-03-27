@@ -121,6 +121,21 @@ export default function LineupPage() {
     const readyCount = lineup?.filter((slot) => slot.act.arrivalStatus === 'Ready').length || 0;
     const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
     const liveIndex = localItems.findIndex((item) => item.id === stageState?.current_lineup_item_id);
+    const selectedStage = stages?.find((stage) => stage.id === selectedStageId) || null;
+    const stageStatusLabel = !selectedStageId
+        ? 'No stage selected'
+        : stageState?.status === 'Active'
+            ? 'Live now'
+            : stageState?.status === 'Paused'
+                ? 'Paused'
+                : 'Planning';
+    const stageStatusToneClass = !selectedStageId
+        ? 'text-muted-foreground border-border/60 bg-background/60'
+        : stageState?.status === 'Active'
+            ? 'text-emerald-700 border-emerald-500/20 bg-emerald-500/10 dark:text-emerald-300'
+            : stageState?.status === 'Paused'
+                ? 'text-orange-700 border-orange-500/20 bg-orange-500/10 dark:text-orange-300'
+                : 'text-sky-700 border-sky-500/20 bg-sky-500/10 dark:text-sky-300';
 
     const totalDuration = useMemo(() =>
         lineup?.reduce((acc, slot) =>
@@ -307,7 +322,7 @@ export default function LineupPage() {
             {criticalRisks > 0 ? (
                 <OperationalResponseCard
                     label="Flow Review"
-                    detail="The current order has timing or readiness conflicts that should be checked before the show locks in."
+                    detail={`${criticalRisks} lineup item${criticalRisks === 1 ? '' : 's'} need order or readiness review before the stage plan is locked.`}
                     count={criticalRisks}
                     tone="critical"
                     action={showReview ? 'Hide review details' : 'Open review details'}
@@ -321,16 +336,28 @@ export default function LineupPage() {
             )}
 
             <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] p-3">
-                <div className="grid gap-3 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-end">
-                    <div>
+                <div className="grid gap-3 px-1 sm:grid-cols-[minmax(0,1fr),auto] sm:items-start">
+                    <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stages</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stage Workspace</p>
                             <InlineInfoTip
                                 label="Stage flow"
                                 body="Choose the stage you want to tune. Add performances, rename stages, and adjust the running order from here."
                             />
                         </div>
-                        <p className="text-sm font-semibold text-foreground">Choose the stage you want to tune.</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-lg font-black tracking-tight text-foreground">
+                                {selectedStage?.name || 'Select a stage'}
+                            </h2>
+                            <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${stageStatusToneClass}`}>
+                                {stageStatusLabel}
+                            </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            {selectedStageId
+                                ? 'Metrics and queue below are scoped to this stage.'
+                                : 'Choose a stage to tune the running order.'}
+                        </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <Button
@@ -370,32 +397,29 @@ export default function LineupPage() {
                         ))
                     )}
                 </div>
+                {lineup && lineup.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" compact />
+                        <OperationalMetricCard label="Run Minutes" value={totalDuration} icon={Sparkles} tone="info" compact />
+                        <OperationalMetricCard label="Stage Ready" value={readyCount} icon={Sparkles} tone="good" compact />
+                        <OperationalMetricCard
+                            label={criticalRisks > 0 ? 'Needs Review' : 'Estimated End'}
+                            value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
+                            icon={Calendar}
+                            tone={criticalRisks > 0 ? 'critical' : 'default'}
+                            compact
+                        />
+                    </div>
+                ) : null}
             </div>
-
-            {lineup && lineup.length > 0 && (
-                <div className="surface-panel surface-section-show-flow rounded-[1.35rem] p-3">
-                    <div className="space-y-1 px-1">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Run Snapshot</p>
-                        <p className="text-sm font-semibold text-foreground">
-                            Current plan ends around {formatEventTime(estimatedEndTime.toISOString(), undefined, true)}.
-                        </p>
-                    </div>
-                    <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" />
-                        <OperationalMetricCard label="Stage Minutes" value={totalDuration} icon={Sparkles} tone="info" />
-                        <OperationalMetricCard label="Ready To Run" value={readyCount} icon={Sparkles} tone="good" />
-                        <OperationalMetricCard label={criticalRisks > 0 ? 'Conflicts' : 'Estimated End'} value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)} icon={Calendar} tone={criticalRisks > 0 ? 'critical' : 'default'} />
-                    </div>
-                </div>
-            )}
 
             {/* Lineup List */}
                 <div className="space-y-3">
                     <div className="grid gap-2 px-1 lg:grid-cols-[minmax(0,1fr),auto] lg:items-end">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Active Stage Flow</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Stage Queue</p>
                             <h2 className="text-lg font-black tracking-tight text-foreground">
-                                {stages?.find((stage) => stage.id === selectedStageId)?.name || 'Selected Stage'}
+                                {selectedStage?.name || 'Selected Stage'}
                             </h2>
                         </div>
                         <div className="flex items-center justify-start gap-2 lg:justify-end">
@@ -424,6 +448,17 @@ export default function LineupPage() {
                         <div className="space-y-3">
                             {lockedPrefixItems.length > 0 ? (
                                 <div className="space-y-3">
+                                    <div className="rounded-2xl border border-orange-500/15 bg-orange-500/5 px-4 py-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-orange-700 dark:text-orange-300">Locked Now</p>
+                                                <p className="mt-1 text-sm text-foreground">Current and near-future items stay fixed for live coordination.</p>
+                                            </div>
+                                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-orange-700 dark:text-orange-300">
+                                                {lockedPrefixItems.length} item{lockedPrefixItems.length === 1 ? '' : 's'}
+                                            </span>
+                                        </div>
+                                    </div>
                                     {lockedPrefixItems.map((slot, index) => {
                                         const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
                                         const isCurrent = isLiveRun && index === liveIndex;
@@ -448,29 +483,44 @@ export default function LineupPage() {
                             ) : null}
 
                             {reorderableItems.length > 0 ? (
-                                <Reorder.Group
-                                    axis="y"
-                                    values={reorderableItems}
-                                    onReorder={capabilities.canManageLineup ? handleReorder : () => undefined}
-                                    className="space-y-3"
-                                >
-                                    <AnimatePresence mode="popLayout">
-                                        {reorderableItems.map((slot) => {
-                                            const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
-                                            const overallIndex = localItems.findIndex((item) => item.id === slot.id) + 1;
-                                            return (
-                                                <SortableLineupItem
-                                                    key={slot.id}
-                                                    slot={slot}
-                                                    orderIndex={overallIndex}
-                                                    risk={risk}
-                                                    onMoveToTop={capabilities.canManageLineup ? () => moveSlotToTop(slot.id) : undefined}
-                                                    onRemove={capabilities.canManageLineup ? () => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId }) : undefined}
-                                                />
-                                            );
-                                        })}
-                                    </AnimatePresence>
-                                </Reorder.Group>
+                                <div className="space-y-3">
+                                    <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">Future Queue</p>
+                                                <p className="mt-1 text-sm text-foreground">
+                                                    {capabilities.canManageLineup ? 'Drag to reorder the upcoming flow.' : 'Upcoming items in the stage queue.'}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                                                {reorderableItems.length} item{reorderableItems.length === 1 ? '' : 's'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Reorder.Group
+                                        axis="y"
+                                        values={reorderableItems}
+                                        onReorder={capabilities.canManageLineup ? handleReorder : () => undefined}
+                                        className="space-y-3"
+                                    >
+                                        <AnimatePresence mode="popLayout">
+                                            {reorderableItems.map((slot) => {
+                                                const risk = showReview ? insights.find(i => i.affectedSlotIds.includes(slot.id)) : undefined;
+                                                const overallIndex = localItems.findIndex((item) => item.id === slot.id) + 1;
+                                                return (
+                                                    <SortableLineupItem
+                                                        key={slot.id}
+                                                        slot={slot}
+                                                        orderIndex={overallIndex}
+                                                        risk={risk}
+                                                        onMoveToTop={capabilities.canManageLineup ? () => moveSlotToTop(slot.id) : undefined}
+                                                        onRemove={capabilities.canManageLineup ? () => removeLineupItem.mutate({ id: slot.id, stageId: selectedStageId }) : undefined}
+                                                    />
+                                                );
+                                            })}
+                                        </AnimatePresence>
+                                    </Reorder.Group>
+                                </div>
                             ) : null}
                         </div>
                     ) : (
