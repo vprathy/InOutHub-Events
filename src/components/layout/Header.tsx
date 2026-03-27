@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, Landmark, Calendar, LogOut, ShieldCheck, Moon, UserRound } from 'lucide-react';
+import { Landmark, Calendar, LogOut, ShieldCheck, Moon, UserRound } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useQuery } from '@tanstack/react-query';
 import { BrandMark } from '@/components/branding/BrandMark';
@@ -190,44 +190,23 @@ export function Header() {
                 </div>
 
                 {selectionNames?.orgName && !isSelectionRoute && (
-                    <div className="flex min-w-0 sm:hidden">
+                    <div className="flex min-w-0">
                         <button
                             onClick={() => navigate('/select-org')}
-                            className="flex min-h-[40px] max-w-[190px] items-center gap-1.5 rounded-xl px-2 py-2 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            className="flex min-h-[44px] max-w-[210px] items-center gap-2 rounded-2xl border border-border/70 bg-background/75 px-3 py-2 text-left transition-colors hover:bg-muted/70 sm:max-w-[260px]"
                         >
-                            {selectionNames.eventName ? (
-                                <Calendar className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            ) : (
-                                <Landmark className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            )}
-                            <span className="truncate">{selectionNames.eventName || selectionNames.orgName}</span>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                {selectionNames.eventName ? (
+                                    <Calendar className="h-4 w-4" />
+                                ) : (
+                                    <Landmark className="h-4 w-4" />
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground">Workspace</p>
+                                <p className="truncate text-sm font-bold text-foreground">{selectionNames.eventName || selectionNames.orgName}</p>
+                            </div>
                         </button>
-                    </div>
-                )}
-
-                {selectionNames?.orgName && !isSelectionRoute && (
-                    <div className="hidden min-w-0 items-center space-x-1 text-[10px] font-bold uppercase tracking-wider sm:flex sm:space-x-2 sm:text-sm">
-                        <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
-                        <button
-                            onClick={() => navigate('/select-org')}
-                            className="flex min-h-[44px] max-w-[112px] items-center space-x-1 rounded-xl px-2 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:max-w-[160px] sm:space-x-2 sm:px-3"
-                        >
-                            <Landmark className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{selectionNames.orgName}</span>
-                        </button>
-
-                        {selectionNames.eventName && (
-                            <>
-                                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
-                                <button
-                                    onClick={() => navigate('/select-org')}
-                                    className="flex min-h-[44px] max-w-[132px] items-center space-x-1 rounded-xl px-2 py-2 text-primary transition-colors hover:bg-muted sm:max-w-[200px] sm:space-x-2 sm:px-3"
-                                >
-                                    <Calendar className="w-3.5 h-3.5 shrink-0" />
-                                    <span className="truncate">{selectionNames.eventName}</span>
-                                </button>
-                            </>
-                        )}
                     </div>
                 )}
                 </div>

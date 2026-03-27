@@ -27,6 +27,11 @@ function extractParticipantAge(row: any) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function resolveParticipantMinorStatus(row: any, age: number | null) {
+    if (age !== null) return age < 18;
+    return !!row.is_minor;
+}
+
 function mapRequirementAssignments(rows: any[] | null | undefined) {
     return (rows || []).map((assignment: any) => ({
         id: assignment.id,
@@ -128,14 +133,16 @@ export function useParticipantsQuery(eventId: string) {
                 const requirementAssignments = mapRequirementAssignments((row as any).requirement_assignments);
                 const hasDocsBridge = assetStats.total > 0;
 
+                const age = extractParticipantAge(row);
+
                 return {
                     id: row.id,
                     eventId: row.event_id,
                     firstName: row.first_name,
                     lastName: row.last_name,
-                    age: extractParticipantAge(row),
+                    age,
                     email: extractParticipantEmail(row),
-                    isMinor: !!row.is_minor,
+                    isMinor: resolveParticipantMinorStatus(row, age),
                     guardianName: row.guardian_name,
                     guardianPhone: row.guardian_phone,
                     guardianRelationship: row.guardian_relationship,
@@ -559,12 +566,14 @@ export function useParticipantDetail(participantId: string) {
                 })),
             ];
 
+            const age = extractParticipantAge(p);
+
             return {
                 id: p.id,
                 eventId: p.event_id,
                 firstName: p.first_name,
                 lastName: p.last_name,
-                age: extractParticipantAge(p),
+                age,
                 email: extractParticipantEmail(p),
                 guardianName: p.guardian_name,
                 guardianPhone: p.guardian_phone,
@@ -581,7 +590,7 @@ export function useParticipantDetail(participantId: string) {
                 status: (p.status || 'active') as Participant['status'],
                 identityVerified: !!(p as any).identity_verified,
                 identityNotes: (p as any).identity_notes,
-                isMinor: !!p.is_minor,
+                isMinor: resolveParticipantMinorStatus(p, age),
                 guardianRelationship: p.guardian_relationship,
                 acts: (actLinks || []).map((link: any) => ({
                     id: link.act.id,

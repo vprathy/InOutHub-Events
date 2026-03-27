@@ -1,11 +1,13 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useParticipantsQuery } from '@/hooks/useParticipants';
 import { useSelection } from '@/context/SelectionContext';
 import { ImportParticipantsModal } from '@/components/participants/ImportParticipantsModal';
 import { AddParticipantModal } from '@/components/participants/AddParticipantModal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OperationalMetricCard, type OperationalTone } from '@/components/ui/OperationalCards';
+import { supabase } from '@/lib/supabase';
 import {
     Users,
     Search,
@@ -19,16 +21,12 @@ import {
     X,
     FileCheck,
     PhoneCall,
+    MessageSquareText,
+    Mail,
 } from 'lucide-react';
 import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
-
-function getParticipantInitials(participant: any) {
-    const first = participant.firstName?.[0] || '';
-    const last = participant.lastName?.[0] || '';
-    return `${first}${last}`.trim().toUpperCase() || 'P';
-}
 
 function isParticipantPending(participant: any) {
     if (participant.openSpecialRequestCount) return true;
@@ -48,13 +46,27 @@ export default function ParticipantsPage() {
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [isAddGuideOpen, setIsAddGuideOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'special' | 'ready' | 'no_phone' | 'at_risk'>('all');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'assigned' | 'special' | 'ready' | 'no_phone' | 'at_risk' | 'inactive'>('all');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const listRef = useRef<HTMLDivElement | null>(null);
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const [visibleCount, setVisibleCount] = useState(PARTICIPANT_PAGE_SIZE);
     const { data: participants, isLoading, error } = useParticipantsQuery(eventId || '');
+    const { data: eventName } = useQuery({
+        queryKey: ['event-name', eventId],
+        queryFn: async () => {
+            if (!eventId) return null;
+            const { data, error } = await supabase
+                .from('events')
+                .select('name')
+                .eq('id', eventId)
+                .maybeSingle();
+            if (error) throw error;
+            return data?.name || null;
+        },
+        enabled: !!eventId,
+    });
     const capabilities = useEventCapabilities(eventId || null, null);
     const canManageSync = capabilities.canSyncParticipants;
     const canManageRoster = capabilities.canManageRoster;
@@ -63,7 +75,7 @@ export default function ParticipantsPage() {
         const filterParam = searchParams.get('filter');
         const actionParam = searchParams.get('action');
 
-        if (filterParam && ['all', 'missing', 'unassigned', 'special', 'ready', 'no_phone', 'at_risk'].includes(filterParam)) {
+        if (filterParam && ['all', 'missing', 'unassigned', 'assigned', 'special', 'ready', 'no_phone', 'at_risk', 'inactive'].includes(filterParam)) {
             setActiveFilter(filterParam as typeof activeFilter);
         }
 
@@ -110,18 +122,21 @@ export default function ParticipantsPage() {
         unassigned: operationalParticipants.filter(p => !p.actCount).length || 0,
         special: operationalParticipants.filter(p => p.hasSpecialRequests).length || 0,
         atRisk: operationalParticipants.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
+        inactive: (participants || []).filter((participant) => !isOperationalParticipantStatus(participant.status)).length || 0,
     };
     const filteredParticipants = participants?.filter(p => {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(deferredSearchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
-        if (activeFilter !== 'all' && !isOperationalParticipantStatus(p.status)) return false;
+        if (activeFilter !== 'all' && activeFilter !== 'inactive' && !isOperationalParticipantStatus(p.status)) return false;
         if (activeFilter === 'missing') return ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0);
         if (activeFilter === 'unassigned') return !p.actCount;
+        if (activeFilter === 'assigned') return !!p.actCount;
         if (activeFilter === 'special') return p.hasSpecialRequests;
         if (activeFilter === 'ready') return isParticipantReady(p);
         if (activeFilter === 'no_phone') return !p.guardianPhone;
         if (activeFilter === 'at_risk') return p.isMinor && (!p.guardianName || !p.guardianPhone);
+        if (activeFilter === 'inactive') return !isOperationalParticipantStatus(p.status);
 
         return true;
     }).sort((a, b) => {
@@ -135,9 +150,11 @@ export default function ParticipantsPage() {
         { key: 'all' as const, label: 'All', count: stats.total, icon: null },
         { key: 'missing' as const, label: 'Files Waiting', count: stats.missing, icon: Clock },
         { key: 'unassigned' as const, label: 'Needs Placement', count: stats.unassigned, icon: Users },
+        { key: 'assigned' as const, label: 'Assigned', count: stats.assigned, icon: Users },
         { key: 'special' as const, label: 'Special Requests', count: stats.special, icon: AlertTriangle },
         { key: 'at_risk' as const, label: 'Guardian Follow-Up', count: stats.atRisk, icon: AlertTriangle },
         { key: 'ready' as const, label: 'Ready', count: stats.ready, icon: null },
+        { key: 'inactive' as const, label: 'Inactive', count: stats.inactive, icon: Clock },
     ];
     const participantMetrics = [
         {
@@ -289,41 +306,74 @@ export default function ParticipantsPage() {
                             <div className="w-full">
                                 {visibleParticipants.map((participant) => {
                                     const isPending = isParticipantPending(participant);
-                                    const initialsTone = isPending
-                                        ? 'bg-amber-500/14 text-amber-600'
-                                        : 'bg-primary/12 text-primary';
+                                    const statusDotTone = isPending
+                                        ? 'bg-amber-500'
+                                        : 'bg-emerald-500';
+                                    const canUseGuardianPhone = capabilities.canViewGuardianPII && !!participant.guardianPhone;
+                                    const canEmail = !!participant.email;
+                                    const hasQuickContactActions = canUseGuardianPhone || canEmail;
+                                    const displayName = `${participant.firstName} ${participant.lastName}`.trim();
+                                    const subjectPerson = participant.isMinor ? participant.firstName : displayName;
+                                    const eventLabel = eventName || 'this event';
+                                    const smsBody = encodeURIComponent(`Hi, this is about ${subjectPerson} for ${eventLabel}.`);
+                                    const emailSubject = encodeURIComponent(`${subjectPerson} - ${eventLabel}`);
+                                    const emailBody = encodeURIComponent(`Hello,\n\nThis is about ${subjectPerson} for ${eventLabel}.\n`);
 
                                     return (
                                         <button
                                             key={participant.id}
                                             type="button"
                                             onClick={() => navigate(`/participants/${participant.id}`)}
-                                            className="flex h-14 w-full items-center gap-3 border-b border-border/70 px-3 text-left transition-colors hover:bg-accent/30"
+                                            className="flex h-14 w-full items-center gap-2.5 border-b border-border/70 px-3 py-1 text-left transition-colors hover:bg-accent/30"
                                         >
-                                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${initialsTone}`}>
-                                                {getParticipantInitials(participant)}
-                                            </div>
                                             <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="truncate text-base font-semibold text-foreground">
-                                                        {participant.firstName} {participant.lastName}
-                                                    </p>
-                                                    {isPending ? (
-                                                        <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-600">
-                                                            Pending
-                                                        </span>
-                                                    ) : null}
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${statusDotTone}`} aria-hidden="true" />
+                                                    <div className="min-w-0 flex items-center gap-1.5">
+                                                        <p className="truncate text-base font-semibold text-foreground">
+                                                            {participant.firstName} {participant.lastName}
+                                                        </p>
+                                                        {participant.age !== null && participant.age !== undefined ? (
+                                                            <span className="shrink-0 text-[13px] font-medium text-muted-foreground">
+                                                                · {participant.age}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {participant.isMinor && participant.guardianPhone && capabilities.canViewGuardianPII ? (
-                                                <a
-                                                    href={`tel:${participant.guardianPhone}`}
-                                                    onClick={(event) => event.stopPropagation()}
-                                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
-                                                    aria-label={`Call guardian for ${participant.firstName} ${participant.lastName}`}
-                                                >
-                                                    <PhoneCall className="h-4 w-4" />
-                                                </a>
+                                            {hasQuickContactActions ? (
+                                                <div className="inline-flex shrink-0 items-center self-center gap-0">
+                                                    {canUseGuardianPhone ? (
+                                                        <a
+                                                            href={`tel:${participant.guardianPhone}`}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-[0.78rem] text-primary transition-colors hover:bg-primary/10"
+                                                            aria-label={`Call guardian for ${participant.firstName} ${participant.lastName}`}
+                                                        >
+                                                            <PhoneCall className="h-4 w-4" />
+                                                        </a>
+                                                    ) : null}
+                                                    {canUseGuardianPhone ? (
+                                                        <a
+                                                            href={`sms:${participant.guardianPhone}?body=${smsBody}`}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-[0.78rem] text-primary transition-colors hover:bg-primary/10"
+                                                            aria-label={`Text guardian for ${participant.firstName} ${participant.lastName}`}
+                                                        >
+                                                            <MessageSquareText className="h-4 w-4" />
+                                                        </a>
+                                                    ) : null}
+                                                    {canEmail ? (
+                                                        <a
+                                                            href={`mailto:${participant.email}?subject=${emailSubject}&body=${emailBody}`}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-[0.78rem] text-primary transition-colors hover:bg-primary/10"
+                                                            aria-label={`Email contact for ${participant.firstName} ${participant.lastName}`}
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </a>
+                                                    ) : null}
+                                                </div>
                                             ) : null}
                                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                                         </button>

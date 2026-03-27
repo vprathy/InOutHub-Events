@@ -997,6 +997,8 @@ Deno.serve(async (req) => {
             }
 
             const age = read(profile.age)
+            const parsedAge = age ? Number(age) : null
+            const normalizedAge = parsedAge !== null && Number.isFinite(parsedAge) ? parsedAge : null
             const products = read(profile.products)
             const notesParts = []
             if (studentId) notesParts.push(`[ID: ${studentId}]`)
@@ -1011,6 +1013,8 @@ Deno.serve(async (req) => {
                 event_id: eventId,
                 first_name: firstName || 'Unknown',
                 last_name: lastName || 'Participant',
+                age: normalizedAge,
+                is_minor: normalizedAge !== null ? normalizedAge < 18 : false,
                 guardian_name: guardianName || null,
                 guardian_phone: phone || null,
                 notes: notesParts.join(' ') || null,
