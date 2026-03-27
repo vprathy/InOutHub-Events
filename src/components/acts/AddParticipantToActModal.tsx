@@ -392,7 +392,7 @@ export function AddParticipantToActModal({
                             </div>
                             <div className="flex min-h-[44px] items-center justify-between rounded-xl border border-border/60 bg-muted/20 px-3">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Minor Crew / Team Member</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Minor Crew Member</p>
                                     <p className="text-xs text-muted-foreground">Use when this person needs guardian context on file.</p>
                                 </div>
                                 <button
@@ -426,7 +426,7 @@ export function AddParticipantToActModal({
                                     disabled={createParticipant.isPending || addParticipant.isPending || !quickFirstName.trim() || !quickLastName.trim()}
                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
                                 >
-                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Adding...' : `Create ${selectedRole === 'Manager' ? 'Team Member' : selectedRole}`}
+                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Adding...' : `Create ${selectedRole === 'Manager' ? 'Crew Member' : selectedRole}`}
                                 </Button>
                             </div>
                         </div>
@@ -436,8 +436,8 @@ export function AddParticipantToActModal({
                 <div className="space-y-3 rounded-[1.2rem] border border-border/50 bg-muted/10 p-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Bulk Team Upload</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Import a cast or crew sheet, match existing people, create missing ones, and assign them here.</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Bulk Performer / Crew Upload</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Import a performer or crew sheet, match existing people, create missing ones, and assign them here.</p>
                         </div>
                         <Button
                             type="button"
@@ -483,7 +483,7 @@ export function AddParticipantToActModal({
                                     disabled={!importFile || createParticipant.isPending || addParticipant.isPending}
                                     className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]"
                                 >
-                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Importing...' : 'Import Team'}
+                                    {(createParticipant.isPending || addParticipant.isPending) ? 'Importing...' : 'Import People'}
                                 </Button>
                             </div>
                         </div>

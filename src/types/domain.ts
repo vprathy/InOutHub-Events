@@ -166,6 +166,8 @@ export interface ActParticipantDetail {
     guardianPhone?: string | null;
     status?: string;
     assets?: any[];
+    sourceSystem?: string | null;
+    sourceAnchorType?: string | null;
 }
 
 export interface ActAsset {

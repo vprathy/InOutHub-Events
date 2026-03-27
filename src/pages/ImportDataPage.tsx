@@ -10,6 +10,7 @@ import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 import { useEventSources } from '@/hooks/useEventSources';
 import { OperationalMetricCard } from '@/components/ui/OperationalCards';
 import { useOnboardingCapabilities } from '@/hooks/useOnboardingCapabilities';
+import { Button } from '@/components/ui/Button';
 
 export default function ImportDataPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -35,6 +36,7 @@ export default function ImportDataPage() {
         return { total, withMappingGaps, locked, trustedSynced };
     }, [sources]);
     const initialMode = searchParams.get('action') === 'import' ? 'add_source_select' : 'dashboard';
+    const initialTarget = searchParams.get('target') === 'performance_requests' ? 'performance_requests' : 'participants';
 
     if (isLoadingEventRole || isLoadingOrgRole || isLoadingSuperAdmin || onboardingCapabilities.isLoading) {
         return (
@@ -61,7 +63,15 @@ export default function ImportDataPage() {
         <div className="space-y-5 pb-12">
             <PageHeader
                 title="Import Data"
-                subtitle="Connect external files, review mappings, and refresh imported data for this event."
+                subtitle="Add event files, review source mappings, and refresh imported data for this event."
+                actions={importsLocked ? undefined : (
+                    <Button
+                        onClick={() => setSearchParams({ action: 'import' })}
+                        className="h-11 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                    >
+                        Add Import
+                    </Button>
+                )}
             />
 
             {importsLocked ? (
@@ -108,9 +118,11 @@ export default function ImportDataPage() {
                         isOpen
                         embedded
                         initialMode={initialMode}
+                        initialTarget={initialTarget}
                         onClose={() => {
                             const nextParams = new URLSearchParams(searchParams);
                             nextParams.delete('action');
+                            nextParams.delete('target');
                             setSearchParams(nextParams, { replace: true });
                         }}
                     />

@@ -23,6 +23,7 @@ interface ImportParticipantsModalProps {
     onClose: () => void;
     embedded?: boolean;
     initialMode?: 'dashboard' | 'add_source_select' | 'link_sheet' | 'upload_spreadsheet' | 'mapping_review';
+    initialTarget?: 'participants' | 'performance_requests';
 }
 
 const MAPPING_FIELDS: Array<{ key: ParticipantImportField; label: string; helper: string }> = [
@@ -153,6 +154,10 @@ function summarizeMappedFields(mapping: Record<string, string | undefined>) {
         }));
 }
 
+function formatImportLaneLabel(target: 'participants' | 'performance_requests') {
+    return target === 'performance_requests' ? 'Performance Request Import' : 'Participant Import';
+}
+
 function buildLockedSourceConfig(
     source: EventSource | { config?: EventSource['config'] },
     result: SyncSummary,
@@ -204,6 +209,7 @@ export function ImportParticipantsModal({
     onClose,
     embedded = false,
     initialMode = 'dashboard',
+    initialTarget = 'participants',
 }: ImportParticipantsModalProps) {
     const extractSheetId = (value: string) => {
         const trimmed = value.trim();
@@ -276,8 +282,9 @@ export function ImportParticipantsModal({
     useEffect(() => {
         if (isOpen) {
             setUiMode(initialMode);
+            setIntakeTarget(initialTarget);
         }
-    }, [isOpen, initialMode]);
+    }, [isOpen, initialMode, initialTarget]);
 
     const participantSources = sources.filter((source) => (source.config.intakeTarget || 'participants') === 'participants');
     const performanceRequestSources = sources.filter((source) => source.config.intakeTarget === 'performance_requests');
@@ -395,6 +402,11 @@ export function ImportParticipantsModal({
     const trustedSyncedSources = lockedSources.filter((source) => !!source.lastSyncedAt);
     const lockedUnsyncedSource = lockedSources.find((source) => !source.lastSyncedAt) || null;
     const nextReviewSource = sourcesNeedingReview[0] || null;
+    const additionalReviewCount = Math.max(sourcesNeedingReview.length - (nextReviewSource ? 1 : 0), 0);
+    const openAddSource = (target: 'participants' | 'performance_requests' = 'participants') => {
+        setIntakeTarget(target);
+        setUiMode('add_source_select');
+    };
     const trustSteps: SourceTrustStep[] = [
         { label: 'Connect source', complete: sources.length > 0 },
         { label: 'Confirm mapping', complete: sources.length > 0 && sourcesNeedingReview.length === 0 },
@@ -403,30 +415,45 @@ export function ImportParticipantsModal({
 
     let sourceTrustTitle = 'Connect your first source';
     let sourceTrustBody = 'Start by linking a Google Sheet or uploading a spreadsheet so this event has an intake source to trust.';
-    let sourceTrustActionLabel = 'Add Source';
-    let sourceTrustAction: (() => void) | null = () => setUiMode('add_source_select');
+    let sourceTrustActionLabel = 'Add Import';
+    let sourceTrustAction: (() => void) | null = () => openAddSource();
     let sourceTrustToneClassName = 'border-primary/20 bg-primary/5';
+    let sourceTrustHeading = 'Add Your First Import';
+    let sourceTrustMeta: string[] = [];
 
     if (nextReviewSource) {
-        sourceTrustTitle = 'Review mapping before trust is granted';
-        sourceTrustBody = `${nextReviewSource.name} still needs mapping confirmation or drift review before it can become a trusted repeat sync.`;
+        sourceTrustHeading = 'Needs Attention';
+        sourceTrustTitle = `${nextReviewSource.name} needs mapping review`;
+        sourceTrustBody = `Review this ${formatImportLaneLabel(nextReviewSource.config.intakeTarget || 'participants').toLowerCase()} before using future syncs from it.`;
         sourceTrustActionLabel = 'Review Mapping';
         sourceTrustAction = () => openMappingReview(nextReviewSource);
         sourceTrustToneClassName = 'border-amber-400/30 bg-amber-500/5';
+        sourceTrustMeta = [
+            `Source: ${nextReviewSource.name}`,
+            `Import: ${formatImportLaneLabel(nextReviewSource.config.intakeTarget || 'participants')}`,
+            ...(additionalReviewCount > 0 ? [`Also waiting: ${additionalReviewCount} more source${additionalReviewCount === 1 ? '' : 's'}`] : []),
+        ];
     } else if (lockedUnsyncedSource) {
-        sourceTrustTitle = 'Run the first trusted sync';
-        sourceTrustBody = `${lockedUnsyncedSource.name} is locked and ready. Run the first sync so this source becomes a reusable event intake lane.`;
-        sourceTrustActionLabel = lockedUnsyncedSource.type === 'google_sheet' ? 'Sync Source' : 'Confirm Import';
+        sourceTrustHeading = 'Ready To Sync';
+        sourceTrustTitle = `${lockedUnsyncedSource.name} is ready for its first sync`;
+        sourceTrustBody = `This ${formatImportLaneLabel(lockedUnsyncedSource.config.intakeTarget || 'participants').toLowerCase()} has a confirmed mapping and can now be synced into the event.`;
+        sourceTrustActionLabel = lockedUnsyncedSource.type === 'google_sheet' ? 'Sync Now' : 'Finish Import';
         sourceTrustAction = lockedUnsyncedSource.type === 'google_sheet'
             ? () => { void handleSyncSingleSource(lockedUnsyncedSource); }
             : () => setUiMode('upload_spreadsheet');
         sourceTrustToneClassName = 'border-blue-400/30 bg-blue-500/5';
+        sourceTrustMeta = [
+            `Source: ${lockedUnsyncedSource.name}`,
+            `Import: ${formatImportLaneLabel(lockedUnsyncedSource.config.intakeTarget || 'participants')}`,
+        ];
     } else if (trustedSyncedSources.length > 0) {
-        sourceTrustTitle = 'Trusted sync is active';
-        sourceTrustBody = `${trustedSyncedSources.length} source${trustedSyncedSources.length > 1 ? 's are' : ' is'} already locked and synced. Additional sources can follow the same trust path without engineering help.`;
-        sourceTrustActionLabel = 'Add Another Source';
-        sourceTrustAction = () => setUiMode('add_source_select');
+        sourceTrustHeading = 'Imports Ready';
+        sourceTrustTitle = `${trustedSyncedSources.length} import source${trustedSyncedSources.length > 1 ? 's are' : ' is'} already active`;
+        sourceTrustBody = 'You can sync an existing source again or add another file for this event.';
+        sourceTrustActionLabel = 'Add Import';
+        sourceTrustAction = () => openAddSource();
         sourceTrustToneClassName = 'border-emerald-400/30 bg-emerald-500/5';
+        sourceTrustMeta = [`Active sources: ${trustedSyncedSources.length}`];
     }
 
     const handleLinkSheet = async () => {
@@ -716,9 +743,18 @@ export function ImportParticipantsModal({
             <section className={`rounded-[1.25rem] border p-4 text-left ${sourceTrustToneClassName}`}>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Next Action</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{sourceTrustHeading}</p>
                         <p className="mt-1 text-sm font-bold text-foreground">{sourceTrustTitle}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{sourceTrustBody}</p>
+                        {sourceTrustMeta.length > 0 ? (
+                            <div className="mt-3 space-y-1">
+                                {sourceTrustMeta.map((line) => (
+                                    <p key={line} className="text-[11px] font-medium text-foreground/80">
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                        ) : null}
                     </div>
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 </div>
@@ -748,7 +784,7 @@ export function ImportParticipantsModal({
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Connected Sources</p>
-                        <p className="mt-1 text-sm font-black text-foreground">Manage imports for this event</p>
+                        <p className="mt-1 text-sm font-black text-foreground">Participant and performance request files for this event</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-primary transition-transform group-open:rotate-90" />
                 </summary>
@@ -756,11 +792,20 @@ export function ImportParticipantsModal({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Participant Imports</h3>
-                            {participantSources.length > 1 ? (
-                                <button onClick={handleSyncAll} className="text-[10px] font-bold uppercase tracking-widest text-teal-500 transition-colors hover:text-teal-400">
-                                    Refresh All
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => openAddSource('participants')}
+                                    className="text-[10px] font-bold uppercase tracking-widest text-primary transition-colors hover:text-primary/80"
+                                >
+                                    Add Import
                                 </button>
-                            ) : null}
+                                {participantSources.length > 1 ? (
+                                    <button onClick={handleSyncAll} className="text-[10px] font-bold uppercase tracking-widest text-teal-500 transition-colors hover:text-teal-400">
+                                        Refresh All
+                                    </button>
+                                ) : null}
+                            </div>
                         </div>
                         <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
                             {participantSources.length > 0 ? participantSources.map((source, index) => (
@@ -819,8 +864,14 @@ export function ImportParticipantsModal({
                                     </div>
                                 </div>
                             )) : (
-                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                    No participant imports connected yet.
+                                <div className="px-4 py-8 text-center">
+                                    <p className="text-sm text-muted-foreground">No participant imports connected yet.</p>
+                                    <Button
+                                        onClick={() => openAddSource('participants')}
+                                        className="mt-4 h-10 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                                    >
+                                        Add Participant Import
+                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -829,6 +880,13 @@ export function ImportParticipantsModal({
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Performance Request Imports</h3>
+                            <button
+                                type="button"
+                                onClick={() => openAddSource('performance_requests')}
+                                className="text-[10px] font-bold uppercase tracking-widest text-primary transition-colors hover:text-primary/80"
+                            >
+                                Add Import
+                            </button>
                         </div>
                         <div className="overflow-visible rounded-[1.25rem] border border-border/70 bg-background/70">
                             {performanceRequestSources.length > 0 ? performanceRequestSources.map((source, index) => (
@@ -887,8 +945,14 @@ export function ImportParticipantsModal({
                                     </div>
                                 </div>
                             )) : (
-                                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                    No performance request imports connected yet.
+                                <div className="px-4 py-8 text-center">
+                                    <p className="text-sm text-muted-foreground">No performance request imports connected yet.</p>
+                                    <Button
+                                        onClick={() => openAddSource('performance_requests')}
+                                        className="mt-4 h-10 rounded-2xl bg-foreground text-background hover:bg-foreground/90"
+                                    >
+                                        Add Performance Request Import
+                                    </Button>
                                 </div>
                             )}
                         </div>

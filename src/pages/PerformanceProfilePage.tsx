@@ -32,6 +32,7 @@ export function PerformanceProfilePage() {
     const [uploadMode, setUploadMode] = useState<'Audio' | 'Prop' | 'Instrument' | 'Other'>('Audio');
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
+    const [castTab, setCastTab] = useState<'cast' | 'team'>('cast');
     const [previewAsset, setPreviewAsset] = useState<{ url: string; title: string } | null>(null);
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const { data: act, isLoading } = useActDetail(actId || null);
@@ -241,6 +242,11 @@ export function PerformanceProfilePage() {
                             )}
                         </div>
                         <div className="border-t border-border/50 pt-3">
+                            <div className="mb-3 rounded-xl border border-border/50 bg-background/70 p-3">
+                                <p className="text-xs text-muted-foreground">
+                                    These imported contacts came from the intake form. They stay here as request context until you add or match real event people in Performers or Crew.
+                                </p>
+                            </div>
                             <div className="grid gap-3 md:grid-cols-2">
                                 {((act.metadata as any)?.imported_contacts || (importedRequest ? [{
                                     role: 'Requestor',
@@ -304,12 +310,12 @@ export function PerformanceProfilePage() {
                 {/* Readiness: Practices, Checklist, Issues */}
                 <ReadinessSection act={act} canManageReadiness={canManageReadiness} />
 
-                {/* Cast */}
+                {/* Performers & Crew */}
                 <details className="group rounded-2xl border border-border/40 bg-card px-3 py-2">
                     <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-1 transition-colors hover:bg-accent/10">
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-foreground">Cast & Team</p>
-                            <p className="text-xs text-muted-foreground">{performers.length} performers • {team.length} team</p>
+                            <p className="text-sm font-bold text-foreground">Performers & Crew</p>
+                            <p className="text-xs text-muted-foreground">{performers.length} performers • {team.length} crew</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Open</span>
@@ -325,28 +331,51 @@ export function PerformanceProfilePage() {
                                 </Button>
                                 <Button variant="outline" className="min-h-11 rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.16em]" onClick={() => { setAddRole('Manager'); setIsAddParticipantOpen(true); }}>
                                     <Settings className="mr-1.5 h-3.5 w-3.5" />
-                                    Add Team Member
+                                    Add Crew
                                 </Button>
                             </div>
                         ) : null}
-                        {team.length > 0 ? (
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Team</p>
-                                {team.map((p: any) => (
-                                    <ParticipantRow key={p.id} p={p} navigate={navigate} />
-                                ))}
+                        <div className="space-y-3">
+                            <div className="flex overflow-x-auto pb-1">
+                                <div className="inline-flex min-h-11 items-end gap-1 rounded-[1.05rem] border border-border/60 bg-background/70 p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCastTab('cast')}
+                                        className={`min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
+                                            castTab === 'cast' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                        }`}
+                                    >
+                                        Performers {performers.length > 0 ? performers.length : ''}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCastTab('team')}
+                                        className={`min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
+                                            castTab === 'team' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                        }`}
+                                    >
+                                        Crew {team.length > 0 ? team.length : ''}
+                                    </button>
+                                </div>
                             </div>
-                        ) : null}
-                        <div className="space-y-1">
-                            {performers.length > 0 ? (
-                                <>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Performers</p>
-                                    {performers.map((p: any) => (
+                            {castTab === 'cast' ? (
+                                performers.length > 0 ? (
+                                    <div className="space-y-1">
+                                        {performers.map((p: any) => (
+                                            <ParticipantRow key={p.id} p={p} navigate={navigate} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="py-4 text-center text-sm text-muted-foreground">No performers assigned yet.</p>
+                                )
+                            ) : team.length > 0 ? (
+                                <div className="space-y-1">
+                                    {team.map((p: any) => (
                                         <ParticipantRow key={p.id} p={p} navigate={navigate} />
                                     ))}
-                                </>
+                                </div>
                             ) : (
-                                <p className="py-4 text-center text-sm text-muted-foreground">No performers assigned yet.</p>
+                                <p className="py-4 text-center text-sm text-muted-foreground">No crew assigned yet.</p>
                             )}
                         </div>
                     </div>
@@ -489,7 +518,7 @@ export function PerformanceProfilePage() {
                 eventId={act.eventId}
                 role={addRole}
                 roleOptions={addRole === 'Manager' ? ['Manager', 'Choreographer', 'Support', 'Crew'] : ['Performer']}
-                title={addRole === 'Manager' ? `Add Performance Team Member to: ${act.name}` : `Add Performer to: ${act.name}`}
+                title={addRole === 'Manager' ? `Add Crew to: ${act.name}` : `Add Performer to: ${act.name}`}
             /> : null}
             <AssetPreviewModal
                 isOpen={!!previewAsset}
@@ -749,6 +778,13 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
     const approvedPhotos = assets.filter((a: any) => a.type === 'photo' && a.status === 'approved').length;
     const pendingPhotos = assets.filter((a: any) => a.type === 'photo' && ['pending_review', 'uploaded'].includes(a.status)).length;
     const statusLabel = approvedPhotos > 0 ? 'Ready' : pendingPhotos > 0 ? 'Review' : 'Missing';
+    const provenanceLabel = p.sourceSystem === 'manual'
+        ? 'Added in app'
+        : p.sourceSystem
+            ? 'Roster sync'
+            : p.sourceAnchorType === 'manual_entry'
+                ? 'Added in app'
+                : 'Event person';
 
     return (
         <button
@@ -764,6 +800,7 @@ function ParticipantRow({ p, navigate }: { p: any, navigate: any }) {
                         {p.firstName} {p.lastName}
                         <span className="font-medium text-muted-foreground"> · {p.role || 'Performer'}</span>
                     </p>
+                    <p className="truncate text-[11px] text-muted-foreground">{provenanceLabel}</p>
                 </div>
             </div>
             <span className={`ml-3 shrink-0 text-[10px] font-black uppercase tracking-[0.16em] ${approvedPhotos > 0 ? 'text-emerald-600' : pendingPhotos > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>

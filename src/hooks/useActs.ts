@@ -364,6 +364,8 @@ export function useActDetail(actId: string | null) {
                             guardian_name,
                             guardian_phone,
                             status,
+                            source_system,
+                            source_anchor_type,
                             participant_assets(status)
                         )
                     ),
@@ -462,7 +464,9 @@ export function useActDetail(actId: string | null) {
                     guardianName: ap.participant.guardian_name,
                     guardianPhone: ap.participant.guardian_phone,
                     status: ap.participant.status,
-                    assets: ap.participant.participant_assets || []
+                    assets: ap.participant.participant_assets || [],
+                    sourceSystem: ap.participant.source_system,
+                    sourceAnchorType: ap.participant.source_anchor_type,
                 })),
                 assets: (row.act_assets || []).map((a: any) => ({
                     id: a.id,

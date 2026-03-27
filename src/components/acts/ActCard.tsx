@@ -21,7 +21,7 @@ export function ActCard({ act, isExpanded, onToggle, onUploadMusic }: ActCardPro
     const isOperationallyReady = !hasCastGap && !hasMusicGap && !hasPrepGap;
 
     const overallState = hasCastGap
-        ? { label: 'Needs Cast', tone: 'blocked' as const }
+        ? { label: 'Needs Performers', tone: 'blocked' as const }
         : hasMusicGap && hasPrepGap
             ? { label: 'Needs Attention', tone: 'blocked' as const }
             : hasMusicGap
@@ -36,8 +36,8 @@ export function ActCard({ act, isExpanded, onToggle, onUploadMusic }: ActCardPro
 
     const primaryReason = (() => {
         if (hasCastGap) return 'No performers assigned yet';
-        if (hasPrepGap && hasMusicGap) return 'Cast approvals and music missing';
-        if (hasPrepGap) return 'Cast approvals pending';
+        if (hasPrepGap && hasMusicGap) return 'Participant approvals and music missing';
+        if (hasPrepGap) return 'Participant approvals pending';
         if (hasMusicGap) return 'Music missing';
         if (hasIntroPending) return 'Intro ready for approval';
         if (act.nextPracticeStartsAt) return `Next practice ${formatReadinessDate(act.nextPracticeStartsAt)}`;
@@ -59,7 +59,7 @@ export function ActCard({ act, isExpanded, onToggle, onUploadMusic }: ActCardPro
         }
         if (hasCastGap) {
             return {
-                label: 'Review Cast',
+                label: 'Review Performers',
                 to: `/performances/${act.id}`,
                 kind: 'link' as const,
                 icon: ChevronRight,

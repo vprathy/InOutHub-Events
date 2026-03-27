@@ -217,6 +217,14 @@ export function SectionIdentityStrip() {
     const openSources = () => {
         const nextParams = new URLSearchParams();
         nextParams.set('action', 'import');
+        nextParams.set('target', 'participants');
+        navigate(`/admin/import-data?${nextParams.toString()}`);
+    };
+
+    const openPerformanceRequestSources = () => {
+        const nextParams = new URLSearchParams();
+        nextParams.set('action', 'import');
+        nextParams.set('target', 'performance_requests');
         navigate(`/admin/import-data?${nextParams.toString()}`);
     };
 
@@ -237,11 +245,11 @@ export function SectionIdentityStrip() {
 
     const syncPerformanceRequestSource = async () => {
         if (!primaryPerformanceRequestSource?.config.sheetId) {
-            navigate('/admin/import-data');
+            openPerformanceRequestSources();
             return;
         }
         if (primaryPerformanceRequestSource.config.reviewRequired || primaryPerformanceRequestSource.config.mappingMode !== 'locked') {
-            navigate('/admin/import-data');
+            navigate('/admin/import-data?target=performance_requests');
             return;
         }
 
@@ -386,7 +394,7 @@ export function SectionIdentityStrip() {
                         ) : canManageSources ? (
                             <button
                                 type="button"
-                                onClick={openSources}
+                                onClick={openPerformanceRequestSources}
                                 className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border/60 bg-background/70 px-2.5 text-[10px] font-black uppercase tracking-[0.1em] text-foreground transition-colors hover:border-primary/20 hover:bg-background/85 sm:min-h-10 sm:gap-2 sm:px-3 sm:tracking-[0.16em]"
                                 aria-label="Open sync workspace"
                             >

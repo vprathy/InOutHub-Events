@@ -262,6 +262,9 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             onClick: () => navigate(`/participants/${participant.id}`),
         }));
+    const approvalCount = operationalParticipants
+        .filter((participant) => ((participant.assetStats?.missing || 0) + (participant.assetStats?.pending || 0)) > 0)
+        .length;
     const guardianGapItems = operationalParticipants
         .filter((participant) => participant.isMinor && (!participant.guardianName || !participant.guardianPhone))
         .slice(0, 6)
@@ -273,14 +276,25 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             onClick: () => navigate(`/participants/${participant.id}`),
         }));
+    const guardianGapCount = operationalParticipants
+        .filter((participant) => participant.isMinor && (!participant.guardianName || !participant.guardianPhone))
+        .length;
     const blockedActs = acts
         .filter((act) => act.readinessState === 'Blocked' || (act.openIssueCount || 0) > 0);
+    const getReadinessExceptionDetail = (act: typeof acts[number]) => {
+        if (act.participantCount === 0) return 'Roster still needs participants.';
+        if ((act.missingAssetCount || 0) > 0) return `${act.missingAssetCount} participant file${act.missingAssetCount === 1 ? '' : 's'} still need follow-up.`;
+        if (!act.hasMusicTrack) return 'Music file still needs to be added.';
+        if (act.hasIntroRequirement && !act.hasApprovedIntro) return 'Intro still needs review.';
+        if ((act.openIssueCount || 0) > 0) return `${act.openIssueCount} readiness issue${act.openIssueCount === 1 ? '' : 's'} still need follow-up.`;
+        return 'This act still needs readiness follow-up.';
+    };
     const blockedPerformanceItems = blockedActs
         .slice(0, 6)
         .map((act) => ({
             id: act.id,
             label: act.name,
-            detail: 'Blocked issues need immediate follow-up.',
+            detail: getReadinessExceptionDetail(act),
             tone: 'critical' as OperationalTone,
             onClick: () => navigate(`/performances/${act.id}`),
         }));
@@ -345,6 +359,9 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             onClick: () => navigate('/admin/import-data'),
         }));
+    const urgentImportCount = importRuns
+        .filter((run: any) => run.status === 'blocked' || run.status === 'failed')
+        .length;
     const pendingRequestCount = Number(requestCounts?.pending || 0);
     const intakeBacklogItems = pendingRequestCount > 0
         ? [{
@@ -424,7 +441,7 @@ export default function DashboardPage() {
                 icon: Star,
                 tone: actsAtRiskCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
                 onClick: () => navigate('/performances'),
-                infoBody: 'Blocked, at-risk, or not-yet-arrived acts that could disrupt readiness or execution.',
+                infoBody: 'Acts with missing readiness steps, unresolved issues, or arrival risk that could disrupt execution.',
             },
         ]).filter((metric) => dashboardAudience !== 'member' || metric.label !== 'Admin Alerts');
 
@@ -441,9 +458,9 @@ export default function DashboardPage() {
             key: 'readiness_exceptions',
             label: 'Readiness Exceptions',
             tone: 'critical' as OperationalTone,
-            summary: 'Blocking issues need immediate follow-up.',
+            summary: 'Specific readiness gaps need immediate follow-up.',
             audience: ['admin', 'ops'] as DashboardAudience[],
-            count: guardianGapItems.length + blockedActs.length + (dashboardPhase === 'pre_show' ? 0 : notArrivedActs.length) + atRiskActs.length,
+            count: guardianGapCount + blockedActs.length + (dashboardPhase === 'pre_show' ? 0 : notArrivedActs.length) + atRiskActs.length,
             items: [
                 ...guardianGapItems,
                 ...blockedPerformanceItems,
@@ -457,7 +474,7 @@ export default function DashboardPage() {
             tone: 'warning' as OperationalTone,
             summary: 'Requirements and approvals still need follow-up.',
             audience: ['admin', 'ops'] as DashboardAudience[],
-            count: approvalItems.length + introReviewActs.length + identityPendingParticipants.length,
+            count: approvalCount + introReviewActs.length + identityPendingParticipants.length,
             items: [
                 ...approvalItems,
                 ...introReviewItems,
@@ -498,7 +515,7 @@ export default function DashboardPage() {
             tone: 'critical' as OperationalTone,
             summary: 'Import failures need admin attention before sources are trusted again.',
             audience: ['admin'] as DashboardAudience[],
-            count: urgentImportItems.length,
+            count: urgentImportCount,
             items: urgentImportItems,
         },
     ] as const;
