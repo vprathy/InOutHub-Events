@@ -638,8 +638,9 @@ export default function DashboardPage() {
                                         </div>
                                     </button>
 
-                                    {isExpanded ? (
-                                        <div className="mt-3 space-y-2.5 border-t border-border/60 pt-3">
+                                    <div className={`grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0'}`}>
+                                        <div className="overflow-hidden">
+                                        <div className={`space-y-2.5 border-t border-border/60 pt-3 transition-[transform,opacity] duration-200 ease-out ${isExpanded ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'}`}>
                                             {category.key === 'special_requests' ? (
                                                 visibleItems.map((item) => {
                                                     const participantId = (('id' in item ? item.id : '') || '') as string;
@@ -685,7 +686,8 @@ export default function DashboardPage() {
                                                 />
                                             ) : null}
                                         </div>
-                                    ) : null}
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}

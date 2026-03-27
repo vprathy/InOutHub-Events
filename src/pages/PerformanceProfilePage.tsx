@@ -337,12 +337,18 @@ export function PerformanceProfilePage() {
                         ) : null}
                         <div className="space-y-3">
                             <div className="flex overflow-x-auto pb-1">
-                                <div className="inline-flex min-h-11 items-end gap-1 rounded-[1.05rem] border border-border/60 bg-background/70 p-1">
+                                <div className="relative inline-flex min-h-11 items-end gap-1 rounded-[1.05rem] border border-border/60 bg-background/70 p-1">
+                                    <div
+                                        aria-hidden="true"
+                                        className={`absolute bottom-1 top-1 w-[calc(50%-0.125rem)] rounded-[0.9rem] bg-card shadow-sm transition-transform duration-200 ease-out ${
+                                            castTab === 'cast' ? 'translate-x-0' : 'translate-x-[calc(100%+0.25rem)]'
+                                        }`}
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => setCastTab('cast')}
-                                        className={`min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
-                                            castTab === 'cast' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                        className={`relative z-10 min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                            castTab === 'cast' ? 'text-foreground' : 'text-muted-foreground'
                                         }`}
                                     >
                                         Performers {performers.length > 0 ? performers.length : ''}
@@ -350,33 +356,38 @@ export function PerformanceProfilePage() {
                                     <button
                                         type="button"
                                         onClick={() => setCastTab('team')}
-                                        className={`min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${
-                                            castTab === 'team' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                        className={`relative z-10 min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                            castTab === 'team' ? 'text-foreground' : 'text-muted-foreground'
                                         }`}
                                     >
                                         Crew {team.length > 0 ? team.length : ''}
                                     </button>
                                 </div>
                             </div>
-                            {castTab === 'cast' ? (
-                                performers.length > 0 ? (
-                                    <div className="space-y-1">
-                                        {performers.map((p: any) => (
-                                            <ParticipantRow key={p.id} p={p} navigate={navigate} />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="py-4 text-center text-sm text-muted-foreground">No performers assigned yet.</p>
-                                )
-                            ) : team.length > 0 ? (
-                                <div className="space-y-1">
-                                    {team.map((p: any) => (
-                                        <ParticipantRow key={p.id} p={p} navigate={navigate} />
-                                    ))}
+                            <div className="relative overflow-hidden">
+                                <div className={`transition-[opacity,transform,max-height] duration-200 ease-out ${castTab === 'cast' ? 'relative max-h-[1200px] translate-x-0 opacity-100' : 'pointer-events-none absolute inset-0 max-h-0 translate-x-2 opacity-0'}`}>
+                                    {performers.length > 0 ? (
+                                        <div className="space-y-1">
+                                            {performers.map((p: any) => (
+                                                <ParticipantRow key={p.id} p={p} navigate={navigate} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="py-4 text-center text-sm text-muted-foreground">No performers assigned yet.</p>
+                                    )}
                                 </div>
-                            ) : (
-                                <p className="py-4 text-center text-sm text-muted-foreground">No crew assigned yet.</p>
-                            )}
+                                <div className={`transition-[opacity,transform,max-height] duration-200 ease-out ${castTab === 'team' ? 'relative max-h-[1200px] translate-x-0 opacity-100' : 'pointer-events-none absolute inset-0 -translate-x-2 max-h-0 opacity-0'}`}>
+                                    {team.length > 0 ? (
+                                        <div className="space-y-1">
+                                            {team.map((p: any) => (
+                                                <ParticipantRow key={p.id} p={p} navigate={navigate} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="py-4 text-center text-sm text-muted-foreground">No crew assigned yet.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </details>
