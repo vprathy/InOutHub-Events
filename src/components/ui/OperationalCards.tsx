@@ -37,6 +37,7 @@ export function OperationalMetricCard({
   infoBody,
   infoLabel,
   detail,
+  compact = false,
   className = '',
 }: {
   label: string;
@@ -47,14 +48,15 @@ export function OperationalMetricCard({
   infoBody?: string;
   infoLabel?: string;
   detail?: string;
+  compact?: boolean;
   className?: string;
 }) {
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[1.45rem] font-black leading-none tracking-tight text-foreground">{value}</p>
-          <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+          <p className={`${compact ? 'text-[1.05rem]' : 'text-[1.45rem]'} font-black leading-none tracking-tight text-foreground`}>{value}</p>
+          <p className={`${compact ? 'mt-0.5' : 'mt-1.5'} text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground`}>
             {label}
           </p>
           {detail ? (
@@ -62,8 +64,8 @@ export function OperationalMetricCard({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1">
-          <div className={`flex h-6 w-6 items-center justify-center ${iconToneClasses[tone]}`}>
-            <Icon className="h-4 w-4" />
+          <div className={`flex ${compact ? 'h-4.5 w-4.5' : 'h-6 w-6'} items-center justify-center ${iconToneClasses[tone]}`}>
+            <Icon className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
           </div>
           {infoBody ? (
             <div
@@ -88,7 +90,7 @@ export function OperationalMetricCard({
     return (
       <button
         onClick={onClick}
-        className={`surface-panel relative min-h-[76px] overflow-hidden rounded-[1rem] border px-3 py-2.5 text-left transition active:scale-[0.98] ${className}`}
+        className={`surface-panel relative ${compact ? 'min-h-[56px] rounded-[0.95rem] px-2.5 py-1.5' : 'min-h-[76px] rounded-[1rem] px-3 py-2.5'} overflow-hidden border text-left transition active:scale-[0.98] ${className}`}
       >
         {content}
       </button>
@@ -96,7 +98,7 @@ export function OperationalMetricCard({
   }
 
   return (
-    <div className={`surface-panel relative min-h-[76px] overflow-hidden rounded-[1rem] border px-3 py-2.5 ${className}`}>
+    <div className={`surface-panel relative ${compact ? 'min-h-[56px] rounded-[0.95rem] px-2.5 py-1.5' : 'min-h-[76px] rounded-[1rem] px-3 py-2.5'} overflow-hidden border ${className}`}>
       {content}
     </div>
   );

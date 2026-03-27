@@ -1,12 +1,10 @@
 import {
     ChevronDown,
-    ChevronUp,
     LayoutDashboard,
     ShieldAlert,
     FileCheck,
     ClipboardList,
     Star,
-    MonitorPlay,
 } from 'lucide-react';
 import { useSelection } from '@/context/SelectionContext';
 import { useDashboardRadar } from '@/hooks/useDashboardRadar';
@@ -60,12 +58,6 @@ function getDashboardStageStorageKey(eventId: string | null) {
     return eventId ? `${DASHBOARD_STAGE_KEY}${eventId}` : null;
 }
 
-function formatStageStatus(status: string | null | undefined) {
-    if (!status) return 'Idle';
-    if (status === 'Active') return 'Live';
-    return status;
-}
-
 export default function DashboardPage() {
     const { eventId, organizationId } = useSelection();
     const navigate = useNavigate();
@@ -74,7 +66,7 @@ export default function DashboardPage() {
     const [returnFocus, setReturnFocus] = useState<{ category: string; itemId?: string } | null>(null);
     const [visibleItemCounts, setVisibleItemCounts] = useState<Record<string, number>>({});
     const [hasAutoExpandedQueue, setHasAutoExpandedQueue] = useState(false);
-    const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const categoryRefs = useRef<Record<string, HTMLElement | null>>({});
     const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const categorySentinels = useRef<Record<string, HTMLDivElement | null>>({});
     const categoryCardsRef = useRef<Array<{ key: string; items: Array<{ id: string }> }>>([]);
@@ -163,17 +155,7 @@ export default function DashboardPage() {
         window.localStorage.setItem(storageKey, selectedStageId);
     }, [eventId, selectedStageId]);
 
-    const {
-        stageState,
-        current,
-        next,
-        upcoming,
-        hasLineup,
-        currentLineupPointerMissing,
-        driftMinutes,
-        isOvertime,
-        overtimeMinutes,
-    } = useStageConsole(selectedStageId);
+    useStageConsole(selectedStageId);
     useEffect(() => {
         const raw = sessionStorage.getItem(DASHBOARD_RETURN_FOCUS_KEY);
         if (!raw) return;
@@ -369,59 +351,76 @@ export default function DashboardPage() {
         }]
         : [];
     const actsAtRiskCount = blockedPerformanceItems.length + atRiskActItems.length + notArrivedItems.length;
-    const urgentAdminCount = urgentImportItems.length;
-    const metrics = [
-        {
-            key: 'guardian_gaps',
-            label: 'Guardian Gaps',
-            infoBody: 'Minor participants who still need guardian contact follow-up before readiness is reliable.',
-            value: radar?.participants.minorsAtRisk || 0,
-            icon: ShieldAlert,
-            tone: (radar?.participants.minorsAtRisk || 0) > 0 ? 'critical' as OperationalTone : 'good' as OperationalTone,
-            onClick: () => navigate('/participants?filter=at_risk'),
-        },
-        {
-            key: 'missing_requirements',
-            label: 'Files Waiting',
-            infoBody: 'Counts participants who still have missing or pending files and approvals.',
-            value: participantsWithFilesWaitingCount,
-            icon: FileCheck,
-            tone: participantsWithFilesWaitingCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
-            onClick: () => navigate('/participants?filter=missing'),
-        },
-        {
-            key: 'acts_at_risk',
-            label: 'Acts At Risk',
-            infoBody: 'Blocked, at-risk, or not-yet-arrived acts that could disrupt readiness or execution.',
-            value: actsAtRiskCount,
-            icon: Star,
-            tone: actsAtRiskCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
-            onClick: () => navigate('/performances'),
-        },
-        {
-            key: 'admin_alerts',
-            label: 'Admin Alerts',
-            infoBody: 'Import failures or blocked admin issues that need immediate follow-through.',
-            value: urgentAdminCount,
-            icon: ClipboardList,
-            tone: urgentAdminCount > 0 ? 'critical' as OperationalTone : 'good' as OperationalTone,
-            onClick: () => navigate('/admin/import-data'),
-        },
-    ]
-        .filter((metric) => dashboardAudience !== 'member' || metric.key !== 'admin_alerts')
-        .filter((metric) => metric.key !== 'admin_alerts' || urgentAdminCount > 0);
-    const scopeStats = [
-        {
-            label: 'Participants',
-            value: radar?.participants.total || 0,
-            onClick: () => navigate('/participants'),
-        },
-        {
-            label: 'Performances',
-            value: radar?.acts.total || 0,
-            onClick: () => navigate('/performances'),
-        },
-    ];
+    const setupGapCount = needPlacementItems.length + (dashboardPhase === 'pre_show' ? pendingRequestCount : 0);
+    const metrics = (dashboardPhase === 'pre_show'
+        ? [
+            {
+                label: 'Participants',
+                value: radar?.participants.total || 0,
+                icon: ShieldAlert,
+                tone: 'default' as OperationalTone,
+                onClick: () => navigate('/participants'),
+                infoBody: 'Operational participants currently in scope for this event.',
+            },
+            {
+                label: 'Performances',
+                value: radar?.acts.total || 0,
+                icon: ClipboardList,
+                tone: 'default' as OperationalTone,
+                onClick: () => navigate('/performances'),
+                infoBody: 'Performances currently assembled for this event.',
+            },
+            {
+                label: 'Files Waiting',
+                value: participantsWithFilesWaitingCount,
+                icon: FileCheck,
+                tone: participantsWithFilesWaitingCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+                onClick: () => navigate('/participants?filter=missing'),
+                infoBody: 'Counts participants who still have missing or pending files and approvals.',
+            },
+            {
+                label: 'Setup Gaps',
+                value: setupGapCount,
+                icon: Star,
+                tone: setupGapCount > 0 ? 'info' as OperationalTone : 'good' as OperationalTone,
+                onClick: () => navigate(needPlacementItems.length > 0 ? '/participants?filter=unassigned' : '/admin/performance-requests'),
+                infoBody: 'Assignments and intake work still need setup before the show is ready.',
+            },
+        ]
+        : [
+            {
+                label: 'Participants',
+                value: radar?.participants.total || 0,
+                icon: ShieldAlert,
+                tone: 'default' as OperationalTone,
+                onClick: () => navigate('/participants'),
+                infoBody: 'Operational participants currently in scope for this event.',
+            },
+            {
+                label: 'Performances',
+                value: radar?.acts.total || 0,
+                icon: ClipboardList,
+                tone: 'default' as OperationalTone,
+                onClick: () => navigate('/performances'),
+                infoBody: 'Performances currently assembled for this event.',
+            },
+            {
+                label: 'Files Waiting',
+                value: participantsWithFilesWaitingCount,
+                icon: FileCheck,
+                tone: participantsWithFilesWaitingCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+                onClick: () => navigate('/participants?filter=missing'),
+                infoBody: 'Counts participants who still have missing or pending files and approvals.',
+            },
+            {
+                label: 'Acts At Risk',
+                value: actsAtRiskCount,
+                icon: Star,
+                tone: actsAtRiskCount > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+                onClick: () => navigate('/performances'),
+                infoBody: 'Blocked, at-risk, or not-yet-arrived acts that could disrupt readiness or execution.',
+            },
+        ]).filter((metric) => dashboardAudience !== 'member' || metric.label !== 'Admin Alerts');
 
     const openSpecialRequestProfile = (participantId: string) => {
         sessionStorage.setItem(
@@ -513,30 +512,6 @@ export default function DashboardPage() {
         })
         .filter((category) => category.count > 0);
     categoryCardsRef.current = categoryCards;
-    const activeStage = stages.find((stage) => stage.id === selectedStageId) || stages[0] || null;
-    const stagePulseToneClassName = currentLineupPointerMissing
-        ? 'border-rose-500/20 bg-rose-500/5'
-        : isOvertime
-            ? 'border-amber-500/20 bg-amber-500/5'
-            : stageState?.status === 'Active'
-                ? 'border-emerald-500/20 bg-emerald-500/5'
-                : 'border-border/70 bg-background/70';
-    const stagePulseSummary = currentLineupPointerMissing
-        ? 'The live pointer drifted from the lineup and needs review.'
-        : !activeStage
-            ? 'Add or select a stage before relying on live stage status.'
-            : !hasLineup
-                ? 'No lineup is loaded for the selected stage yet.'
-                : isOvertime
-                    ? `Running over by ${overtimeMinutes} minute${overtimeMinutes === 1 ? '' : 's'}.`
-                    : stageState?.status === 'Active' && driftMinutes > 0
-                        ? `Running ${driftMinutes} minute${driftMinutes === 1 ? '' : 's'} past the scheduled start.`
-                        : stageState?.status === 'Paused'
-                            ? 'The live run is paused.'
-                        : stageState?.status === 'Active'
-                                ? 'Stage is live and moving.'
-                                : 'Stage is ready to run when you start the console.';
-
     useEffect(() => {
         if (!categoryCards.length) return;
         if (expandedCategory && categoryCards.some((category) => category.key === expandedCategory)) return;
@@ -579,8 +554,8 @@ export default function DashboardPage() {
     return (
         <div className="space-y-4 pt-3 pb-12 sm:pt-4">
             <div className="surface-panel surface-section-dashboard rounded-[1.3rem] p-2.5">
-                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Readiness Snapshot</p>
-                <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Show Snapshot</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
                     {metrics.map((metric) => (
                         <OperationalMetricCard
                             key={metric.label}
@@ -591,65 +566,16 @@ export default function DashboardPage() {
                             onClick={metric.onClick}
                             infoBody={metric.infoBody}
                             infoLabel={`About ${metric.label}`}
+                            compact
                         />
                     ))}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-                {scopeStats.map((stat) => (
-                    <button
-                        key={stat.label}
-                        type="button"
-                        onClick={stat.onClick}
-                        className="surface-panel rounded-[1.15rem] border px-3 py-2.5 text-left"
-                    >
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{stat.label}</p>
-                        <p className="mt-1 text-lg font-black text-foreground">{stat.value}</p>
-                    </button>
-                ))}
-            </div>
-
-            <div className={`surface-panel rounded-[1.3rem] border p-3 ${stagePulseToneClassName}`}>
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">Current Stage Status</p>
-                        <div className="mt-1 flex items-center gap-2">
-                            <p className="truncate text-sm font-black text-foreground">{activeStage?.name || 'No Stage Selected'}</p>
-                            <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-foreground/75">
-                                {formatStageStatus(stageState?.status)}
-                            </span>
-                        </div>
-                        <p className="mt-1 text-sm text-foreground/80">{stagePulseSummary}</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/stage-console')}
-                        className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-3 text-primary"
-                        aria-label="Open live console"
-                    >
-                        <MonitorPlay className="h-4 w-4" />
-                    </button>
-                </div>
-                <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Now</p>
-                        <p className="mt-1 truncate text-sm font-bold text-foreground">{current?.act.name || 'No act live yet'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Next</p>
-                        <p className="mt-1 truncate text-sm font-bold text-foreground">{next?.act.name || 'Nothing queued next'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Then</p>
-                        <p className="mt-1 truncate text-sm font-bold text-foreground">{upcoming?.act.name || 'Queue ends there'}</p>
-                    </div>
                 </div>
             </div>
 
             <div className="space-y-2 pt-0.5">
                 <div className="px-1">
                     <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Response Queue</h2>
+                    <p className="truncate text-xs text-muted-foreground">Escalations, risks, next actions, and special requests.</p>
                 </div>
                 {categoryCards.length > 0 ? (
                     <div className="space-y-2.5">
@@ -682,7 +608,7 @@ export default function DashboardPage() {
                                             </p>
                                         </div>
                                         <div className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center self-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                         </div>
                                     </button>
 
@@ -694,11 +620,11 @@ export default function DashboardPage() {
                                                     return (
                                                         <button
                                                             key={`${category.key}-${item.label}`}
-                                                            ref={(node) => { itemRefs.current[participantId] = node; }}
-                                                            type="button"
-                                                            onClick={() => openSpecialRequestProfile(participantId)}
-                                                            className="surface-panel relative w-full overflow-hidden rounded-[1.2rem] border px-3.5 py-3 text-left transition active:scale-[0.99]"
-                                                        >
+                                                    ref={(node) => { itemRefs.current[participantId] = node; }}
+                                                    type="button"
+                                                    onClick={() => openSpecialRequestProfile(participantId)}
+                                                    className="surface-panel relative w-full overflow-hidden rounded-[1.2rem] border px-3.5 py-3 text-left transition active:scale-[0.99]"
+                                                >
                                                             <div className="space-y-1.5">
                                                                 <div className="flex items-center justify-between gap-3">
                                                                     <p className="min-w-0 flex-1 truncate text-sm font-black text-foreground">
@@ -724,7 +650,7 @@ export default function DashboardPage() {
                                                         tone={item.tone}
                                                         onClick={item.onClick}
                                                     />
-                                            ))
+                                                ))
                                             )}
                                             {hasMoreItems ? (
                                                 <div
