@@ -245,7 +245,10 @@ export function Header() {
 
                             <div className="px-2 py-2">
                                 <button
-                                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                    onClick={() => {
+                                        setTheme(theme === 'dark' ? 'light' : 'dark');
+                                        setIsProfileMenuOpen(false);
+                                    }}
                                     className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
                                 >
                                     <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />

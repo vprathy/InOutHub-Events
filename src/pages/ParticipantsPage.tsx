@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useParticipantsQuery } from '@/hooks/useParticipants';
@@ -28,6 +28,8 @@ import { isOperationalParticipantStatus } from '@/lib/participantStatus';
 import { buildParticipantReadinessSummary } from '@/lib/requirementsPrototype';
 import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 
+const CREW_ROLES = ['Manager', 'Choreographer', 'Support', 'Crew'];
+
 function isParticipantPending(participant: any) {
     if (participant.openSpecialRequestCount) return true;
     if (!participant.actCount) return true;
@@ -46,7 +48,8 @@ export default function ParticipantsPage() {
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [isAddGuideOpen, setIsAddGuideOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'assigned' | 'special' | 'ready' | 'no_phone' | 'at_risk' | 'inactive'>('all');
+    const [participantWorkspace, setParticipantWorkspace] = useState<'performers' | 'crew'>('performers');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'missing' | 'unassigned' | 'assigned' | 'special' | 'ready' | 'no_phone' | 'at_risk' | 'inactive'>('unassigned');
     const [sortBy, setSortBy] = useState<'name' | 'age' | 'readiness' | 'recent'>('name');
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const listRef = useRef<HTMLDivElement | null>(null);
@@ -70,7 +73,6 @@ export default function ParticipantsPage() {
     const capabilities = useEventCapabilities(eventId || null, null);
     const canManageSync = capabilities.canSyncParticipants;
     const canManageRoster = capabilities.canManageRoster;
-
     useEffect(() => {
         const filterParam = searchParams.get('filter');
         const actionParam = searchParams.get('action');
@@ -93,7 +95,7 @@ export default function ParticipantsPage() {
     const updateFilter = (nextFilter: typeof activeFilter) => {
         setActiveFilter(nextFilter);
         const nextParams = new URLSearchParams(searchParams);
-        if (nextFilter === 'all') {
+        if (nextFilter === 'unassigned') {
             nextParams.delete('filter');
         } else {
             nextParams.set('filter', nextFilter);
@@ -110,24 +112,40 @@ export default function ParticipantsPage() {
         return p.actCount ? 0.35 : 0;
     };
 
-    const operationalParticipants = useMemo(
-        () => (participants || []).filter((participant) => isOperationalParticipantStatus(participant.status)),
-        [participants]
-    );
-    const stats = {
-        total: operationalParticipants.length || 0,
-        assigned: operationalParticipants.filter(p => (p.actCount || 0) > 0).length || 0,
-        ready: operationalParticipants.filter((participant) => isParticipantReady(participant)).length || 0,
-        missing: operationalParticipants.filter(p => ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0)).length || 0,
-        unassigned: operationalParticipants.filter(p => !p.actCount).length || 0,
-        special: operationalParticipants.filter(p => p.hasSpecialRequests).length || 0,
-        atRisk: operationalParticipants.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
-        inactive: (participants || []).filter((participant) => !isOperationalParticipantStatus(participant.status)).length || 0,
+    const roleScopedParticipants = (participants || []).filter((participant) => {
+        if (participantWorkspace === 'performers') {
+            return !(participant.actRoleTypes || []).some((role) => CREW_ROLES.includes(role));
+        }
+        return (participant.actRoleTypes || []).some((role) => CREW_ROLES.includes(role));
+    });
+    const tabCounts = {
+        performers: (participants || []).filter(
+            (participant) =>
+                isOperationalParticipantStatus(participant.status) &&
+                !(participant.actRoleTypes || []).some((role) => CREW_ROLES.includes(role))
+        ).length,
+        crew: (participants || []).filter(
+            (participant) =>
+                isOperationalParticipantStatus(participant.status) &&
+                (participant.actRoleTypes || []).some((role) => CREW_ROLES.includes(role))
+        ).length,
     };
-    const filteredParticipants = participants?.filter(p => {
+    const workspaceOperationalParticipants = roleScopedParticipants.filter((participant) => isOperationalParticipantStatus(participant.status));
+    const workspaceStats = {
+        total: workspaceOperationalParticipants.length || 0,
+        assigned: workspaceOperationalParticipants.filter(p => (p.actCount || 0) > 0).length || 0,
+        ready: workspaceOperationalParticipants.filter((participant) => isParticipantReady(participant)).length || 0,
+        missing: workspaceOperationalParticipants.filter(p => ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0)).length || 0,
+        unassigned: workspaceOperationalParticipants.filter(p => !p.actCount).length || 0,
+        special: workspaceOperationalParticipants.filter(p => p.hasSpecialRequests).length || 0,
+        atRisk: workspaceOperationalParticipants.filter(p => p.isMinor && (!p.guardianName || !p.guardianPhone)).length || 0,
+        inactive: roleScopedParticipants.filter((participant) => !isOperationalParticipantStatus(participant.status)).length || 0,
+    };
+    const filteredParticipants = roleScopedParticipants.filter(p => {
         const matchesSearch = `${p.firstName} ${p.lastName}`.toLowerCase().includes(deferredSearchQuery.toLowerCase());
         if (!matchesSearch) return false;
 
+        if (activeFilter === 'all' && !isOperationalParticipantStatus(p.status)) return false;
         if (activeFilter !== 'all' && activeFilter !== 'inactive' && !isOperationalParticipantStatus(p.status)) return false;
         if (activeFilter === 'missing') return ((p.assetStats?.missing || 0) > 0) || ((p.assetStats?.pending || 0) > 0);
         if (activeFilter === 'unassigned') return !p.actCount;
@@ -147,30 +165,32 @@ export default function ParticipantsPage() {
         return 0;
     });
     const quickFilters = [
-        { key: 'all' as const, label: 'All', count: stats.total, icon: null },
-        { key: 'missing' as const, label: 'Files Waiting', count: stats.missing, icon: Clock },
-        { key: 'unassigned' as const, label: 'Needs Placement', count: stats.unassigned, icon: Users },
-        { key: 'assigned' as const, label: 'Assigned', count: stats.assigned, icon: Users },
-        { key: 'special' as const, label: 'Special Requests', count: stats.special, icon: AlertTriangle },
-        { key: 'at_risk' as const, label: 'Guardian Follow-Up', count: stats.atRisk, icon: AlertTriangle },
-        { key: 'ready' as const, label: 'Ready', count: stats.ready, icon: null },
-        { key: 'inactive' as const, label: 'Inactive', count: stats.inactive, icon: Clock },
+        { key: 'all' as const, label: 'All', count: workspaceStats.total, icon: null },
+        { key: 'missing' as const, label: 'Files Waiting', count: workspaceStats.missing, icon: Clock },
+        { key: 'unassigned' as const, label: 'Needs Placement', count: workspaceStats.unassigned, icon: Users },
+        { key: 'assigned' as const, label: 'Assigned', count: workspaceStats.assigned, icon: Users },
+        { key: 'special' as const, label: 'Special Requests', count: workspaceStats.special, icon: AlertTriangle },
+        { key: 'at_risk' as const, label: 'Guardian Follow-Up', count: workspaceStats.atRisk, icon: AlertTriangle },
+        { key: 'ready' as const, label: 'Ready', count: workspaceStats.ready, icon: null },
+        { key: 'inactive' as const, label: 'Inactive', count: workspaceStats.inactive, icon: Clock },
     ];
     const participantMetrics = [
         {
             key: 'unassigned',
             label: 'Need Placement',
-            value: stats.unassigned,
+            value: workspaceStats.unassigned,
             icon: Users,
-            tone: stats.unassigned > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            tone: workspaceStats.unassigned > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            infoBody: `Participants in ${participantWorkspace === 'performers' ? 'the performer roster' : 'crew'} who still are not assigned to a performance.`,
             onClick: () => updateFilter('unassigned'),
         },
         {
             key: 'missing',
             label: 'Files Waiting',
-            value: stats.missing,
+            value: workspaceStats.missing,
             icon: FileCheck,
-            tone: stats.missing > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            tone: workspaceStats.missing > 0 ? 'warning' as OperationalTone : 'good' as OperationalTone,
+            infoBody: `People in ${participantWorkspace === 'performers' ? 'the performer roster' : 'crew'} who still have missing or pending files and approvals.`,
             onClick: () => updateFilter('missing'),
         },
     ];
@@ -207,7 +227,7 @@ export default function ParticipantsPage() {
         if (listRef.current) {
             listRef.current.scrollTop = 0;
         }
-    }, [activeFilter, sortBy, deferredSearchQuery, eventId]);
+    }, [activeFilter, sortBy, deferredSearchQuery, eventId, participantWorkspace]);
     const visibleParticipants = (filteredParticipants || []).slice(0, visibleCount);
 
     if (isLoading || !eventId) {
@@ -236,12 +256,45 @@ export default function ParticipantsPage() {
                         label: canManageSync ? 'Open Import Data' : capabilities.isPendingReview ? 'Import Limited During Review' : 'Sync Requires Event Admin',
                         onClick: () => {
                             if (!canManageSync) return;
-                            navigate('/admin/import-data?action=import');
+                            navigate('/admin/import-data');
                         }
                     }}
                 />
             ) : (
                 <div className="space-y-3">
+                    <div className="px-1 pt-1">
+                        <div className="relative grid grid-cols-2 items-end rounded-t-[0.95rem] border border-b-0 border-border/70 bg-background/35 px-1 pt-1">
+                            <div
+                                aria-hidden="true"
+                                className={`absolute bottom-0 top-1 w-[calc(50%-0.25rem)] rounded-t-[0.78rem] border border-border/70 border-b-card bg-card shadow-sm transition-transform duration-200 ease-out ${
+                                    participantWorkspace === 'performers' ? 'translate-x-0' : 'translate-x-[calc(100%+0.5rem)]'
+                                }`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setParticipantWorkspace('performers')}
+                                className={`relative z-10 min-h-9 rounded-t-[0.78rem] px-4 text-center text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                    participantWorkspace === 'performers'
+                                        ? 'text-foreground'
+                                        : 'text-muted-foreground'
+                                }`}
+                            >
+                                Performers {tabCounts.performers > 0 ? tabCounts.performers : ''}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setParticipantWorkspace('crew')}
+                                className={`relative z-10 min-h-9 rounded-t-[0.78rem] px-4 text-center text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                    participantWorkspace === 'crew'
+                                        ? 'text-foreground'
+                                        : 'text-muted-foreground'
+                                }`}
+                            >
+                                Crew {tabCounts.crew > 0 ? tabCounts.crew : ''}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                         {participantMetrics.map((metric) => (
                             <OperationalMetricCard
@@ -251,12 +304,14 @@ export default function ParticipantsPage() {
                                 icon={metric.icon}
                                 tone={metric.tone}
                                 onClick={metric.onClick}
+                                infoBody={metric.infoBody}
+                                infoLabel={`About ${metric.label}`}
                                 className="min-h-[80px]"
                             />
                         ))}
                     </div>
 
-                    <div className="surface-panel flex items-center gap-2 rounded-[1.1rem] border px-2.5 py-2">
+                    <div className="flex items-center gap-2">
                         <label className="relative min-w-0 flex-1">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <input
@@ -281,17 +336,6 @@ export default function ParticipantsPage() {
                                 </span>
                             ) : null}
                         </button>
-                    </div>
-
-                    <div className="flex items-center justify-between px-1 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                        <span>
-                            {filteredParticipants?.length || 0} showing
-                        </span>
-                        <span>
-                            {activeFilter === 'all'
-                                ? 'All participants'
-                                : quickFilters.find((filter) => filter.key === activeFilter)?.label}
-                        </span>
                     </div>
 
                     <div
@@ -397,10 +441,10 @@ export default function ParticipantsPage() {
                     type="button"
                     onClick={() => setIsAddGuideOpen(true)}
                     className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-4 z-30 inline-flex min-h-12 items-center gap-1.5 rounded-full border border-primary/30 bg-primary px-3.5 text-primary-foreground shadow-lg shadow-black/10 transition-colors hover:opacity-95"
-                    aria-label="Add person"
+                    aria-label={`Add ${participantWorkspace === 'crew' ? 'crew' : 'performer'}`}
                 >
                     <Plus className="h-4.5 w-4.5 stroke-[2.75]" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.12em]">Add Person</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.12em]">Add</span>
                 </button>
             ) : null}
 
@@ -412,9 +456,11 @@ export default function ParticipantsPage() {
                     >
                         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border/80" />
                         <div className="space-y-2">
-                            <h2 className="text-xl font-black tracking-tight text-foreground">Add One Person</h2>
+                            <h2 className="text-xl font-black tracking-tight text-foreground">Add {participantWorkspace === 'crew' ? 'Crew' : 'Performer'}</h2>
                             <p className="text-sm text-muted-foreground">
-                                Use this for one quick person. For spreadsheets or bulk roster updates, use Import Data.
+                                {participantWorkspace === 'crew'
+                                    ? 'Use this for one quick crew record. For spreadsheets or bulk roster updates, use Import Data.'
+                                    : 'Use this for one quick performer. For spreadsheets or bulk roster updates, use Import Data.'}
                             </p>
                         </div>
                         <div className="mt-5 grid gap-3">
@@ -432,7 +478,7 @@ export default function ParticipantsPage() {
                                 type="button"
                                 onClick={() => {
                                     setIsAddGuideOpen(false);
-                                    navigate('/admin/import-data?action=import');
+                                    navigate('/admin/import-data');
                                 }}
                                 className="min-h-[44px] rounded-2xl border border-border bg-background px-4 text-sm font-bold text-foreground"
                             >
@@ -553,6 +599,7 @@ export default function ParticipantsPage() {
                 eventId={eventId}
                 isOpen={isAddParticipantOpen}
                 onClose={() => setIsAddParticipantOpen(false)}
+                roleScope={participantWorkspace}
             />
         </div>
     );

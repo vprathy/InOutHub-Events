@@ -316,6 +316,7 @@ export interface Participant {
     identityNotes?: string | null;
     photoUrl?: string | null;
     actCount?: number;
+    actRoleTypes?: string[];
     assetStats?: {
         total: number;
         approved: number;

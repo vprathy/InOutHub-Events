@@ -215,10 +215,7 @@ export function SectionIdentityStrip() {
     const canUsePremiumGeneration = capabilities.canUsePremiumGeneration;
 
     const openSources = () => {
-        const nextParams = new URLSearchParams();
-        nextParams.set('action', 'import');
-        nextParams.set('target', 'participants');
-        navigate(`/admin/import-data?${nextParams.toString()}`);
+        navigate('/admin/import-data');
     };
 
     const openPerformanceRequestSources = () => {

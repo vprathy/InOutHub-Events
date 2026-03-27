@@ -8,9 +8,10 @@ interface AddParticipantModalProps {
     isOpen: boolean;
     onClose: () => void;
     eventId: string;
+    roleScope?: 'performers' | 'crew';
 }
 
-export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipantModalProps) {
+export function AddParticipantModal({ isOpen, onClose, eventId, roleScope = 'performers' }: AddParticipantModalProps) {
     const createParticipant = useCreateParticipant(eventId);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -37,6 +38,10 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
 
     const inputClass = 'h-11 rounded-xl border-border/60 bg-background px-4 text-sm font-medium';
     const labelClass = 'mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground';
+    const roleLabel = roleScope === 'crew' ? 'Crew' : 'Performer';
+    const roleDescription = roleScope === 'crew'
+        ? 'Create one crew record for this event. Use this for managers, choreographers, support, or crew who are not coming from a synced roster.'
+        : 'Create one performer record for this event. Use this when someone is not coming from the synced roster.';
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -55,10 +60,10 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Add Person">
+        <Modal isOpen={isOpen} onClose={onClose} title={`Add ${roleLabel}`}>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    Create a manual event person record for a performer, crew member, or support contact when they are not coming from the synced roster.
+                    {roleDescription}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -173,7 +178,7 @@ export function AddParticipantModal({ isOpen, onClose, eventId }: AddParticipant
                         disabled={createParticipant.isPending || !firstName.trim() || !lastName.trim()}
                         className="h-10 px-6 text-[10px] font-black uppercase tracking-[0.16em]"
                     >
-                        {createParticipant.isPending ? 'Adding...' : 'Add Person'}
+                        {createParticipant.isPending ? 'Adding...' : `Add ${roleLabel}`}
                     </Button>
                 </div>
             </form>

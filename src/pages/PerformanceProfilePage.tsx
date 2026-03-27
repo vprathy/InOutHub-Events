@@ -32,7 +32,6 @@ export function PerformanceProfilePage() {
     const [uploadMode, setUploadMode] = useState<'Audio' | 'Prop' | 'Instrument' | 'Other'>('Audio');
     const [isAddParticipantOpen, setIsAddParticipantOpen] = useState(false);
     const [addRole, setAddRole] = useState<'Performer' | 'Manager'>('Performer');
-    const [castTab, setCastTab] = useState<'cast' | 'team'>('cast');
     const [previewAsset, setPreviewAsset] = useState<{ url: string; title: string } | null>(null);
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const { data: act, isLoading } = useActDetail(actId || null);
@@ -336,36 +335,12 @@ export function PerformanceProfilePage() {
                             </div>
                         ) : null}
                         <div className="space-y-3">
-                            <div className="flex overflow-x-auto pb-1">
-                                <div className="relative inline-flex min-h-11 items-end gap-1 rounded-[1.05rem] border border-border/60 bg-background/70 p-1">
-                                    <div
-                                        aria-hidden="true"
-                                        className={`absolute bottom-1 top-1 w-[calc(50%-0.125rem)] rounded-[0.9rem] bg-card shadow-sm transition-transform duration-200 ease-out ${
-                                            castTab === 'cast' ? 'translate-x-0' : 'translate-x-[calc(100%+0.25rem)]'
-                                        }`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setCastTab('cast')}
-                                        className={`relative z-10 min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
-                                            castTab === 'cast' ? 'text-foreground' : 'text-muted-foreground'
-                                        }`}
-                                    >
-                                        Performers {performers.length > 0 ? performers.length : ''}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCastTab('team')}
-                                        className={`relative z-10 min-h-10 rounded-[0.9rem] px-4 text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
-                                            castTab === 'team' ? 'text-foreground' : 'text-muted-foreground'
-                                        }`}
-                                    >
-                                        Crew {team.length > 0 ? team.length : ''}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="relative overflow-hidden">
-                                <div className={`transition-[opacity,transform,max-height] duration-200 ease-out ${castTab === 'cast' ? 'relative max-h-[1200px] translate-x-0 opacity-100' : 'pointer-events-none absolute inset-0 max-h-0 translate-x-2 opacity-0'}`}>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Performers</p>
+                                        <span className="text-[11px] font-bold text-muted-foreground">{performers.length}</span>
+                                    </div>
                                     {performers.length > 0 ? (
                                         <div className="space-y-1">
                                             {performers.map((p: any) => (
@@ -376,7 +351,11 @@ export function PerformanceProfilePage() {
                                         <p className="py-4 text-center text-sm text-muted-foreground">No performers assigned yet.</p>
                                     )}
                                 </div>
-                                <div className={`transition-[opacity,transform,max-height] duration-200 ease-out ${castTab === 'team' ? 'relative max-h-[1200px] translate-x-0 opacity-100' : 'pointer-events-none absolute inset-0 -translate-x-2 max-h-0 opacity-0'}`}>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Crew</p>
+                                        <span className="text-[11px] font-bold text-muted-foreground">{team.length}</span>
+                                    </div>
                                     {team.length > 0 ? (
                                         <div className="space-y-1">
                                             {team.map((p: any) => (

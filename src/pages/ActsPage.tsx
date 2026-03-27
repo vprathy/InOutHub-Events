@@ -437,7 +437,7 @@ export default function ActsPage() {
                                 type="button"
                                 onClick={() => {
                                     setIsAddGuideOpen(false);
-                                    navigate('/admin/import-data?action=import');
+                                    navigate('/admin/import-data');
                                 }}
                                 className="min-h-[44px] rounded-2xl border border-border bg-background px-4 text-sm font-bold text-foreground"
                             >

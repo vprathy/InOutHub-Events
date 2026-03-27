@@ -99,7 +99,7 @@ export function useParticipantsQuery(eventId: string) {
                 .from('v_participants_hardened')
                 .select(`
                     *,
-                    act_participants(count),
+                    act_participants(role),
                     participant_assets(id, template_id, name, status, type, file_url, review_notes, created_at),
                     participant_notes(category, is_resolved),
                     requirement_assignments(
@@ -132,6 +132,8 @@ export function useParticipantsQuery(eventId: string) {
                 };
                 const requirementAssignments = mapRequirementAssignments((row as any).requirement_assignments);
                 const hasDocsBridge = assetStats.total > 0;
+                const participantActLinks = ((row as any).act_participants || []) as Array<{ role?: string | null }>;
+                const actRoleTypes = Array.from(new Set(participantActLinks.map((assignment) => assignment.role || 'Performer').filter(Boolean)));
 
                 const age = extractParticipantAge(row);
 
@@ -162,7 +164,8 @@ export function useParticipantsQuery(eventId: string) {
                     sourceLastSeenAt: row.source_last_seen_at,
                     status: (row.status || 'active') as Participant['status'],
                     srcRaw: row.src_raw,
-                    actCount: (row as any).act_participants?.[0]?.count || 0,
+                    actCount: participantActLinks.length,
+                    actRoleTypes,
                     assetStats,
                     assets: participantAssets.map((asset: any) => ({
                         id: asset.id || `${row.id}-${asset.type}-${asset.file_url || asset.status || 'asset'}`,
