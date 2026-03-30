@@ -129,7 +129,7 @@ export function LivePerformanceController({
         }
     };
 
-    if (status === 'Idle') {
+    if (status === 'Idle' || status === 'Finished') {
         return (
             <div className="rounded-[2rem] border border-border/70 bg-card/70 p-8 text-center shadow-sm shadow-black/10">
                 <div className="mx-auto flex max-w-xl flex-col items-center justify-center space-y-6">
@@ -137,9 +137,11 @@ export function LivePerformanceController({
                     <Play size={48} fill="currentColor" />
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">Ready to Start?</h2>
+                    <h2 className="text-2xl font-bold">{status === 'Finished' ? 'Show Complete' : 'Ready to Start?'}</h2>
                     <p className="text-muted-foreground max-w-sm">
-                        Everything is set. Click below to start the show and activate the first performance.
+                        {status === 'Finished'
+                            ? 'The stage run has ended. Start again to reset the pointer to the first performance.'
+                            : 'Everything is set. Click below to start the show and activate the first performance.'}
                     </p>
                 </div>
                 <Button
@@ -148,7 +150,7 @@ export function LivePerformanceController({
                     disabled={isStageActionPending || isReadOnly}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-black px-12 py-8 text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                 >
-                    {isReadOnly ? 'VIEW ONLY' : isStageActionPending ? 'STARTING...' : 'START SHOW'}
+                    {isReadOnly ? 'VIEW ONLY' : isStageActionPending ? 'STARTING...' : status === 'Finished' ? 'RESTART SHOW' : 'START SHOW'}
                 </Button>
                 </div>
             </div>

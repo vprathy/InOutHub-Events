@@ -148,13 +148,14 @@ export function useStageConsole(stageId: string | null) {
 
     const currentIndex = lineup?.findIndex(item => item.id === stageState?.current_lineup_item_id) ?? -1;
     const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
+    const isPreflightState = stageState?.status === 'Idle' || stageState?.status === 'Finished';
     const recoveryIndex = findRecoveryIndex(lineup, stageState?.current_lineup_item_id);
     const isRecoveredCurrent = isLiveRun && currentIndex === -1 && recoveryIndex !== -1;
     const anchorIndex = currentIndex !== -1
         ? currentIndex
         : isLiveRun && recoveryIndex !== -1
             ? recoveryIndex
-        : !isLiveRun && (lineup?.length ?? 0) > 0
+        : isPreflightState && (lineup?.length ?? 0) > 0
             ? 0
             : -1;
 
