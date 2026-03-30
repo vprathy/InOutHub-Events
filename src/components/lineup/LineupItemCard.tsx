@@ -5,9 +5,7 @@ import type { FlowInsight } from '@/lib/optimizer';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
 import { formatEventTime } from '@/lib/eventTime';
-import { OperationalResponseCard } from '@/components/ui/OperationalCards';
 
 interface LineupItemCardProps {
     slot: LineupSlot;
@@ -22,6 +20,17 @@ interface LineupItemCardProps {
 export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, onDragStart, lockedReason }: LineupItemCardProps) {
     const duration = slot.act.durationMinutes;
     const setupTime = slot.act.setupTimeMinutes || 0;
+    const lockedLabel = lockedReason === 'Live on stage now'
+        ? 'Live'
+        : lockedReason
+            ? 'Backstage Locked'
+            : null;
+    const compactMeta = [
+        `${slot.act.participants?.length || 0} performers`,
+        `${duration}m performance`,
+        setupTime > 0 ? `${setupTime}m setup` : null,
+        risk ? risk.title : null,
+    ].filter(Boolean).join(' • ');
 
     const isCritical = risk?.level === 'critical';
     const isMedium = risk?.level === 'medium' || risk?.level === 'high';
@@ -63,9 +72,9 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                     <span className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground/80">{orderIndex}</span>
                     <GripVertical size={22} />
                 </button>
-                <div className="flex-1 p-4 lg:p-5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
+                <div className="flex-1 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <span className="flex items-center rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-black text-primary">
                                 <Clock size={14} className="mr-1.5" />
                                 {formatEventTime(slot.scheduledStartTime, undefined, true)}
@@ -73,86 +82,48 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                             <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${readinessTone}`}>
                                 {readinessLabel}
                             </span>
-                            {lockedReason ? (
+                            {lockedLabel ? (
                                 <Badge variant="outline" className="surface-warning text-[9px] font-black uppercase tracking-[0.16em]">
-                                    Locked
+                                    {lockedLabel}
                                 </Badge>
                             ) : null}
                         </div>
-                    </div>
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                            <div className="space-y-3 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider py-0.5 border-border shadow-none">
-                                    {duration}m Performance
-                                </Badge>
-                                {setupTime > 0 && (
-                                    <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider py-0.5 bg-muted text-muted-foreground shadow-none">
-                                        +{setupTime}m Setup
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-bold tracking-tight text-foreground truncate">
-                                    {slot.act.name}
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    {slot.act.participants?.length || 0} performers
-                                    {setupTime > 0 ? ` • ${setupTime} minute setup` : ''}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-end justify-between lg:justify-end lg:items-start lg:flex-row gap-3">
-                            <AnimatePresence>
-                                {risk && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="max-w-[220px]"
-                                    >
-                                        <OperationalResponseCard
-                                            label={risk.title}
-                                            detail={risk.description}
-                                            tone={isCritical ? 'critical' : 'warning'}
-                                            className="px-3 py-2"
-                                        />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <div className="flex items-center gap-2">
-                                {orderIndex > 1 && onMoveToTop ? (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={onMoveToTop}
-                                        disabled={Boolean(lockedReason)}
-                                        className="h-10 rounded-xl border-border/60 px-3 text-[10px] font-black uppercase tracking-[0.18em]"
-                                    >
-                                        <ArrowUpToLine size={14} className="mr-2" />
-                                        Top
-                                    </Button>
-                                ) : null}
-                                {onRemove ? (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={onRemove}
-                                        className="h-10 w-10 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 border border-transparent hover:border-rose-200 transition-all"
-                                    >
-                                        <Trash2 size={18} />
-                                    </Button>
-                                ) : null}
-                            </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                            {orderIndex > 1 && onMoveToTop ? (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onMoveToTop}
+                                    disabled={Boolean(lockedReason)}
+                                    className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+                                    title="Move to top"
+                                >
+                                    <ArrowUpToLine size={16} />
+                                </Button>
+                            ) : null}
+                            {onRemove ? (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={onRemove}
+                                    className="h-9 w-9 rounded-lg text-muted-foreground hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                    title="Remove from stage"
+                                >
+                                    <Trash2 size={16} />
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
-                    {lockedReason ? (
-                        <div className="surface-warning mt-3 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em]">
-                            {lockedReason}
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <h3 className="truncate text-xl font-bold tracking-tight text-foreground">
+                                {slot.act.name}
+                            </h3>
+                            <p className="truncate text-sm text-muted-foreground">
+                                {compactMeta}
+                            </p>
                         </div>
-                    ) : null}
+                    </div>
                 </div>
             </div>
 

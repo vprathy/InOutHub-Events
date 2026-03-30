@@ -789,8 +789,12 @@ Deno.serve(async (req) => {
         }
 
         if (intakeTarget === 'performance_requests') {
-            const requests = parsedRows.map((rowData) => {
+            const requests = parsedRows.map((rowData, rowIndex) => {
                 const read = (header?: string) => (header ? String(rowData[header] || '').trim() : '')
+                const hasMeaningfulContent = Object.values(rowData).some((value) => String(value || '').trim().length > 0)
+                if (!hasMeaningfulContent) {
+                    return null
+                }
                 const title = read(profile.title)
                 const combinedLeadName = [read(profile.leadFirstName), read(profile.leadLastName)].filter(Boolean).join(' ').trim()
                 const leadName = read(profile.leadName) || combinedLeadName
@@ -799,13 +803,16 @@ Deno.serve(async (req) => {
                 const durationRaw = read(profile.durationMinutes)
                 const durationEstimate = Number(durationRaw)
                 const sourceAnchor = read(profile.sourceAnchor)
-                const fallbackAnchor = [
+                const fallbackAnchorBase = [
                     title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                    leadName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
                     leadEmail.toLowerCase(),
                     leadPhone.replace(/\D/g, '').slice(-4),
                 ].filter(Boolean).join(':')
+                const fallbackAnchor = fallbackAnchorBase || `row-${rowIndex + 2}`
 
                 return {
+                    __row_index: rowIndex + 2,
                     organization_id: eventRecord.organization_id,
                     event_id: eventId,
                     import_run_id: importRunId,
@@ -826,16 +833,34 @@ Deno.serve(async (req) => {
                         ])
                     )
                 }
-            }).filter((request) => request.title !== 'Untitled Request' || request.lead_name || request.source_anchor)
+            }).filter(Boolean)
 
-            // Deduplicate requests by source_anchor to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time"
-            const deduplicatedRequestsMap = new Map()
-            for (const request of requests) {
-                if (request.source_anchor) {
-                    deduplicatedRequestsMap.set(request.source_anchor, request)
-                }
-            }
-            const deduplicatedRequests = Array.from(deduplicatedRequestsMap.values())
+            // Preserve repeated requests that otherwise collapse onto the same derived anchor.
+            const anchorCounts = new Map<string, number>()
+            const deduplicatedRequests = requests
+                .filter((request): request is NonNullable<typeof request> => Boolean(request))
+                .map((request) => {
+                    const baseAnchor = request.source_anchor || `row-${request.__row_index}`
+                    const seenCount = anchorCounts.get(baseAnchor) || 0
+                    anchorCounts.set(baseAnchor, seenCount + 1)
+
+                    return {
+                        organization_id: request.organization_id,
+                        event_id: request.event_id,
+                        import_run_id: request.import_run_id,
+                        event_source_id: request.event_source_id,
+                        source_anchor: seenCount === 0 ? baseAnchor : `${baseAnchor}:dup:${seenCount + 1}`,
+                        title: request.title,
+                        lead_name: request.lead_name,
+                        lead_email: request.lead_email,
+                        lead_phone: request.lead_phone,
+                        duration_estimate_minutes: request.duration_estimate_minutes,
+                        music_supplied: request.music_supplied,
+                        roster_supplied: request.roster_supplied,
+                        notes: request.notes,
+                        raw_payload: request.raw_payload,
+                    }
+                })
 
             const anchors = deduplicatedRequests.map((request) => request.source_anchor).filter(Boolean)
             const { data: existingRecords, error: fetchError } = await supabaseClient

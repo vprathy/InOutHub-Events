@@ -121,7 +121,6 @@ export default function LineupPage() {
     const readyCount = lineup?.filter((slot) => slot.act.arrivalStatus === 'Ready').length || 0;
     const isLiveRun = stageState?.status === 'Active' || stageState?.status === 'Paused';
     const liveIndex = localItems.findIndex((item) => item.id === stageState?.current_lineup_item_id);
-    const selectedStage = stages?.find((stage) => stage.id === selectedStageId) || null;
     const stageStatusLabel = !selectedStageId
         ? 'No stage selected'
         : stageState?.status === 'Active'
@@ -298,7 +297,7 @@ export default function LineupPage() {
     }
 
     return (
-        <div className="space-y-4 pb-24">
+        <div className="space-y-4 overflow-x-hidden pb-24">
             <PageHeader
                 title="Show Flow"
                 subtitle="Set the running order, review conflicts, and keep the future queue clean."
@@ -313,8 +312,8 @@ export default function LineupPage() {
             <div className="sticky top-0 z-20 space-y-0">
                 <div className="px-1">
                     <div className="flex items-end gap-2">
-                        <div className="min-w-0 flex-1 overflow-x-auto pb-0.5">
-                            <div className="inline-flex min-w-full items-end rounded-t-[0.95rem] border border-b-0 border-border/70 bg-background/35 px-1 pt-1">
+                        <div className="min-w-0 flex-1 overflow-hidden pb-0.5">
+                            <div className="flex items-end rounded-t-[0.95rem] border border-b-0 border-border/70 bg-background/35 px-1 pt-1">
                                 {isLoadingStages ? (
                                     <div className="h-9 w-36 animate-pulse rounded-t-[0.78rem] bg-muted" />
                                 ) : stages && stages.length > 0 ? (
@@ -326,11 +325,12 @@ export default function LineupPage() {
                                                 key={stage.id}
                                                 type="button"
                                                 onClick={() => setSelectedStageId(stage.id)}
-                                                className={`min-h-9 shrink-0 rounded-t-[0.78rem] border border-transparent px-4 text-center text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
+                                                className={`min-h-9 min-w-0 flex-1 truncate rounded-t-[0.78rem] border border-transparent px-3 text-center text-[11px] font-black uppercase tracking-[0.14em] transition-colors duration-200 ${
                                                     isActive
                                                         ? 'border-border/70 border-b-card bg-card text-foreground shadow-sm'
                                                         : 'text-muted-foreground hover:text-foreground'
                                                 }`}
+                                                title={stage.name}
                                             >
                                                 {stage.name}
                                             </button>
@@ -357,31 +357,30 @@ export default function LineupPage() {
                 </div>
 
                 <div className="surface-panel surface-section-show-flow space-y-3 rounded-[1.35rem] rounded-tl-none p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                            <h2 className="truncate text-lg font-black tracking-tight text-foreground">
-                                {selectedStage?.name || 'Select a stage'}
-                            </h2>
-                            <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${stageStatusToneClass}`}>
-                                {stageStatusLabel}
-                            </span>
-                        </div>
-                        <InlineInfoTip
-                            align="right"
-                            label="Stage flow"
-                            body="Switch stages here, add a new stage with the plus button, and tune the running order below for the selected stage."
-                        />
+                    <div className="flex items-center justify-between gap-2 px-1">
+                        <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 text-[10px] font-black uppercase tracking-[0.16em] ${stageStatusToneClass}`}>
+                            {stageStatusLabel}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            {selectedStageId ? 'Metrics below stay scoped to the selected stage.' : 'Choose a stage to load its metrics.'}
+                        </span>
                     </div>
                     {lineup && lineup.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <OperationalMetricCard label="Performances" value={lineup.length} icon={ListOrdered} tone="default" compact />
-                            <OperationalMetricCard label="Run Minutes" value={totalDuration} icon={Sparkles} tone="info" compact />
-                            <OperationalMetricCard label="Stage Ready" value={readyCount} icon={Sparkles} tone="good" compact />
                             <OperationalMetricCard
-                                label={criticalRisks > 0 ? 'Needs Review' : 'Estimated End'}
-                                value={criticalRisks > 0 ? criticalRisks : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
+                                label="Needs Review"
+                                value={criticalRisks}
                                 icon={Calendar}
-                                tone={criticalRisks > 0 ? 'critical' : 'default'}
+                                tone={criticalRisks > 0 ? 'critical' : 'good'}
+                                compact
+                            />
+                            <OperationalMetricCard label="Run Minutes" value={totalDuration} icon={Sparkles} tone="info" compact />
+                            <OperationalMetricCard
+                                label={readyCount > 0 ? 'Stage Ready' : 'Estimated End'}
+                                value={readyCount > 0 ? readyCount : formatEventTime(estimatedEndTime.toISOString(), undefined, true)}
+                                icon={Sparkles}
+                                tone={readyCount > 0 ? 'good' : 'default'}
                                 compact
                             />
                         </div>
