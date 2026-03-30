@@ -13,7 +13,7 @@ interface LineupItemCardProps {
     risk?: FlowInsight;
     onRemove?: () => void;
     onMoveToTop?: () => void;
-    onDragStart?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+    onDragStart?: (event: ReactPointerEvent<HTMLElement>) => void;
     lockedReason?: string | null;
 }
 
@@ -46,6 +46,12 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
         : slot.act.arrivalStatus === 'Arrived' || slot.act.arrivalStatus === 'Backstage'
             ? 'surface-warning'
             : 'surface-metric text-muted-foreground';
+    const handleDragStart = lockedReason || !onDragStart
+        ? undefined
+        : (event: ReactPointerEvent<HTMLElement>) => {
+            event.preventDefault();
+            onDragStart(event);
+        };
 
     return (
         <Card className={`group overflow-hidden border-border/50 hover:border-primary/30 transition-all ${isCritical ? 'surface-critical' :
@@ -54,25 +60,19 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
             }`}>
             <div className="flex">
                 {/* Drag Handle - Tactile Grip area */}
-                <button
-                    type="button"
-                    onPointerDownCapture={
-                        lockedReason || !onDragStart
-                            ? undefined
-                            : (event) => {
-                                event.preventDefault();
-                                onDragStart(event);
-                            }
-                    }
-                    disabled={Boolean(lockedReason)}
+                <div
+                    onPointerDownCapture={handleDragStart}
                     className={`flex min-h-[112px] w-16 flex-col items-center justify-center gap-2 border-r border-border/20 bg-muted/40 px-2 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary select-none touch-none ${lockedReason ? 'cursor-not-allowed opacity-45' : 'cursor-grab active:cursor-grabbing'}`}
                     style={{ touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
-                    aria-label={`Reorder performance ${orderIndex}`}
+                    aria-hidden="true"
                 >
                     <span className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground/80">{orderIndex}</span>
                     <GripVertical size={22} />
-                </button>
-                <div className="flex-1 p-4">
+                </div>
+                <div
+                    className={`flex-1 p-4 ${lockedReason ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                    onPointerDownCapture={handleDragStart}
+                >
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <span className="flex items-center rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-black text-primary">
@@ -93,6 +93,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={onMoveToTop}
                                     disabled={Boolean(lockedReason)}
                                     className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-accent/70 hover:text-foreground"
@@ -105,6 +106,7 @@ export function LineupItemCard({ slot, orderIndex, risk, onRemove, onMoveToTop, 
                                 <Button
                                     variant="ghost"
                                     size="icon"
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={onRemove}
                                     className="h-9 w-9 rounded-lg text-muted-foreground hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                                     title="Remove from stage"
